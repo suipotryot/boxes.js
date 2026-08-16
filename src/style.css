@@ -1,0 +1,21 @@
+:root {
+  --color-bg: #1e1e1e;
+  --color-fg: #e8e8e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: system-ui, sans-serif;
+}
