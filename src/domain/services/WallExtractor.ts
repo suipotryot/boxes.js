@@ -2,7 +2,7 @@ import type { ColorHeightRegistry } from '../models/ColorHeightRegistry';
 import type { Rect } from '../models/types';
 import type { ZoneNode, ZoneSplit } from '../models/Zone';
 import type { WallSegment } from '../models/WallSegment';
-import { computeZoneRects } from './ZoneTree';
+import { type BoundaryKind, type BoundarySides, computeBoundarySides, computeZoneRects } from './ZoneTree';
 import { createId } from './GeometryUtils';
 
 export interface WallExtractorInput {
@@ -22,6 +22,15 @@ export interface WallExtractorInput {
  * true outer envelope -- so that two perpendicular walls always meet
  * endpoint-to-endpoint at a shared point, letting outer-wall corners reuse
  * the same compound-edge corner-joint handling as divider wall ends.
+ *
+ * A divider's own leaf/split rect only extends to the *edge* of the gap
+ * it borders (see ZoneTree.computeZoneRects), not to the centerline of
+ * whatever occupies that gap -- so each divider span is grown by half the
+ * bordering thickness on every side, using computeBoundarySides to know
+ * whether that side borders the outer wall (outerThickness/2) or an
+ * ancestor's divider (innerThickness/2). Without this, a divider's endpoint
+ * would sit half a thickness short of the wall it butts against, and
+ * JunctionClassifier's exact-point matching would silently miss the joint.
  */
 export function extract(input: WallExtractorInput): WallSegment[] {
   const { zoneTree, innerRect, outerThickness, innerThickness, outerColorId, colors } = input;
@@ -29,12 +38,14 @@ export function extract(input: WallExtractorInput): WallSegment[] {
   const walls: WallSegment[] = [...buildOuterWalls(innerRect, outerThickness, outerColorId, colors)];
 
   const zoneRects = computeZoneRects(zoneTree, innerRect, innerThickness);
+  const boundarySides = computeBoundarySides(zoneTree);
   for (const split of collectSplits(zoneTree)) {
     const rect = zoneRects.get(split.id);
-    if (!rect) {
-      throw new Error(`Missing computed rect for split ${split.id}`);
+    const sides = boundarySides.get(split.id);
+    if (!rect || !sides) {
+      throw new Error(`Missing computed rect/boundary for split ${split.id}`);
     }
-    walls.push(buildDividerWall(split, rect, innerThickness, colors));
+    walls.push(buildDividerWall(split, rect, sides, outerThickness, innerThickness, colors));
   }
 
   return walls;
@@ -75,6 +86,8 @@ function buildOuterWalls(
 function buildDividerWall(
   split: ZoneSplit,
   rect: Rect,
+  sides: BoundarySides,
+  outerThickness: number,
   innerThickness: number,
   colors: ColorHeightRegistry,
 ): WallSegment {
@@ -87,13 +100,18 @@ function buildDividerWall(
     colorId: split.dividerColorId,
     notches: split.notches,
   };
+  const extent = (side: BoundaryKind): number => (side === 'outer' ? outerThickness / 2 : innerThickness / 2);
 
   if (split.axis === 'x') {
     const centerX = rect.x + split.firstSize + innerThickness / 2;
-    return { ...base, a: { x: centerX, y: rect.y }, b: { x: centerX, y: rect.y + rect.height } };
+    const y0 = rect.y - extent(sides.north);
+    const y1 = rect.y + rect.height + extent(sides.south);
+    return { ...base, a: { x: centerX, y: y0 }, b: { x: centerX, y: y1 } };
   }
   const centerY = rect.y + split.firstSize + innerThickness / 2;
-  return { ...base, a: { x: rect.x, y: centerY }, b: { x: rect.x + rect.width, y: centerY } };
+  const x0 = rect.x - extent(sides.west);
+  const x1 = rect.x + rect.width + extent(sides.east);
+  return { ...base, a: { x: x0, y: centerY }, b: { x: x1, y: centerY } };
 }
 
 function collectSplits(node: ZoneNode): ZoneSplit[] {

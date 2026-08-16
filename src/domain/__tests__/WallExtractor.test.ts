@@ -78,7 +78,10 @@ describe('WallExtractor.extract', () => {
     // Gap is [40, 42] in x (firstSize=40, thickness=2) -> centerline at x=41.
     expect(divider!.a.x).toBeCloseTo(41);
     expect(divider!.b.x).toBeCloseTo(41);
-    expect([divider!.a.y, divider!.b.y].sort((a, b) => a - b)).toEqual([0, 50]);
+    // Root-level split: both y-ends border the outer wall, so the span is
+    // extended by outerThickness/2 = 2 beyond the raw [0,50] rect, reaching
+    // exactly the north/south outer walls' own centerlines.
+    expect([divider!.a.y, divider!.b.y].sort((a, b) => a - b)).toEqual([-2, 52]);
   });
 
   it('adds one centered divider wall for a single y-axis split', () => {
@@ -106,7 +109,9 @@ describe('WallExtractor.extract', () => {
     // Gap is [20, 24] in y -> centerline at y=22.
     expect(divider.a.y).toBeCloseTo(22);
     expect(divider.b.y).toBeCloseTo(22);
-    expect([divider.a.x, divider.b.x].sort((a, b) => a - b)).toEqual([0, 60]);
+    // Root-level split: both x-ends border the outer wall, extended by
+    // outerThickness/2 = 2 beyond the raw [0,60] rect.
+    expect([divider.a.x, divider.b.x].sort((a, b) => a - b)).toEqual([-2, 62]);
   });
 
   it('produces one divider wall per split in a nested tree', () => {
@@ -140,5 +145,50 @@ describe('WallExtractor.extract', () => {
     });
 
     expect(walls.filter((w) => !w.isOuter)).toHaveLength(2);
+  });
+
+  it('extends a nested divider exactly to its parent divider centerline, not just its own leaf-rect edge', () => {
+    // Regression test: a divider's span must reach whatever it butts
+    // against (outer wall or ancestor divider) at that thing's centerline,
+    // not stop at the raw leaf-rect edge -- otherwise T/X junctions are
+    // never detected because the endpoints are half a thickness apart.
+    const colors = makeColors();
+    const root: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'divider',
+      notches: [],
+      first: {
+        kind: 'split',
+        id: 'left-split',
+        axis: 'y',
+        firstSize: 20,
+        dividerColorId: 'divider',
+        notches: [],
+        first: leaf('top-left'),
+        second: leaf('bottom-left'),
+      },
+      second: leaf('right'),
+    };
+    const walls = extract({
+      zoneTree: root,
+      innerRect: { x: 0, y: 0, width: 100, height: 50 },
+      outerThickness: 2,
+      innerThickness: 2,
+      outerColorId: 'outer',
+      colors,
+    });
+
+    const dividers = walls.filter((w) => !w.isOuter);
+    const rootDivider = dividers.find((w) => w.a.y !== w.b.y || w.a.x === w.b.x)!; // vertical
+    const nestedDivider = dividers.find((w) => w.a.y === w.b.y)!; // horizontal
+
+    // root divider centerline: x = 0 + 40 + 2/2 = 41.
+    expect(rootDivider.a.x).toBeCloseTo(41);
+    // nested divider's east endpoint must land exactly on that centerline.
+    const nestedEastX = Math.max(nestedDivider.a.x, nestedDivider.b.x);
+    expect(nestedEastX).toBeCloseTo(41);
   });
 });

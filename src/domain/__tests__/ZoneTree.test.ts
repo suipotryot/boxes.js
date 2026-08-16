@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ZoneLeaf, ZoneSplit } from '../models/Zone';
-import { computeZoneRects } from '../services/ZoneTree';
+import { computeBoundarySides, computeZoneRects } from '../services/ZoneTree';
 
 const leaf = (id: string): ZoneLeaf => ({ kind: 'leaf', id });
 
@@ -118,5 +118,72 @@ describe('computeZoneRects', () => {
     // The split node's own rect is the full span it received -- useful downstream
     // to position the divider wall it creates.
     expect(rects.get('root')).toEqual({ x: 0, y: 0, width: 100, height: 50 });
+  });
+});
+
+describe('computeBoundarySides', () => {
+  it('marks all 4 sides of the root as outer', () => {
+    const sides = computeBoundarySides(leaf('only'));
+    expect(sides.get('only')).toEqual({ north: 'outer', south: 'outer', east: 'outer', west: 'outer' });
+  });
+
+  it('marks the new facing side of each child as inner for an x-axis split, others inherited', () => {
+    const root: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'c1',
+      notches: [],
+      first: leaf('left'),
+      second: leaf('right'),
+    };
+    const sides = computeBoundarySides(root);
+    expect(sides.get('left')).toEqual({ north: 'outer', south: 'outer', east: 'inner', west: 'outer' });
+    expect(sides.get('right')).toEqual({ north: 'outer', south: 'outer', east: 'outer', west: 'inner' });
+  });
+
+  it('marks the new facing side of each child as inner for a y-axis split, others inherited', () => {
+    const root: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'y',
+      firstSize: 20,
+      dividerColorId: 'c1',
+      notches: [],
+      first: leaf('top'),
+      second: leaf('bottom'),
+    };
+    const sides = computeBoundarySides(root);
+    expect(sides.get('top')).toEqual({ north: 'outer', south: 'inner', east: 'outer', west: 'outer' });
+    expect(sides.get('bottom')).toEqual({ north: 'inner', south: 'outer', east: 'outer', west: 'outer' });
+  });
+
+  it('a grandchild split against the outer boundary on 3 sides and inner on the 4th propagates correctly', () => {
+    // Root x-split: left becomes further y-split.
+    const root: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'c1',
+      notches: [],
+      first: {
+        kind: 'split',
+        id: 'left-split',
+        axis: 'y',
+        firstSize: 20,
+        dividerColorId: 'c2',
+        notches: [],
+        first: leaf('top-left'),
+        second: leaf('bottom-left'),
+      },
+      second: leaf('right'),
+    };
+    const sides = computeBoundarySides(root);
+    // left-split inherited west/north/south='outer' from root's left child, but east='inner'.
+    expect(sides.get('left-split')).toEqual({ north: 'outer', south: 'outer', east: 'inner', west: 'outer' });
+    // top-left further narrows south to 'inner' (its own new divider), keeps the rest.
+    expect(sides.get('top-left')).toEqual({ north: 'outer', south: 'inner', east: 'inner', west: 'outer' });
   });
 });

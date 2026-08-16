@@ -27,6 +27,45 @@ export function computeZoneRects(root: ZoneNode, rootRect: Rect, thickness: numb
   return result;
 }
 
+export type BoundaryKind = 'outer' | 'inner';
+
+export interface BoundarySides {
+  north: BoundaryKind;
+  south: BoundaryKind;
+  east: BoundaryKind;
+  west: BoundaryKind;
+}
+
+const ALL_OUTER: BoundarySides = { north: 'outer', south: 'outer', east: 'outer', west: 'outer' };
+
+/**
+ * For every node, records which of its 4 sides border the box's outer wall
+ * ('outer', true only at the root) versus a divider created by an ancestor
+ * split ('inner'). Used by WallExtractor to know, per side, whether a
+ * divider's span should reach the outer wall's centerline or an ancestor
+ * divider's centerline -- see the fix note in WallExtractor.ts.
+ */
+export function computeBoundarySides(root: ZoneNode): Map<string, BoundarySides> {
+  const result = new Map<string, BoundarySides>();
+
+  const fold = (node: ZoneNode, sides: BoundarySides): void => {
+    result.set(node.id, sides);
+    if (node.kind === 'leaf') {
+      return;
+    }
+    if (node.axis === 'x') {
+      fold(node.first, { ...sides, east: 'inner' });
+      fold(node.second, { ...sides, west: 'inner' });
+    } else {
+      fold(node.first, { ...sides, south: 'inner' });
+      fold(node.second, { ...sides, north: 'inner' });
+    }
+  };
+
+  fold(root, ALL_OUTER);
+  return result;
+}
+
 function splitRect(rect: Rect, axis: Axis, firstSize: number, thickness: number): [Rect, Rect] {
   if (axis === 'x') {
     const secondX = rect.x + firstSize + thickness;

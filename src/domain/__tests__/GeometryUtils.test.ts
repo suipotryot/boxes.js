@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { approxEqual, pointsEqual } from '../services/GeometryUtils';
+import { approxEqual, pointKey, pointsEqual } from '../services/GeometryUtils';
 
 describe('approxEqual', () => {
   it('treats values within epsilon as equal', () => {
@@ -24,5 +24,15 @@ describe('pointsEqual', () => {
 
   it('is false when only one coordinate matches', () => {
     expect(pointsEqual({ x: 10, y: 20 }, { x: 10, y: 21 })).toBe(false);
+  });
+});
+
+describe('pointKey', () => {
+  it('produces identical keys for float-dust-apart coordinates', () => {
+    expect(pointKey({ x: 10.00000001, y: 20 })).toBe(pointKey({ x: 10, y: 20 }));
+  });
+
+  it('produces different keys for genuinely different points', () => {
+    expect(pointKey({ x: 10, y: 20 })).not.toBe(pointKey({ x: 10, y: 21 }));
   });
 });
