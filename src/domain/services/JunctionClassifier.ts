@@ -47,7 +47,7 @@ export function classifyJunctions(walls: WallSegment[], epsilon: number = EPSILO
  * (half-lap notch on both walls).
  */
 export function junctionDegreeForWall(info: JunctionInfo, wall: WallSegment): 0 | 1 | 2 {
-  const sides = isVertical(wall) ? [info.east, info.west] : [info.north, info.south];
+  const sides = isWallVertical(wall) ? [info.east, info.west] : [info.north, info.south];
   return sides.filter((side) => side !== null).length as 0 | 1 | 2;
 }
 
@@ -65,7 +65,7 @@ function collectCandidatePoints(walls: WallSegment[], epsilon: number): Point[] 
   return points;
 }
 
-function isVertical(wall: WallSegment): boolean {
+export function isWallVertical(wall: WallSegment): boolean {
   return approxEqual(wall.a.x, wall.b.x);
 }
 
@@ -73,7 +73,7 @@ function applyWallContribution(info: JunctionInfo, wall: WallSegment, epsilon: n
   const ref: JunctionRef = { segmentId: wall.id };
   const p = info.point;
 
-  if (isVertical(wall)) {
+  if (isWallVertical(wall)) {
     if (!approxEqual(wall.a.x, p.x, epsilon)) {
       return;
     }
