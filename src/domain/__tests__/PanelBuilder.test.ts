@@ -169,12 +169,17 @@ describe('buildWallPanel: single-split box (T-junctions at both ends of the divi
     const box = boundingBox(panel.outline);
     const length = wallLength(divider);
     // Divider height (40) < outer wall height (60) -> combHeight = 40 = full
-    // height, so the comb protrusion (by the divider's own thickness) shows
-    // up across the entire end edges, and the top stays flush at v=40 (no
-    // "flush beyond comb" segment, since there's nothing left over).
+    // height, so the comb protrusion shows up across the entire end edges,
+    // and the top stays flush at v=40 (no "flush beyond comb" segment,
+    // since there's nothing left over). The protrusion depth is half the
+    // *mate's* thickness (the outer wall here), not the divider's own --
+    // config.outerThickness/2 happens to equal config.innerThickness in
+    // this particular config (4/2=2), see the dedicated asymmetric-
+    // thickness test below for a config where that coincidence doesn't
+    // paper over a wrong formula.
     expect(box.maxY).toBeCloseTo(40, 6);
-    expect(box.minX).toBeCloseTo(-config.innerThickness, 6);
-    expect(box.maxX).toBeCloseTo(length + config.innerThickness, 6);
+    expect(box.minX).toBeCloseTo(-config.outerThickness / 2, 6);
+    expect(box.maxX).toBeCloseTo(length + config.outerThickness / 2, 6);
   });
 
   it('cuts a matching row of finger holes into the carrying outer wall face', () => {
@@ -191,6 +196,50 @@ describe('buildWallPanel: single-split box (T-junctions at both ends of the divi
       expect(Math.min(...xs)).toBeGreaterThan(dividerU - 10);
       expect(Math.max(...xs)).toBeLessThan(dividerU + 10);
     }
+  });
+});
+
+describe('buildWallPanel: compound edge protrusion depth', () => {
+  it('protrudes by half the *mate\'s* thickness, not this wall\'s own thickness', () => {
+    // outerThickness (5) is not double innerThickness (2) here, so the two
+    // possible formulas (mate.thickness/2 vs wall.thickness) give visibly
+    // different answers (2.5 vs 2) -- pins down which one is actually used.
+    // Regression for a bug where a wall's own end-edge tabs protruded by
+    // its own full thickness, past the mate's own outer face, instead of
+    // stopping flush with it (looked like teeth "added on top" rather than
+    // interlocked in 3D).
+    const colors = new ColorHeightRegistry([
+      { id: 'outer', color: '#888', heightMm: 60 },
+      { id: 'divider', color: '#f00', heightMm: 60 },
+    ]);
+    const config = baseConfig({ outerColorId: 'outer', outerThickness: 5, innerThickness: 2, hasBottom: true });
+    const root: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'divider',
+      notches: [],
+      first: { kind: 'leaf', id: 'left' },
+      second: { kind: 'leaf', id: 'right' },
+    };
+    const walls = extract({
+      zoneTree: root,
+      innerRect: { x: 0, y: 0, width: 100, height: 50 },
+      outerThickness: config.outerThickness,
+      innerThickness: config.innerThickness,
+      outerColorId: config.outerColorId,
+      colors,
+    });
+    const junctions = classifyJunctions(walls);
+    const divider = walls.find((w) => !w.isOuter)!;
+
+    const panel = buildWallPanel(divider, walls, junctions, config);
+    const box = boundingBox(panel.outline);
+    const length = wallLength(divider);
+
+    expect(box.minX).toBeCloseTo(-config.outerThickness / 2, 6);
+    expect(box.maxX).toBeCloseTo(length + config.outerThickness / 2, 6);
   });
 });
 

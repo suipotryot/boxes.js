@@ -4,7 +4,7 @@ import type { Panel } from '../models/Panel';
 import type { Point } from '../models/types';
 import type { WallSegment } from '../models/WallSegment';
 import { EPSILON, approxEqual, createId } from './GeometryUtils';
-import { fingerEdgePath, fingerHoleRow } from './FingerJoint';
+import { fingerEdgePath, fingerHoleRow, withMinMargin } from './FingerJoint';
 import { type JunctionInfo, isWallVertical, junctionDegreeForWall } from './JunctionClassifier';
 
 /**
@@ -44,7 +44,7 @@ export function buildWallPanel(
     ...gripNotchRanges(wall.notches.filter((n) => n.edgeSide === 'top'), length),
   ];
 
-  const bottom = buildBottomEdge(length, config.hasBottom, baseThickness, fj, bottomExtra);
+  const bottom = buildBottomEdge(length, config.hasBottom, baseThickness, wall.thickness, fj, bottomExtra);
   const right = buildEndEdge(wall, wall.b, 'right', length, allWalls, junctions, fj);
   const top = buildTopEdge(length, wall.height, topExtra);
   const left = buildEndEdge(wall, wall.a, 'left', length, allWalls, junctions, fj);
@@ -104,11 +104,23 @@ function buildBottomEdge(
   length: number,
   hasBottom: boolean,
   baseThickness: number,
+  wallThickness: number,
   fingerSettings: AdvancedOptions['fingerJoint'],
   extraNotches: NotchRange[],
 ): Point[] {
+  // The bottom edge's own margin must keep the first/last tooth at least
+  // this wall's own thickness away from each corner -- that's exactly the
+  // depth its *own* left/right compound edge protrudes outward at that
+  // same corner (and, when there's a base plate, the width of the corner
+  // relief notch cut there too). Without this floor, a small user-
+  // configured edgeWidthMm lets a bottom-edge tooth land inside that
+  // corner post's own footprint, producing overlapping/self-intersecting
+  // geometry right at the corner -- teeth that look "added on top" in 3D
+  // rather than cleanly interlocked, and a self-intersecting spike in the
+  // base plate's SVG outline (see BasePlateBuilder.basePlateOutline).
+  const combSettings = withMinMargin(fingerSettings, wallThickness);
   const base: Point[] = hasBottom
-    ? combToPoints(fingerEdgePath(length, fingerSettings, true), (kind) => (kind === 'finger' ? -baseThickness : 0))
+    ? combToPoints(fingerEdgePath(length, combSettings, true), (kind) => (kind === 'finger' ? -baseThickness : 0))
     : [
         { x: 0, y: 0 },
         { x: length, y: 0 },
@@ -152,20 +164,29 @@ function buildEndEdge(
   junctions: Map<string, JunctionInfo>,
   fingerSettings: AdvancedOptions['fingerJoint'],
 ): Point[] {
-  const mateHeight = findEndMateHeight(wall, endPoint, allWalls, junctions);
+  const mate = findEndMate(wall, endPoint, allWalls, junctions);
   // No mate found at all means nothing physically butts against this end
   // (only possible for a synthetic/standalone wall -- every wall produced
   // by WallExtractor always meets the outer wall or an ancestor divider):
   // flush the whole way rather than assuming a full comb.
-  const combHeight = mateHeight === null ? 0 : Math.min(wall.height, mateHeight);
-  const mateId = findEndMateId(wall, endPoint, allWalls, junctions);
-  const startWithFinger = mateId === null ? true : wall.id < mateId;
+  const combHeight = mate === null ? 0 : Math.min(wall.height, mate.height);
+  const startWithFinger = mate === null ? true : wall.id < mate.id;
+  // Both walls' own u=0 sits at their *shared centerline point* -- which is
+  // already inset half of *this* wall's own thickness in from its own true
+  // outer face, but is inset half of the *mate's* thickness in from the
+  // mate's outer face. A finger tab only needs to reach that far to
+  // complete the corner post (its tip flush with the mate's own outer
+  // face), so the protrusion depth is half the mate's thickness, not this
+  // wall's own full thickness -- using the latter (an earlier version of
+  // this did) overshoots by half the mate's thickness, sticking every tab
+  // out past the model's own silhouette instead of ending flush with it.
+  const protrusionDepth = mate === null ? 0 : mate.thickness / 2;
 
   const points: Point[] = [];
   if (combHeight > 0) {
     const segments = fingerEdgePath(combHeight, fingerSettings, startWithFinger);
     for (const segment of segments) {
-      const outward = segment.kind === 'finger' ? wall.thickness : 0;
+      const outward = segment.kind === 'finger' ? protrusionDepth : 0;
       const u = side === 'right' ? length + outward : -outward;
       points.push({ x: u, y: segment.start });
       points.push({ x: u, y: segment.start + segment.length });
@@ -182,17 +203,17 @@ function buildEndEdge(
   return side === 'left' ? reversePath(points) : points;
 }
 
-function findEndMateHeight(
+function findEndMate(
   wall: WallSegment,
   endPoint: Point,
   allWalls: WallSegment[],
   junctions: Map<string, JunctionInfo>,
-): number | null {
+): WallSegment | null {
   const mateId = findEndMateId(wall, endPoint, allWalls, junctions);
   if (mateId === null) {
     return null;
   }
-  return allWalls.find((w) => w.id === mateId)?.height ?? null;
+  return allWalls.find((w) => w.id === mateId) ?? null;
 }
 
 function findEndMateId(

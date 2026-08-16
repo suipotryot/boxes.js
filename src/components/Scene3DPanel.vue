@@ -17,14 +17,17 @@ let scene: Scene3D | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
 const FALLBACK_COLOR = '#c9b48f';
+// Deliberately neutral and distinct from any wood-tone project color, so the
+// base plate always reads as "the floor", not as a piece that forgot to be
+// colored -- easy to tell apart from the walls at a glance, which matters
+// now that a genuine geometry bug that used to make the plate flicker
+// through the open top (see PanelBuilder's outline-closing fix) is gone.
+const BASE_PLATE_COLOR = '#8f97a3';
 
-// Base plate/shelf/cleats aren't tied to a per-color entry (they're single
-// global pieces, not per-divider) -- but visually they're the same "outer
-// shell" material as the outer walls, so using an unrelated neutral tan
-// made them look like a foreign, mismatched piece rather than the box's own
-// floor, especially visible through the open top. Match the outer walls'
-// color instead.
 function colorForPanel(panel: Panel): string {
+  if (panel.kind === 'basePlate') {
+    return BASE_PLATE_COLOR;
+  }
   const wallId = panel.kind === 'outerWall' || panel.kind === 'dividerWall' ? panel.sourceIds[0] : undefined;
   const wall = wallId ? projectStore.generatedWalls.find((w) => w.id === wallId) : undefined;
   const colorId = wall?.colorId ?? projectStore.project?.config.outerColorId;

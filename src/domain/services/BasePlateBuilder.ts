@@ -3,7 +3,7 @@ import type { Panel } from '../models/Panel';
 import type { Point, Rect } from '../models/types';
 import type { WallSegment } from '../models/WallSegment';
 import { createId } from './GeometryUtils';
-import { fingerEdgePath } from './FingerJoint';
+import { fingerEdgePath, withMinMargin } from './FingerJoint';
 import { wallLength } from './PanelBuilder';
 
 /**
@@ -61,7 +61,10 @@ function bottomFingerHoles(wall: WallSegment, fingerSettings: AdvancedOptions['f
   const px = -dy * halfThickness;
   const py = dx * halfThickness;
 
-  return fingerEdgePath(length, fingerSettings, true)
+  // Must match PanelBuilder.buildBottomEdge's own margin floor exactly --
+  // these holes and that wall's protruding tabs are the same physical
+  // teeth, just seen from two different panels.
+  return fingerEdgePath(length, withMinMargin(fingerSettings, wall.thickness), true)
     .filter((segment) => segment.kind === 'finger')
     .map((segment) => {
       const p0: Point = { x: wall.a.x + dx * segment.start, y: wall.a.y + dy * segment.start };
@@ -168,17 +171,34 @@ function edgeRun(
   const inward = inwardNormal(dx, dy, wall, rectCenter);
   const depth = wall.thickness;
 
-  let segments = fingerEdgePath(length, fingerSettings, true).filter((s) => s.kind === 'finger');
+  // Must match bottomFingerHoles/PanelBuilder.buildBottomEdge's own margin
+  // floor exactly (see their comments) -- otherwise a tooth here would land
+  // in the corner-relief zone the outline already excludes on either side.
+  let segments = fingerEdgePath(length, withMinMargin(fingerSettings, wall.thickness), true).filter(
+    (s) => s.kind === 'finger',
+  );
   if (!aligned) {
     segments = [...segments].reverse();
   }
+
+  // A notch's outer (baseline) point must sit on the plate's true edge --
+  // matching runStart/runEnd's coordinate on the perpendicular axis -- not
+  // on the wall's own centerline, which sits inset half the wall's
+  // thickness in from that edge. Using the centerline directly (as an
+  // earlier version of this did) floated every notch off the true edge and
+  // overshot its inner boundary by that same half-thickness, producing a
+  // diagonal jump where the corner relief meets the first tooth. The
+  // tangential coordinate still follows the wall's own position; only the
+  // perpendicular one is pinned to the run's baseline.
+  const baseline = (u: number): Point =>
+    dy === 0 ? { x: wall.a.x + dx * u, y: runStart.y } : { x: runStart.x, y: wall.a.y + dy * u };
 
   const points: Point[] = [runStart];
   for (const seg of segments) {
     const uNear = aligned ? seg.start : seg.start + seg.length;
     const uFar = aligned ? seg.start + seg.length : seg.start;
-    const edgeNear: Point = { x: wall.a.x + dx * uNear, y: wall.a.y + dy * uNear };
-    const edgeFar: Point = { x: wall.a.x + dx * uFar, y: wall.a.y + dy * uFar };
+    const edgeNear = baseline(uNear);
+    const edgeFar = baseline(uFar);
     points.push(
       edgeNear,
       { x: edgeNear.x + inward.x * depth, y: edgeNear.y + inward.y * depth },

@@ -66,6 +66,28 @@ export function fingerHoleRow(startOffset: number, length: number, settings: Fin
     .map((segment) => ({ x: startOffset + segment.start, y: 0, width: segment.length, height: holeHeight }));
 }
 
+/**
+ * Boosts `edgeWidthMm` so the margin at each end of a `fingerEdgePath` call
+ * is at least `minMarginMm`, leaving everything else about the settings
+ * untouched. An edge whose margin is left to the user's fingerJoint
+ * settings alone can end up with a tooth closer to a corner than the
+ * material is thick -- and a corner post (the interlocking tabs of a
+ * *perpendicular* edge meeting that same corner, e.g. a wall's own
+ * left/right compound edge, or a base plate's corner relief notch) always
+ * needs exactly that much clearance to seat without colliding. Boxes.py
+ * avoids this by tying its own default edge margin to material thickness;
+ * this does the equivalent by clamping the *effective* margin up to
+ * whatever thickness the caller says must be kept clear, regardless of the
+ * user's configured edgeWidthMm/surroundingSpaces.
+ */
+export function withMinMargin(settings: FingerJointSettings, minMarginMm: number): FingerJointSettings {
+  const currentMargin = settings.edgeWidthMm + settings.surroundingSpaces * settings.spaceMm;
+  if (currentMargin >= minMarginMm) {
+    return settings;
+  }
+  return { ...settings, edgeWidthMm: settings.edgeWidthMm + (minMarginMm - currentMargin) };
+}
+
 function combPattern(innerLength: number, settings: FingerJointSettings, startWithFinger: boolean): FingerSegmentKind[] {
   const unit = settings.fingerMm + settings.spaceMm;
   const pairCount = unit > 0 ? Math.max(1, Math.round(innerLength / unit)) : 1;

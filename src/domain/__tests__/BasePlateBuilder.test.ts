@@ -4,7 +4,7 @@ import { ColorHeightRegistry } from '../models/ColorHeightRegistry';
 import type { FingerJointSettings } from '../models/Project';
 import type { ZoneSplit } from '../models/Zone';
 import { buildBasePlate } from '../services/BasePlateBuilder';
-import { fingerEdgePath } from '../services/FingerJoint';
+import { fingerEdgePath, withMinMargin } from '../services/FingerJoint';
 import { extract } from '../services/WallExtractor';
 import { wallLength } from '../services/PanelBuilder';
 
@@ -82,7 +82,11 @@ describe('buildBasePlate', () => {
     const outerFingerCount = walls
       .filter((w) => w.isOuter)
       .reduce(
-        (sum, w) => sum + fingerEdgePath(wallLength(w), fingerSettings, true).filter((s) => s.kind === 'finger').length,
+        (sum, w) =>
+          sum +
+          fingerEdgePath(wallLength(w), withMinMargin(fingerSettings, w.thickness), true).filter(
+            (s) => s.kind === 'finger',
+          ).length,
         0,
       );
     expect(plate!.outline).toHaveLength(12 + 4 * outerFingerCount);
@@ -93,7 +97,11 @@ describe('buildBasePlate', () => {
     const expectedHoleCount = walls
       .filter((w) => !w.isOuter)
       .reduce(
-        (sum, w) => sum + fingerEdgePath(wallLength(w), fingerSettings, true).filter((s) => s.kind === 'finger').length,
+        (sum, w) =>
+          sum +
+          fingerEdgePath(wallLength(w), withMinMargin(fingerSettings, w.thickness), true).filter(
+            (s) => s.kind === 'finger',
+          ).length,
         0,
       );
     expect(plate!.holes).toHaveLength(expectedHoleCount);
