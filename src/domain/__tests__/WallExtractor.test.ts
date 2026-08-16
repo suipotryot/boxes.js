@@ -191,4 +191,36 @@ describe('WallExtractor.extract', () => {
     const nestedEastX = Math.max(nestedDivider.a.x, nestedDivider.b.x);
     expect(nestedEastX).toBeCloseTo(41);
   });
+
+  it('gives every wall a deterministic id, stable across repeated extract() calls', () => {
+    // extract() reruns on every project mutation (via a Pinia getter);
+    // anything holding a wall id across renders -- selection state, an open
+    // edit dialog -- must not go stale just because something unrelated
+    // changed and triggered a recompute.
+    const colors = makeColors();
+    const root: ZoneSplit = {
+      kind: 'split',
+      id: 'split1',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'divider',
+      notches: [],
+      first: leaf('left'),
+      second: leaf('right'),
+    };
+    const input = {
+      zoneTree: root,
+      innerRect: { x: 0, y: 0, width: 100, height: 50 },
+      outerThickness: 4,
+      innerThickness: 2,
+      outerColorId: 'outer',
+      colors,
+    };
+    const first = extract(input).map((w) => w.id).sort();
+    const second = extract(input).map((w) => w.id).sort();
+    expect(second).toEqual(first);
+    // The 4 outer walls specifically must be identifiable by side, not by
+    // an opaque generated id, since they never correspond to a split node.
+    expect(first).toEqual(expect.arrayContaining(['outer-west', 'outer-east', 'outer-north', 'outer-south']));
+  });
 });

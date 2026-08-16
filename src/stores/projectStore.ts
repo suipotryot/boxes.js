@@ -6,11 +6,13 @@ import type { Panel } from '@/domain/models/Panel';
 import type { Project, ProjectConfig } from '@/domain/models/Project';
 import type { ShelfConfig } from '@/domain/models/Shelf';
 import type { Axis, Rect } from '@/domain/models/types';
+import type { WallSegment } from '@/domain/models/WallSegment';
 import type { ZoneNode, ZoneSplit } from '@/domain/models/Zone';
 import { canSetColorHeight, canSetShelfHeight } from '@/domain/services/HeightConstraints';
 import { createNewProject, type NewProjectInput } from '@/domain/services/ProjectFactory';
 import { generatePanels, resolveInnerRect } from '@/domain/services/ProjectGenerator';
 import { mergeZone, splitZone } from '@/domain/services/ZoneTree';
+import { extract } from '@/domain/services/WallExtractor';
 
 export const useProjectStore = defineStore('project', {
   state: () => ({
@@ -22,6 +24,22 @@ export const useProjectStore = defineStore('project', {
     },
     innerRect(state): Rect | null {
       return state.project ? resolveInnerRect(state.project.config) : null;
+    },
+    /** Raw wall segments (plan-view positions), for the 2D canvas -- distinct
+     * from generatedPanels, whose outlines are unrolled elevations meant for
+     * 3D placement and SVG export, not top-down rendering. */
+    generatedWalls(state): WallSegment[] {
+      if (!state.project) return [];
+      const colors = new ColorHeightRegistry(state.project.colors);
+      const innerRect = resolveInnerRect(state.project.config);
+      return extract({
+        zoneTree: state.project.zoneTree,
+        innerRect,
+        outerThickness: state.project.config.outerThickness,
+        innerThickness: state.project.config.innerThickness,
+        outerColorId: state.project.config.outerColorId,
+        colors,
+      });
     },
   },
   actions: {
@@ -52,6 +70,11 @@ export const useProjectStore = defineStore('project', {
       if (!this.project) return;
       const entry = this.project.colors.find((c) => c.id === colorId);
       if (entry) entry.color = hex;
+    },
+    updateDividerColor(splitId: string, colorId: string) {
+      if (!this.project) return;
+      const split = findSplit(this.project.zoneTree, splitId);
+      if (split) split.dividerColorId = colorId;
     },
     /** Resolves a hex color to an existing entry or creates a new one at baseWallHeightMm. */
     findOrCreateColor(hex: string): string {
