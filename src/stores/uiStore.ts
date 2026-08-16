@@ -4,6 +4,7 @@ export type ActiveDialog =
   | { kind: 'newProject' }
   | { kind: 'splitZone'; zoneId: string }
   | { kind: 'edgeEdit'; wallId: string }
+  | { kind: 'advancedOptions' }
   | { kind: 'recentProjects' }
   | { kind: 'confirm'; message: string; onConfirm: () => void }
   | null;

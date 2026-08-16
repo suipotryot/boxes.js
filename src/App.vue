@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdvancedOptionsPanel from '@/components/AdvancedOptionsPanel.vue';
 import CanvasView from '@/components/CanvasView.vue';
 import Sidebar from '@/components/Sidebar.vue';
 import EdgeEditDialog from '@/components/dialogs/EdgeEditDialog.vue';
@@ -21,7 +22,10 @@ function onCreateProject(input: NewProjectInput): void {
   <div class="app-shell">
     <header class="app-header">
       <span>boxes.js</span>
-      <button v-if="projectStore.project" @click="uiStore.openDialog({ kind: 'newProject' })">Nouveau projet</button>
+      <div style="display: flex; gap: 8px">
+        <button v-if="projectStore.project" @click="uiStore.openDialog({ kind: 'advancedOptions' })">Options avancées</button>
+        <button v-if="projectStore.project" @click="uiStore.openDialog({ kind: 'newProject' })">Nouveau projet</button>
+      </div>
     </header>
 
     <div class="app-body">
@@ -35,6 +39,7 @@ function onCreateProject(input: NewProjectInput): void {
     <NewProjectDialog v-if="!projectStore.project || uiStore.activeDialog?.kind === 'newProject'" @create="onCreateProject" />
     <SplitZoneDialog v-if="uiStore.activeDialog?.kind === 'splitZone'" :zone-id="uiStore.activeDialog.zoneId" />
     <EdgeEditDialog v-if="uiStore.activeDialog?.kind === 'edgeEdit'" :wall-id="uiStore.activeDialog.wallId" />
+    <AdvancedOptionsPanel v-if="uiStore.activeDialog?.kind === 'advancedOptions'" />
   </div>
 </template>
 
