@@ -26,10 +26,17 @@ export function panelToMesh(panel: Panel, colorHex: string): THREE.Mesh {
     // (u direction, +Z, direction perpendicular to the wall) via an
     // explicit basis matrix -- more reliable than composing Euler angles,
     // which don't commute the way "rotate 90 then rotate by rotationZ"
-    // naively suggests.
+    // naively suggests. extrudeDir MUST be uDir x heightDir (not the
+    // hand-picked perpendicular that was here before): Quaternion.
+    // setFromRotationMatrix assumes a proper rotation (determinant +1), and
+    // -(uDir x heightDir) makes the basis left-handed (determinant -1, a
+    // reflection) -- the extraction still returns *a* quaternion, just one
+    // that doesn't represent the intended transform, so every wall panel
+    // came out mispositioned in orientation while still translating to the
+    // right origin (position and rotation are independent in a Matrix4).
     const uDir = new THREE.Vector3(Math.cos(rotationZ), Math.sin(rotationZ), 0);
     const heightDir = new THREE.Vector3(0, 0, 1);
-    const extrudeDir = new THREE.Vector3(-Math.sin(rotationZ), Math.cos(rotationZ), 0);
+    const extrudeDir = uDir.clone().cross(heightDir);
     const basis = new THREE.Matrix4().makeBasis(uDir, heightDir, extrudeDir);
     mesh.quaternion.setFromRotationMatrix(basis);
   }

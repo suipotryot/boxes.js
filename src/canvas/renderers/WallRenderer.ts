@@ -15,12 +15,23 @@ export interface WallRendererCallbacks {
  * *unrolled elevation* (local u/v frame meant for 3D placement and SVG
  * export), not a top-down footprint, so the plan view renders directly from
  * WallSegment instead.
+ *
+ * Every wall's centerline stops exactly at the point it meets another wall
+ * (see WallExtractor), so two strips drawn at their literal centerline
+ * length only overlap in a thin sliver near that shared point rather than
+ * covering the whole junction square -- at a corner they'd visibly just
+ * "touch" instead of overlapping the way a real finger-jointed corner does.
+ * `endExtensionMm` (half the project's largest thickness, so it's always
+ * enough regardless of what a given end meets) pads every strip past its
+ * own centerline endpoint on both ends purely for this visual coverage; it
+ * doesn't touch the underlying WallSegment/Panel geometry.
  */
 export function renderWalls(
   layer: Konva.Layer,
   walls: WallSegment[],
   colors: ColorEntry[],
   selectedWallId: string | null,
+  endExtensionMm: number,
   callbacks: WallRendererCallbacks,
 ): void {
   layer.destroyChildren();
@@ -35,12 +46,14 @@ export function renderWalls(
     // Konva rotates a shape around its (x,y) anchor; drawing the rect with
     // offsetY = thickness/2 centers it on the wall's line before rotating
     // the whole strip around wall.a by the wall's own direction angle.
+    // offsetX = endExtensionMm shifts the strip's start back by the pad
+    // amount, and the extra 2x is added to width, extending both ends.
     const shape = new Konva.Rect({
       x: wall.a.x,
       y: wall.a.y,
-      offsetX: 0,
+      offsetX: endExtensionMm,
       offsetY: wall.thickness / 2,
-      width: length,
+      width: length + 2 * endExtensionMm,
       height: wall.thickness,
       rotation: (angle * 180) / Math.PI,
       fill,

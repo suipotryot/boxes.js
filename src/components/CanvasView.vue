@@ -23,7 +23,8 @@ function redraw(): void {
     onHoverChange: () => {},
   });
 
-  renderWalls(manager.wallLayer, projectStore.generatedWalls, projectStore.project.colors, uiStore.selectedEdgeId, {
+  const endExtensionMm = Math.max(projectStore.project.config.outerThickness, projectStore.project.config.innerThickness) / 2;
+  renderWalls(manager.wallLayer, projectStore.generatedWalls, projectStore.project.colors, uiStore.selectedEdgeId, endExtensionMm, {
     onClick: (wallId) => uiStore.openDialog({ kind: 'edgeEdit', wallId }),
     onHoverChange: () => {},
   });

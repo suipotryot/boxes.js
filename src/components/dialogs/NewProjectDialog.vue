@@ -45,6 +45,7 @@ function submit(): void {
       <div class="field-row">
         <label for="np-dimx">Largeur (X)</label>
         <input id="np-dimx" v-model.number="form.dimXValue" type="number" min="1" step="1" />
+        <span class="unit">mm</span>
         <select v-model="form.dimXMode">
           <option value="outer">extérieure</option>
           <option value="inner">intérieure</option>
@@ -52,8 +53,9 @@ function submit(): void {
       </div>
 
       <div class="field-row">
-        <label for="np-dimy">Profondeur (Y)</label>
+        <label for="np-dimy">Hauteur (Y)</label>
         <input id="np-dimy" v-model.number="form.dimYValue" type="number" min="1" step="1" />
+        <span class="unit">mm</span>
         <select v-model="form.dimYMode">
           <option value="outer">extérieure</option>
           <option value="inner">intérieure</option>
@@ -63,16 +65,19 @@ function submit(): void {
       <div class="field-row">
         <label for="np-outer">Épaisseur parois extérieures</label>
         <input id="np-outer" v-model.number="form.outerThickness" type="number" min="0.1" step="0.1" />
+        <span class="unit">mm</span>
       </div>
 
       <div class="field-row">
         <label for="np-inner">Épaisseur cloisons</label>
         <input id="np-inner" v-model.number="form.innerThickness" type="number" min="0.1" step="0.1" />
+        <span class="unit">mm</span>
       </div>
 
       <div class="field-row">
-        <label for="np-height">Hauteur des bords</label>
+        <label for="np-height">Profondeur de la boîte</label>
         <input id="np-height" v-model.number="form.baseWallHeightMm" type="number" min="1" step="1" />
+        <span class="unit">mm</span>
       </div>
 
       <div class="field-row">

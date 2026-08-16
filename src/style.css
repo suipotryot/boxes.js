@@ -136,6 +136,11 @@ input[type='text'] {
   width: 120px;
 }
 
+.field-row .unit {
+  color: var(--color-fg-muted);
+  font-size: 12px;
+}
+
 .error-text {
   color: var(--color-danger);
   font-size: 12px;
