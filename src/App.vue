@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar.vue';
 import EdgeEditDialog from '@/components/dialogs/EdgeEditDialog.vue';
 import NewProjectDialog from '@/components/dialogs/NewProjectDialog.vue';
 import RecentProjectsDialog from '@/components/dialogs/RecentProjectsDialog.vue';
+import Scene3DPanel from '@/components/Scene3DPanel.vue';
 import SplitZoneDialog from '@/components/dialogs/SplitZoneDialog.vue';
 import type { NewProjectInput } from '@/domain/services/ProjectFactory';
 import { exportProjectAsJson, importProjectFromFile } from '@/storage/JsonExporter';
@@ -20,6 +21,7 @@ const uiStore = useUiStore();
 const startupChecked = ref(false);
 const hasRecentProjects = ref(false);
 const importInput = ref<HTMLInputElement | null>(null);
+const show3d = ref(false);
 
 onMounted(async () => {
   hasRecentProjects.value = (await listRecentProjects(1)).length > 0;
@@ -89,6 +91,7 @@ async function onImportChange(event: Event): Promise<void> {
         <input ref="importInput" type="file" accept=".json,application/json" style="display: none" @change="onImportChange" />
         <button @click="uiStore.openDialog({ kind: 'recentProjects' })">Projets récents</button>
         <button @click="uiStore.openDialog({ kind: 'advancedOptions' })">Options avancées</button>
+        <button @click="show3d = !show3d">Vue 3D</button>
         <button @click="uiStore.openDialog({ kind: 'newProject' })">Nouveau projet</button>
       </div>
     </header>
@@ -98,6 +101,7 @@ async function onImportChange(event: Event): Promise<void> {
       <main class="app-canvas">
         <CanvasView v-if="projectStore.project" />
         <p v-else class="empty-state">Créez un nouveau projet pour commencer.</p>
+        <Scene3DPanel v-if="projectStore.project && show3d" @close="show3d = false" />
       </main>
     </div>
 
