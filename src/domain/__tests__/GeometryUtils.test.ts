@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { approxEqual, pointKey, pointsEqual } from '../services/GeometryUtils';
+import {
+  approxEqual,
+  crossZ,
+  normalize,
+  outwardNormal,
+  pointKey,
+  pointsEqual,
+  simplifyPolygon,
+  subtract,
+} from '../services/GeometryUtils';
 
 describe('approxEqual', () => {
   it('treats values within epsilon as equal', () => {
@@ -24,6 +33,86 @@ describe('pointsEqual', () => {
 
   it('is false when only one coordinate matches', () => {
     expect(pointsEqual({ x: 10, y: 20 }, { x: 10, y: 21 })).toBe(false);
+  });
+});
+
+describe('subtract / normalize / crossZ', () => {
+  it('subtract gives the vector from a to b', () => {
+    expect(subtract({ x: 5, y: 5 }, { x: 2, y: 1 })).toEqual({ x: 3, y: 4 });
+  });
+
+  it('normalize produces a unit vector in the same direction', () => {
+    const n = normalize({ x: 3, y: 4 });
+    expect(n.x).toBeCloseTo(0.6, 6);
+    expect(n.y).toBeCloseTo(0.8, 6);
+  });
+
+  it('crossZ is positive for a left turn (CCW), negative for a right turn (CW)', () => {
+    expect(crossZ({ x: 1, y: 0 }, { x: 0, y: 1 })).toBeGreaterThan(0);
+    expect(crossZ({ x: 1, y: 0 }, { x: 0, y: -1 })).toBeLessThan(0);
+  });
+});
+
+describe('outwardNormal', () => {
+  it('rotates a direction vector -90 degrees (clockwise)', () => {
+    const a = outwardNormal({ x: 1, y: 0 });
+    expect(a.x).toBeCloseTo(0, 6);
+    expect(a.y).toBeCloseTo(-1, 6);
+    const b = outwardNormal({ x: 0, y: 1 });
+    expect(b.x).toBeCloseTo(1, 6);
+    expect(b.y).toBeCloseTo(0, 6);
+  });
+});
+
+describe('simplifyPolygon', () => {
+  it('removes a redundant point sitting exactly on a straight edge', () => {
+    // (0,0) -> (5,0) -> (10,0) -> (10,10) -> (0,10): the point at (5,0) adds
+    // nothing, it's collinear with its neighbors on the bottom edge.
+    const points = [
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    const result = simplifyPolygon(points);
+    expect(result).toEqual([
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ]);
+  });
+
+  it('keeps every vertex of a polygon with no redundant points', () => {
+    const square = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    expect(simplifyPolygon(square)).toEqual(square);
+  });
+
+  it('handles redundancy that wraps around the closing edge (first/last point)', () => {
+    // Redundant point at (10,0) is collinear across the wrap from the last
+    // point (10,-5) back to the first (10,10) -- wait, use a clean wrap case:
+    // (0,0) -> (10,0) -> (10,10) -> (5,10) -> (0,10), where (5,10) is
+    // redundant between (10,10) and (0,10).
+    const points = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 5, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    const result = simplifyPolygon(points);
+    expect(result).toEqual([
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ]);
   });
 });
 
