@@ -11,7 +11,7 @@ import type { ZoneNode, ZoneSplit } from '@/domain/models/Zone';
 import { canSetColorHeight, canSetShelfHeight } from '@/domain/services/HeightConstraints';
 import { createNewProject, type NewProjectInput } from '@/domain/services/ProjectFactory';
 import { generatePanels, resolveInnerRect } from '@/domain/services/ProjectGenerator';
-import { mergeZone, splitZone } from '@/domain/services/ZoneTree';
+import { canSplitZone, computeZoneRects, mergeZone, splitZone } from '@/domain/services/ZoneTree';
 import { extract } from '@/domain/services/WallExtractor';
 import { HistoryManager } from '@/storage/HistoryManager';
 
@@ -91,10 +91,18 @@ export const useProjectStore = defineStore('project', {
       }
       this.historyVersion++;
     },
-    splitZone(zoneId: string, axis: Axis, firstSize: number, dividerColorId: string) {
-      if (!this.project) return;
+    /** Returns false (no-op) if the split wouldn't leave usable space (plus
+     * the divider's own thickness) for both resulting zones. */
+    splitZone(zoneId: string, axis: Axis, firstSize: number, dividerColorId: string): boolean {
+      if (!this.project) return false;
+      const innerRect = resolveInnerRect(this.project.config);
+      const zoneRect = computeZoneRects(this.project.zoneTree, innerRect, this.project.config.innerThickness).get(zoneId);
+      if (!zoneRect || !canSplitZone(zoneRect, axis, firstSize, this.project.config.innerThickness)) {
+        return false;
+      }
       this.pushHistory();
       this.project.zoneTree = splitZone(this.project.zoneTree, zoneId, axis, firstSize, dividerColorId);
+      return true;
     },
     mergeZone(splitId: string) {
       if (!this.project) return;

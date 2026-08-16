@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ZoneLeaf, ZoneNode, ZoneSplit } from '../models/Zone';
-import { computeBoundarySides, computeZoneRects, mergeZone, splitZone } from '../services/ZoneTree';
+import { canSplitZone, computeBoundarySides, computeZoneRects, mergeZone, splitZone } from '../services/ZoneTree';
 
 const leaf = (id: string): ZoneLeaf => ({ kind: 'leaf', id });
 
@@ -302,5 +302,36 @@ describe('mergeZone', () => {
     const result = mergeZone(tree, 'left-split') as ZoneSplit;
     expect(result.first.kind).toBe('leaf');
     expect(result.second.id).toBe('right'); // untouched sibling
+  });
+});
+
+describe('canSplitZone', () => {
+  const zone = { x: 0, y: 0, width: 100, height: 50 };
+
+  it('allows a split that leaves usable space for both children', () => {
+    expect(canSplitZone(zone, 'x', 40, 3)).toBe(true);
+  });
+
+  it('rejects a split that leaves no room for the divider thickness plus a sliver of space', () => {
+    // firstSize + thickness consumes the entire zone width -> second child is 0.
+    expect(canSplitZone(zone, 'x', 97, 3)).toBe(false);
+    expect(canSplitZone(zone, 'x', 100, 3)).toBe(false);
+  });
+
+  it('rejects a zero or negative firstSize', () => {
+    expect(canSplitZone(zone, 'x', 0, 3)).toBe(false);
+    expect(canSplitZone(zone, 'x', -5, 3)).toBe(false);
+  });
+
+  it('checks against height, not width, for a y-axis split', () => {
+    // width=100 would easily fit firstSize=40, but height=50 does not leave
+    // room for firstSize=40 + thickness=15 (only 50-40-15=-5 left).
+    expect(canSplitZone(zone, 'y', 40, 15)).toBe(false);
+    expect(canSplitZone(zone, 'y', 20, 3)).toBe(true);
+  });
+
+  it('rejects a split leaving less than the minimum usable sliver, even if technically positive', () => {
+    // second child would be 0.5mm -- too thin to be a meaningful zone.
+    expect(canSplitZone(zone, 'x', 96.5, 3)).toBe(false);
   });
 });

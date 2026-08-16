@@ -67,6 +67,20 @@ export function computeBoundarySides(root: ZoneNode): Map<string, BoundarySides>
   return result;
 }
 
+const MIN_ZONE_SIZE_MM = 1;
+
+/**
+ * A split is only valid if both the divider's own thickness and a sliver of
+ * usable space (>= MIN_ZONE_SIZE_MM) remain for *both* children -- a split
+ * that consumes the whole zone in thickness+firstSize would produce a
+ * degenerate (zero or negative size) second zone.
+ */
+export function canSplitZone(zoneRect: Rect, axis: Axis, firstSize: number, thickness: number): boolean {
+  const zoneSize = axis === 'x' ? zoneRect.width : zoneRect.height;
+  const secondSize = zoneSize - firstSize - thickness;
+  return firstSize >= MIN_ZONE_SIZE_MM && secondSize >= MIN_ZONE_SIZE_MM;
+}
+
 /**
  * Replaces the leaf `targetLeafId` with a new split, creating two fresh
  * leaf children. Per the plan, a divider is fixed at creation in V1 -- there

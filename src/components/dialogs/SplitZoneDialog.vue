@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
 
-import { computeZoneRects } from '@/domain/services/ZoneTree';
+import { canSplitZone, computeZoneRects } from '@/domain/services/ZoneTree';
 import type { Axis } from '@/domain/models/types';
 import { useProjectStore } from '@/stores/projectStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -29,15 +29,22 @@ if (zoneRect.value) {
   form.firstSize = Math.round((form.axis === 'x' ? zoneRect.value.width : zoneRect.value.height) / 2);
 }
 
+const innerThickness = computed(() => projectStore.project?.config.innerThickness ?? 0);
+
+const isValid = computed(() => {
+  if (!zoneRect.value) return false;
+  return canSplitZone(zoneRect.value, form.axis, form.firstSize, innerThickness.value);
+});
+
 function close(): void {
   uiStore.closeDialog();
 }
 
 function confirm(): void {
-  if (!zoneRect.value) return;
+  if (!zoneRect.value || !isValid.value) return;
   const colorId = form.colorMode === 'existing' ? form.existingColorId : projectStore.findOrCreateColor(form.newColorHex);
-  projectStore.splitZone(props.zoneId, form.axis, form.firstSize, colorId);
-  close();
+  const ok = projectStore.splitZone(props.zoneId, form.axis, form.firstSize, colorId);
+  if (ok) close();
 }
 </script>
 
@@ -61,6 +68,9 @@ function confirm(): void {
         <label for="sz-first">Taille du 1er côté</label>
         <input id="sz-first" v-model.number="form.firstSize" type="number" min="1" step="1" />
       </div>
+      <p v-if="!isValid" class="error-text">
+        Ne laisse pas assez de place pour la cloison (épaisseur {{ innerThickness }} mm) et les deux zones.
+      </p>
 
       <div class="field-row">
         <label>Couleur de la cloison</label>
@@ -85,7 +95,7 @@ function confirm(): void {
 
       <div class="dialog-actions">
         <button @click="close">Annuler</button>
-        <button class="primary" @click="confirm">Diviser</button>
+        <button class="primary" :disabled="!isValid" @click="confirm">Diviser</button>
       </div>
     </div>
   </div>

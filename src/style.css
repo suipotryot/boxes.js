@@ -135,3 +135,14 @@ input[type='text'] {
 .field-row input {
   width: 120px;
 }
+
+.error-text {
+  color: var(--color-danger);
+  font-size: 12px;
+  margin: -4px 0 8px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -118,9 +118,4 @@ function onShelfModeChange(event: Event): void {
   margin-bottom: 8px;
   font-size: 13px;
 }
-.error-text {
-  color: var(--color-danger);
-  font-size: 12px;
-  margin: -4px 0 8px;
-}
 </style>
