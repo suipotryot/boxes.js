@@ -1,5 +1,6 @@
 import type { Axis, Rect } from '../models/types';
 import type { ZoneNode } from '../models/Zone';
+import { createId } from './GeometryUtils';
 
 /**
  * Folds a ZoneNode tree into absolute rects, one per leaf zone id. At each
@@ -64,6 +65,46 @@ export function computeBoundarySides(root: ZoneNode): Map<string, BoundarySides>
 
   fold(root, ALL_OUTER);
   return result;
+}
+
+/**
+ * Replaces the leaf `targetLeafId` with a new split, creating two fresh
+ * leaf children. Per the plan, a divider is fixed at creation in V1 -- there
+ * is no move/resize, only split and merge. Returns a new tree (the input is
+ * never mutated), matching the snapshot-based undo/redo model.
+ */
+export function splitZone(tree: ZoneNode, targetLeafId: string, axis: Axis, firstSize: number, dividerColorId: string): ZoneNode {
+  if (tree.kind === 'leaf') {
+    if (tree.id !== targetLeafId) {
+      return tree;
+    }
+    return {
+      kind: 'split',
+      id: createId('split'),
+      axis,
+      firstSize,
+      dividerColorId,
+      notches: [],
+      first: { kind: 'leaf', id: createId('zone') },
+      second: { kind: 'leaf', id: createId('zone') },
+    };
+  }
+  return { ...tree, first: splitZone(tree.first, targetLeafId, axis, firstSize, dividerColorId), second: splitZone(tree.second, targetLeafId, axis, firstSize, dividerColorId) };
+}
+
+/**
+ * Collapses the split `targetSplitId` (and everything under it) back into a
+ * single fresh leaf -- "delete the divider" per the plan's V1 model: to
+ * reposition one, merge it away and re-split rather than dragging it.
+ */
+export function mergeZone(tree: ZoneNode, targetSplitId: string): ZoneNode {
+  if (tree.kind === 'leaf') {
+    return tree;
+  }
+  if (tree.id === targetSplitId) {
+    return { kind: 'leaf', id: createId('zone') };
+  }
+  return { ...tree, first: mergeZone(tree.first, targetSplitId), second: mergeZone(tree.second, targetSplitId) };
 }
 
 function splitRect(rect: Rect, axis: Axis, firstSize: number, thickness: number): [Rect, Rect] {

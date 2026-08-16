@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ZoneLeaf, ZoneSplit } from '../models/Zone';
-import { computeBoundarySides, computeZoneRects } from '../services/ZoneTree';
+import type { ZoneLeaf, ZoneNode, ZoneSplit } from '../models/Zone';
+import { computeBoundarySides, computeZoneRects, mergeZone, splitZone } from '../services/ZoneTree';
 
 const leaf = (id: string): ZoneLeaf => ({ kind: 'leaf', id });
 
@@ -185,5 +185,122 @@ describe('computeBoundarySides', () => {
     expect(sides.get('left-split')).toEqual({ north: 'outer', south: 'outer', east: 'inner', west: 'outer' });
     // top-left further narrows south to 'inner' (its own new divider), keeps the rest.
     expect(sides.get('top-left')).toEqual({ north: 'outer', south: 'inner', east: 'inner', west: 'outer' });
+  });
+});
+
+describe('splitZone', () => {
+  it('replaces the target leaf with a new split with two fresh leaf children', () => {
+    const tree = splitZone(leaf('a'), 'a', 'x', 40, 'red');
+    expect(tree.kind).toBe('split');
+    const split = tree as ZoneSplit;
+    expect(split.axis).toBe('x');
+    expect(split.firstSize).toBe(40);
+    expect(split.dividerColorId).toBe('red');
+    expect(split.first.kind).toBe('leaf');
+    expect(split.second.kind).toBe('leaf');
+    expect(split.first.id).not.toBe(split.second.id);
+  });
+
+  it('leaves the tree unchanged when the target id is not found', () => {
+    const tree = leaf('a');
+    const result = splitZone(tree, 'nonexistent', 'x', 40, 'red');
+    expect(result).toEqual(tree);
+  });
+
+  it('does not mutate the input tree', () => {
+    const original: ZoneNode = leaf('a');
+    splitZone(original, 'a', 'x', 40, 'red');
+    expect(original.kind).toBe('leaf');
+  });
+
+  it('finds and splits a leaf nested deep inside an existing tree', () => {
+    const tree: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'red',
+      notches: [],
+      first: leaf('left'),
+      second: leaf('right'),
+    };
+    const result = splitZone(tree, 'right', 'y', 20, 'blue') as ZoneSplit;
+    expect(result.first.kind).toBe('leaf');
+    expect(result.first.id).toBe('left'); // untouched sibling keeps its identity
+    expect(result.second.kind).toBe('split');
+    expect((result.second as ZoneSplit).axis).toBe('y');
+  });
+});
+
+describe('mergeZone', () => {
+  it('collapses a split back into a single fresh leaf', () => {
+    const tree: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'red',
+      notches: [],
+      first: leaf('left'),
+      second: leaf('right'),
+    };
+    const result = mergeZone(tree, 'root');
+    expect(result.kind).toBe('leaf');
+    expect(result.id).not.toBe('left');
+    expect(result.id).not.toBe('right');
+  });
+
+  it('discards an entire nested subtree when merging its ancestor split', () => {
+    const nested: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'red',
+      notches: [],
+      first: {
+        kind: 'split',
+        id: 'left-split',
+        axis: 'y',
+        firstSize: 20,
+        dividerColorId: 'blue',
+        notches: [],
+        first: leaf('top-left'),
+        second: leaf('bottom-left'),
+      },
+      second: leaf('right'),
+    };
+    const result = mergeZone(nested, 'root');
+    expect(result).toEqual({ kind: 'leaf', id: result.id });
+  });
+
+  it('is a no-op when the target split id does not exist', () => {
+    const tree = leaf('a');
+    expect(mergeZone(tree, 'nonexistent')).toEqual(tree);
+  });
+
+  it('merges a nested split while leaving the rest of the tree intact', () => {
+    const tree: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'red',
+      notches: [],
+      first: {
+        kind: 'split',
+        id: 'left-split',
+        axis: 'y',
+        firstSize: 20,
+        dividerColorId: 'blue',
+        notches: [],
+        first: leaf('top-left'),
+        second: leaf('bottom-left'),
+      },
+      second: leaf('right'),
+    };
+    const result = mergeZone(tree, 'left-split') as ZoneSplit;
+    expect(result.first.kind).toBe('leaf');
+    expect(result.second.id).toBe('right'); // untouched sibling
   });
 });
