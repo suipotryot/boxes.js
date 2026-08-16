@@ -73,14 +73,29 @@ describe('buildBasePlate', () => {
     expect(Math.min(...ys)).toBeCloseTo(-outerThickness, 6);
     expect(Math.max(...ys)).toBeCloseTo(innerRect.height + outerThickness, 6);
 
-    // Rectangle with a square notch cut from each of its 4 corners: 12 vertices.
-    expect(plate!.outline).toHaveLength(12);
+    // Rectangle with a square notch cut from each of its 4 corners (12
+    // vertices), plus 4 extra vertices for every finger notch now carved
+    // directly into the outline along the 4 outer walls' runs -- an outer
+    // wall's fingers land at the plate's true edge, so they must be open
+    // notches in the boundary itself, not separate holes that merely touch
+    // it (see basePlateOutline's docstring).
+    const outerFingerCount = walls
+      .filter((w) => w.isOuter)
+      .reduce(
+        (sum, w) => sum + fingerEdgePath(wallLength(w), fingerSettings, true).filter((s) => s.kind === 'finger').length,
+        0,
+      );
+    expect(plate!.outline).toHaveLength(12 + 4 * outerFingerCount);
 
-    // One hole per 'finger' segment, summed across every wall (4 outer + 1 divider).
-    const expectedHoleCount = walls.reduce(
-      (sum, w) => sum + fingerEdgePath(wallLength(w), fingerSettings, true).filter((s) => s.kind === 'finger').length,
-      0,
-    );
+    // Only divider walls' finger holes remain as separate closed holes --
+    // a divider sits away from the plate's boundary, so its holes are
+    // genuinely interior.
+    const expectedHoleCount = walls
+      .filter((w) => !w.isOuter)
+      .reduce(
+        (sum, w) => sum + fingerEdgePath(wallLength(w), fingerSettings, true).filter((s) => s.kind === 'finger').length,
+        0,
+      );
     expect(plate!.holes).toHaveLength(expectedHoleCount);
     expect(plate!.holes.every((hole) => hole.length === 4)).toBe(true);
   });

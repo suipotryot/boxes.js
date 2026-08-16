@@ -260,3 +260,82 @@ describe('buildWallPanel: X-crossing half-lap notch', () => {
     expect(topCarved !== bottomCarved).toBe(true);
   });
 });
+
+describe('buildWallPanel: outline closes cleanly when a wall is taller than a neighbour it butts against', () => {
+  it('does not splice a spurious straight jump across the comb at the taller wall\'s compound edge', () => {
+    // A wall's own end-edge comb only gets an extra "flush above the comb"
+    // point when it is *taller* than whatever it meets there (combHeight <
+    // wall.height) -- outer walls never hit this among themselves (they
+    // all share one height), but two dividers of different heights readily
+    // can. Regression for a bug where the outline's own `left` segment was
+    // reversed twice (once inside buildEndEdge, once again when assembling
+    // the outline), which happened to cancel out whenever there was no
+    // extra flush point, but otherwise spliced a straight line straight
+    // across the comb and left the polygon not closing back onto itself.
+    const colors = new ColorHeightRegistry([
+      { id: 'outer', color: '#888', heightMm: 60 },
+      { id: 'short', color: '#0f0', heightMm: 40 },
+      { id: 'tall', color: '#f00', heightMm: 55 },
+    ]);
+    const config = baseConfig({ outerColorId: 'outer', hasBottom: true });
+    const root: ZoneSplit = {
+      kind: 'split',
+      id: 'root',
+      axis: 'x',
+      firstSize: 40,
+      dividerColorId: 'short',
+      notches: [],
+      first: { kind: 'leaf', id: 'left' },
+      second: {
+        kind: 'split',
+        id: 'right-split',
+        axis: 'y',
+        firstSize: 20,
+        dividerColorId: 'tall',
+        notches: [],
+        first: { kind: 'leaf', id: 'top-right' },
+        second: { kind: 'leaf', id: 'bottom-right' },
+      },
+    };
+    const walls = extract({
+      zoneTree: root,
+      innerRect: { x: 0, y: 0, width: 100, height: 100 },
+      outerThickness: config.outerThickness,
+      innerThickness: config.innerThickness,
+      outerColorId: config.outerColorId,
+      colors,
+    });
+    const junctions = classifyJunctions(walls);
+    // The child divider (height 55) butts its left end against the root
+    // divider (height 40) -> combHeight = min(55, 40) = 40 < 55, exactly
+    // the condition that exposes the bug.
+    const childDivider = walls.find((w) => !w.isOuter && w.height === 55)!;
+
+    const panel = buildWallPanel(childDivider, walls, junctions, config);
+
+    // The bug's signature: the outline's last point stopped landing back on
+    // its own first point -- the extra reversal sent the `left` segment the
+    // wrong way, so the loop never closed onto its own start.
+    const first = panel.outline[0]!;
+    const last = panel.outline[panel.outline.length - 1]!;
+    expect(last.x).toBeCloseTo(first.x, 6);
+    expect(last.y).toBeCloseTo(first.y, 6);
+
+    // And the bug also spliced a single straight *vertical* segment running
+    // the wall's (near-)full height, cutting right across the left end
+    // edge's comb -- a valid comb never has a single vertical edge that
+    // tall (a finger/space span is bounded by the finger-joint settings,
+    // well under the wall's own height). Horizontal (u-direction) segments
+    // are excluded: an uncrossed top/bottom edge can legitimately run the
+    // wall's full length in one straight line.
+    const maxVerticalSegment = Math.max(
+      0,
+      ...panel.outline
+        .slice(1)
+        .map((p, i) => ({ dx: Math.abs(p.x - panel.outline[i]!.x), dy: Math.abs(p.y - panel.outline[i]!.y) }))
+        .filter(({ dx }) => dx < 1e-6)
+        .map(({ dy }) => dy),
+    );
+    expect(maxVerticalSegment).toBeLessThan(childDivider.height * 0.9);
+  });
+});

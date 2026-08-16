@@ -49,7 +49,20 @@ export function buildWallPanel(
   const top = buildTopEdge(length, wall.height, topExtra);
   const left = buildEndEdge(wall, wall.a, 'left', length, allWalls, junctions, fj);
 
-  const outline = [...bottom, ...right, ...reversePath(top), ...reversePath(left)];
+  // `left`'s own points already run top-to-bottom (buildEndEdge reverses
+  // them internally for side='left', see its own comment) -- that's
+  // already the direction needed to continue the loop after `top`, so
+  // reversing it *again* here would send it back to bottom-to-top. That
+  // used to happen: it silently produced a valid-looking rectangle only
+  // when both ends of this wall's comb reached exactly the same height
+  // (the common outer-wall-meets-outer-wall case, where there's no extra
+  // flush point past the comb to expose the mistake) -- but for any wall
+  // whose comb stops short of its own full height (a divider or wall
+  // meeting a shorter/taller neighbour), it spliced in a spurious straight
+  // segment jumping from the top corner straight down to the bottom
+  // corner, cutting right across the comb, and left the polygon
+  // self-intersecting instead of closed.
+  const outline = [...bottom, ...right, ...reversePath(top), ...left];
 
   const holes = buildFaceHoles(wall, allWalls, junctions, config);
 
