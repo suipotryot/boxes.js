@@ -27,6 +27,11 @@ export function buildShelf(outerWalls: WallSegment[], innerRect: Rect, config: P
     return null;
   }
 
+  // heightMm is measured from the cavity's interior floor -- the base
+  // plate's *top* face (z = outerThickness), not the absolute z = 0 -- same
+  // reasoning as the wall panels' own v=0 baseline (see PanelBuilder).
+  const floorZ = config.hasBottom ? config.outerThickness : 0;
+
   const outline = rectangleWithCornerNotches(innerRect, config.outerThickness);
   const shelf: Panel = {
     id: createId('panel'),
@@ -34,18 +39,18 @@ export function buildShelf(outerWalls: WallSegment[], innerRect: Rect, config: P
     materialThickness: config.outerThickness,
     outline,
     holes: [],
-    placement3d: { origin: { x: 0, y: 0, z: config.shelf.heightMm }, rotationZ: 0 },
+    placement3d: { origin: { x: 0, y: 0, z: floorZ + config.shelf.heightMm }, rotationZ: 0 },
     sourceIds: outerWalls.map((w) => w.id),
   };
 
-  const cleats = config.shelf.mode === 'removable' ? buildCleats(outerWalls, config) : [];
+  const cleats = config.shelf.mode === 'removable' ? buildCleats(outerWalls, config, floorZ) : [];
   return { shelf, cleats };
 }
 
 const CLEAT_LENGTH_MM = 30;
 const CLEAT_WIDTH_MM = 10;
 
-function buildCleats(outerWalls: WallSegment[], config: ProjectConfig): Panel[] {
+function buildCleats(outerWalls: WallSegment[], config: ProjectConfig, floorZ: number): Panel[] {
   return outerWalls.map((wall) => {
     const length = Math.min(CLEAT_LENGTH_MM, wallLength(wall) * 0.6);
     const outline = [
@@ -61,7 +66,7 @@ function buildCleats(outerWalls: WallSegment[], config: ProjectConfig): Panel[] 
       outline,
       holes: [],
       placement3d: {
-        origin: { x: wall.a.x, y: wall.a.y, z: config.shelf!.heightMm },
+        origin: { x: wall.a.x, y: wall.a.y, z: floorZ + config.shelf!.heightMm },
         rotationZ: Math.atan2(wall.b.y - wall.a.y, wall.b.x - wall.a.x),
       },
       sourceIds: [wall.id],

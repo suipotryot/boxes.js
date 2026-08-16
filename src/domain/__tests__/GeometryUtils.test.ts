@@ -114,6 +114,47 @@ describe('simplifyPolygon', () => {
       { x: 0, y: 10 },
     ]);
   });
+
+  it('removes an exact (zero-length-edge) duplicate of the previous point, keeping the genuine corner it sits at', () => {
+    // This is what two consecutive edge segments both sitting on the same
+    // baseline produce (e.g. a finger-comb 'space' segment immediately
+    // followed by a 'flush' margin, both offset 0) -- a genuinely
+    // colinearity-based check misses this, since the incoming vector is
+    // the zero vector and its dot product with anything is 0, not > 0.
+    // (10,0) itself is a real corner here (not colinear with its
+    // neighbors), so only the duplicate should disappear, not the corner.
+    const points = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 0 }, // exact duplicate of the point before it
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    const result = simplifyPolygon(points);
+    expect(result).toEqual([
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ]);
+  });
+
+  it('removes a duplicate even when it sits exactly at the wrap-around (last point duplicating the first)', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 0, y: 0 }, // duplicate of the first point, at the end
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    const result = simplifyPolygon(points);
+    expect(result).toEqual([
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ]);
+  });
 });
 
 describe('pointKey', () => {

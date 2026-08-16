@@ -90,6 +90,46 @@ describe('buildWallPanel: standalone wall (no neighbors, no bottom)', () => {
     expect(box.minY).toBeCloseTo(-config.outerThickness, 6);
     expect(box.maxY).toBeCloseTo(40, 6);
   });
+
+  it('places the panel origin at the base plate top (z = outerThickness), not the absolute floor, when hasBottom is true', () => {
+    // The panel's own v=0 baseline rests on the base plate's *top* face.
+    // The base plate itself spans world z=[0, outerThickness] (see
+    // BasePlateBuilder/MeshBuilders), so if origin.z stayed at 0, the
+    // finger tabs (which reach v=-outerThickness, i.e. world z=-outerThickness
+    // below origin.z) would land entirely below the base plate instead of
+    // passing through it.
+    const wall: WallSegment = {
+      id: 'w1',
+      a: { x: 0, y: 0 },
+      b: { x: 80, y: 0 },
+      height: 40,
+      thickness: 3,
+      isOuter: false,
+      colorId: 'c',
+      notches: [],
+    };
+    const junctions = classifyJunctions([wall]);
+    const config = baseConfig({ hasBottom: true, outerThickness: 5 });
+    const panel = buildWallPanel(wall, [wall], junctions, config);
+    expect(panel.placement3d?.origin.z).toBe(5);
+  });
+
+  it('keeps the panel origin at the absolute floor (z = 0) when there is no base plate', () => {
+    const wall: WallSegment = {
+      id: 'w1',
+      a: { x: 0, y: 0 },
+      b: { x: 80, y: 0 },
+      height: 40,
+      thickness: 3,
+      isOuter: false,
+      colorId: 'c',
+      notches: [],
+    };
+    const junctions = classifyJunctions([wall]);
+    const config = baseConfig({ hasBottom: false });
+    const panel = buildWallPanel(wall, [wall], junctions, config);
+    expect(panel.placement3d?.origin.z).toBe(0);
+  });
 });
 
 describe('buildWallPanel: single-split box (T-junctions at both ends of the divider)', () => {

@@ -36,13 +36,23 @@ export class Scene3D {
     this.controls.target.set(0, 0, 50);
     this.controls.update();
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    // A fairly strong, direction-agnostic ambient term matters more here
+    // than in a typical scene: this box is open (no lid modeled), so the
+    // camera frequently looks straight into interior wall/floor faces that
+    // point away from every directional light. Under-lighting those made
+    // them read as near-black against the dark scene background --
+    // plausibly why what was actually correct (if dim) geometry looked
+    // like a missing/"transparent" face at a glance.
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
     keyLight.position.set(300, -200, 500);
     this.scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
     fillLight.position.set(-300, 200, 100);
     this.scene.add(fillLight);
+    const bounceLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    bounceLight.position.set(0, 300, -200);
+    this.scene.add(bounceLight);
 
     this.animate();
   }

@@ -16,16 +16,20 @@ const containerRef = ref<HTMLDivElement | null>(null);
 let scene: Scene3D | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-const NEUTRAL_COLOR = '#c9b48f';
+const FALLBACK_COLOR = '#c9b48f';
 
+// Base plate/shelf/cleats aren't tied to a per-color entry (they're single
+// global pieces, not per-divider) -- but visually they're the same "outer
+// shell" material as the outer walls, so using an unrelated neutral tan
+// made them look like a foreign, mismatched piece rather than the box's own
+// floor, especially visible through the open top. Match the outer walls'
+// color instead.
 function colorForPanel(panel: Panel): string {
-  if (panel.kind === 'outerWall' || panel.kind === 'dividerWall') {
-    const wallId = panel.sourceIds[0];
-    const wall = projectStore.generatedWalls.find((w) => w.id === wallId);
-    const color = projectStore.project?.colors.find((c) => c.id === wall?.colorId);
-    return color?.color ?? NEUTRAL_COLOR;
-  }
-  return NEUTRAL_COLOR;
+  const wallId = panel.kind === 'outerWall' || panel.kind === 'dividerWall' ? panel.sourceIds[0] : undefined;
+  const wall = wallId ? projectStore.generatedWalls.find((w) => w.id === wallId) : undefined;
+  const colorId = wall?.colorId ?? projectStore.project?.config.outerColorId;
+  const color = projectStore.project?.colors.find((c) => c.id === colorId);
+  return color?.color ?? FALLBACK_COLOR;
 }
 
 function rebuild(): void {

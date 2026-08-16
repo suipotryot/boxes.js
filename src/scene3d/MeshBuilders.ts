@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import type { Panel } from '@/domain/models/Panel';
 import type { Point } from '@/domain/models/types';
+import { simplifyPolygon } from '@/domain/services/GeometryUtils';
 
 /** basePlate/shelf outlines are already in world-aligned (x, y) plan
  * coordinates (see BasePlateBuilder/ShelfBuilder) and extrude straight up
@@ -45,9 +46,13 @@ export function panelToMesh(panel: Panel, colorHex: string): THREE.Mesh {
 }
 
 function buildShape(outline: Point[], holes: Point[][]): THREE.Shape {
-  const shape = new THREE.Shape(outline.map((p) => new THREE.Vector2(p.x, p.y)));
+  // Defensive: panel-building can leave exact-duplicate/collinear points
+  // (see simplifyPolygon's own docstring) that don't affect a plain SVG
+  // renderer but are cheap to strip before handing the outline to
+  // ExtrudeGeometry's triangulator.
+  const shape = new THREE.Shape(simplifyPolygon(outline).map((p) => new THREE.Vector2(p.x, p.y)));
   for (const hole of holes) {
-    shape.holes.push(new THREE.Path(hole.map((p) => new THREE.Vector2(p.x, p.y))));
+    shape.holes.push(new THREE.Path(simplifyPolygon(hole).map((p) => new THREE.Vector2(p.x, p.y))));
   }
   return shape;
 }

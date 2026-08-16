@@ -53,6 +53,14 @@ export function buildWallPanel(
 
   const holes = buildFaceHoles(wall, allWalls, junctions, config);
 
+  // The panel's own v=0 baseline is where it rests -- on the base plate's
+  // *top* face (z = outerThickness) when there is one, not on the absolute
+  // floor (z = 0, which is the base plate's *underside*). Without this
+  // offset, v=0 lands at the same Z as the base plate's bottom, so the
+  // finger tabs (which protrude further, to v = -baseThickness) end up
+  // entirely below the base plate instead of passing through it.
+  const originZ = config.hasBottom ? config.outerThickness : 0;
+
   return {
     id: createId('panel'),
     kind: wall.isOuter ? 'outerWall' : 'dividerWall',
@@ -60,7 +68,7 @@ export function buildWallPanel(
     outline,
     holes,
     placement3d: {
-      origin: { x: wall.a.x, y: wall.a.y, z: 0 },
+      origin: { x: wall.a.x, y: wall.a.y, z: originZ },
       rotationZ: Math.atan2(wall.b.y - wall.a.y, wall.b.x - wall.a.x),
     },
     sourceIds: [wall.id],

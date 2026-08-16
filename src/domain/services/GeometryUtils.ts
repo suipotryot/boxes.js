@@ -41,10 +41,19 @@ export function outwardNormal(direction: Point): Point {
 }
 
 /** Drops vertices that sit exactly on a straight run between their
- * neighbors (same incoming/outgoing direction, not a reversal) -- these
- * carry no real geometry but would otherwise double-count in per-vertex
- * offset math like burn correction, which assumes every point is a genuine
- * corner. */
+ * neighbors (same incoming/outgoing direction, not a reversal), and exact
+ * (zero-length-edge) duplicates of their predecessor -- these carry no real
+ * geometry but would otherwise double-count in per-vertex offset math like
+ * burn correction, which assumes every point is a genuine corner. Exact
+ * duplicates need their own check: when `p` and `prev` coincide, `dIn` is
+ * the zero vector, so `dot = 0` fails the `dot > 0` colinearity test below
+ * even though the point is exactly as redundant as a colinear one -- this
+ * showed up in practice wherever two consecutive edge segments both sit on
+ * the same baseline (e.g. a 'space' segment immediately followed by a
+ * 'flush' margin in a finger comb, both offset 0), leaving a same-position
+ * point that burn correction would then offset *twice*, slightly
+ * differently each time (its two neighbors differ even though its own
+ * position doesn't) -- visible in SVG export as a short doubled line. */
 export function simplifyPolygon(points: Point[], epsilon: number = EPSILON): Point[] {
   if (points.length < 3) {
     return points;
@@ -59,6 +68,12 @@ export function simplifyPolygon(points: Point[], epsilon: number = EPSILON): Poi
       const prev = current[(i - 1 + n) % n]!;
       const p = current[i]!;
       const nextP = current[(i + 1) % n]!;
+
+      if (pointsEqual(p, prev, epsilon)) {
+        changed = true;
+        continue;
+      }
+
       const dIn = subtract(p, prev);
       const dOut = subtract(nextP, p);
       const cross = crossZ(dIn, dOut);

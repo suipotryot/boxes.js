@@ -52,20 +52,26 @@ describe('buildShelf', () => {
     expect(buildShelf(outerWalls, innerRect, baseConfig({ shelf: null }))).toBeNull();
   });
 
-  it('fixed mode: places the shelf at heightMm and generates no cleats', () => {
-    const config = baseConfig({ shelf: { heightMm: 25, mode: 'fixed' } });
+  it('fixed mode: places the shelf at heightMm above the cavity floor (base plate top, not z=0) and generates no cleats', () => {
+    const config = baseConfig({ shelf: { heightMm: 25, mode: 'fixed' } }); // hasBottom: true, outerThickness: 4
     const result = buildShelf(outerWalls, innerRect, config);
     expect(result).not.toBeNull();
     expect(result!.shelf.kind).toBe('shelf');
-    expect(result!.shelf.placement3d?.origin.z).toBe(25);
+    expect(result!.shelf.placement3d?.origin.z).toBe(4 + 25);
     expect(result!.cleats).toHaveLength(0);
   });
 
-  it('removable mode: generates one cleat per outer wall, at heightMm', () => {
+  it('removable mode: generates one cleat per outer wall, at heightMm above the cavity floor', () => {
     const config = baseConfig({ shelf: { heightMm: 18, mode: 'removable' } });
     const result = buildShelf(outerWalls, innerRect, config);
     expect(result!.cleats).toHaveLength(outerWalls.length);
     expect(result!.cleats.every((c) => c.kind === 'shelfCleat')).toBe(true);
-    expect(result!.cleats.every((c) => c.placement3d?.origin.z === 18)).toBe(true);
+    expect(result!.cleats.every((c) => c.placement3d?.origin.z === 4 + 18)).toBe(true);
+  });
+
+  it('does not add the base plate offset when there is no base plate (hasBottom: false)', () => {
+    const config = baseConfig({ hasBottom: false, shelf: { heightMm: 25, mode: 'fixed' } });
+    const result = buildShelf(outerWalls, innerRect, config);
+    expect(result!.shelf.placement3d?.origin.z).toBe(25);
   });
 });
