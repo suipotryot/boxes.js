@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue';
+
 import AdvancedOptionsPanel from '@/components/AdvancedOptionsPanel.vue';
 import CanvasView from '@/components/CanvasView.vue';
 import Sidebar from '@/components/Sidebar.vue';
@@ -16,15 +18,30 @@ function onCreateProject(input: NewProjectInput): void {
   projectStore.createProject(input);
   uiStore.closeDialog();
 }
+
+function onKeydown(event: KeyboardEvent): void {
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z') return;
+  event.preventDefault();
+  if (event.shiftKey) {
+    projectStore.redo();
+  } else {
+    projectStore.undo();
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
   <div class="app-shell">
     <header class="app-header">
       <span>boxes.js</span>
-      <div style="display: flex; gap: 8px">
-        <button v-if="projectStore.project" @click="uiStore.openDialog({ kind: 'advancedOptions' })">Options avancées</button>
-        <button v-if="projectStore.project" @click="uiStore.openDialog({ kind: 'newProject' })">Nouveau projet</button>
+      <div v-if="projectStore.project" style="display: flex; gap: 8px">
+        <button :disabled="!projectStore.canUndo" title="Ctrl+Z" @click="projectStore.undo()">Annuler</button>
+        <button :disabled="!projectStore.canRedo" title="Ctrl+Maj+Z" @click="projectStore.redo()">Rétablir</button>
+        <button @click="uiStore.openDialog({ kind: 'advancedOptions' })">Options avancées</button>
+        <button @click="uiStore.openDialog({ kind: 'newProject' })">Nouveau projet</button>
       </div>
     </header>
 

@@ -13,10 +13,18 @@ import { createNewProject, type NewProjectInput } from '@/domain/services/Projec
 import { generatePanels, resolveInnerRect } from '@/domain/services/ProjectGenerator';
 import { mergeZone, splitZone } from '@/domain/services/ZoneTree';
 import { extract } from '@/domain/services/WallExtractor';
+import { HistoryManager } from '@/storage/HistoryManager';
+
+// One history instance for the app's single active project; not part of
+// Pinia's reactive state (JSON-string snapshots don't need to be reactive).
+// `historyVersion` in state exists purely so canUndo/canRedo getters have a
+// reactive dependency to key off.
+const history = new HistoryManager<Project>();
 
 export const useProjectStore = defineStore('project', {
   state: () => ({
     project: null as Project | null,
+    historyVersion: 0,
   }),
   getters: {
     generatedPanels(state): Panel[] {
@@ -24,6 +32,14 @@ export const useProjectStore = defineStore('project', {
     },
     innerRect(state): Rect | null {
       return state.project ? resolveInnerRect(state.project.config) : null;
+    },
+    canUndo(state): boolean {
+      void state.historyVersion;
+      return history.canUndo();
+    },
+    canRedo(state): boolean {
+      void state.historyVersion;
+      return history.canRedo();
     },
     /** Raw wall segments (plan-view positions), for the 2D canvas -- distinct
      * from generatedPanels, whose outlines are unrolled elevations meant for
@@ -45,16 +61,44 @@ export const useProjectStore = defineStore('project', {
   actions: {
     createProject(input: NewProjectInput) {
       this.project = createNewProject(input);
+      history.clear();
+      this.historyVersion++;
     },
     loadProject(project: Project) {
       this.project = project;
+      history.clear();
+      this.historyVersion++;
+    },
+    /** Snapshots the current project onto the undo stack before a mutation. Call at the start of every mutating action, after any validation has already passed. */
+    pushHistory() {
+      if (!this.project) return;
+      history.push(this.project);
+      this.historyVersion++;
+    },
+    undo() {
+      if (!this.project) return;
+      const previous = history.undo(this.project);
+      if (previous) {
+        this.project = previous;
+      }
+      this.historyVersion++;
+    },
+    redo() {
+      if (!this.project) return;
+      const next = history.redo(this.project);
+      if (next) {
+        this.project = next;
+      }
+      this.historyVersion++;
     },
     splitZone(zoneId: string, axis: Axis, firstSize: number, dividerColorId: string) {
       if (!this.project) return;
+      this.pushHistory();
       this.project.zoneTree = splitZone(this.project.zoneTree, zoneId, axis, firstSize, dividerColorId);
     },
     mergeZone(splitId: string) {
       if (!this.project) return;
+      this.pushHistory();
       this.project.zoneTree = mergeZone(this.project.zoneTree, splitId);
     },
     /** Returns false (no-op) if the new height would push a divider above an active shelf. */
@@ -63,20 +107,30 @@ export const useProjectStore = defineStore('project', {
       if (!canSetColorHeight(this.project, colorId, heightMm)) return false;
       const entry = this.project.colors.find((c) => c.id === colorId);
       if (!entry) return false;
+      this.pushHistory();
       entry.heightMm = heightMm;
       return true;
     },
     updateColorHex(colorId: string, hex: string) {
       if (!this.project) return;
       const entry = this.project.colors.find((c) => c.id === colorId);
-      if (entry) entry.color = hex;
+      if (entry) {
+        this.pushHistory();
+        entry.color = hex;
+      }
     },
     updateDividerColor(splitId: string, colorId: string) {
       if (!this.project) return;
       const split = findSplit(this.project.zoneTree, splitId);
-      if (split) split.dividerColorId = colorId;
+      if (split) {
+        this.pushHistory();
+        split.dividerColorId = colorId;
+      }
     },
-    /** Resolves a hex color to an existing entry or creates a new one at baseWallHeightMm. */
+    /** Resolves a hex color to an existing entry or creates a new one at baseWallHeightMm.
+     * Deliberately does not push its own history entry -- it's always a
+     * sub-step of a larger action (split, recolor) that already pushes one;
+     * pushing here too would split one user-facing action into two undo steps. */
     findOrCreateColor(hex: string): string {
       if (!this.project) throw new Error('No project loaded');
       const registry = new ColorHeightRegistry(this.project.colors);
@@ -86,24 +140,30 @@ export const useProjectStore = defineStore('project', {
     },
     updateConfig(patch: Partial<ProjectConfig>) {
       if (!this.project) return;
+      this.pushHistory();
       Object.assign(this.project.config, patch);
     },
     /** Returns false (no-op) if the height would sit below an existing divider. */
     setShelf(shelf: ShelfConfig | null): boolean {
       if (!this.project) return false;
       if (shelf && !canSetShelfHeight(this.project, shelf.heightMm)) return false;
+      this.pushHistory();
       this.project.config.shelf = shelf;
       return true;
     },
     addNotch(splitId: string, notch: Notch) {
       if (!this.project) return;
       const split = findSplit(this.project.zoneTree, splitId);
-      split?.notches.push(notch);
+      if (split) {
+        this.pushHistory();
+        split.notches.push(notch);
+      }
     },
     removeNotch(splitId: string, notchId: string) {
       if (!this.project) return;
       const split = findSplit(this.project.zoneTree, splitId);
       if (split) {
+        this.pushHistory();
         split.notches = split.notches.filter((n) => n.id !== notchId);
       }
     },
