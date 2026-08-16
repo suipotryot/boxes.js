@@ -10,6 +10,7 @@ import RecentProjectsDialog from '@/components/dialogs/RecentProjectsDialog.vue'
 import Scene3DPanel from '@/components/Scene3DPanel.vue';
 import SplitZoneDialog from '@/components/dialogs/SplitZoneDialog.vue';
 import type { NewProjectInput } from '@/domain/services/ProjectFactory';
+import { exportProject } from '@/svgexport/ExportPipeline';
 import { exportProjectAsJson, importProjectFromFile } from '@/storage/JsonExporter';
 import { listRecentProjects, saveProject } from '@/storage/IndexedDbStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -58,8 +59,20 @@ watch(
   { deep: true },
 );
 
-function onExport(): void {
+function onExportJson(): void {
   if (projectStore.project) exportProjectAsJson(projectStore.project);
+}
+
+const svgExportError = ref<string | null>(null);
+
+async function onExportSvg(): Promise<void> {
+  if (!projectStore.project) return;
+  svgExportError.value = null;
+  try {
+    await exportProject(projectStore.project);
+  } catch (err) {
+    svgExportError.value = err instanceof Error ? err.message : String(err);
+  }
 }
 
 function onImportClick(): void {
@@ -86,8 +99,9 @@ async function onImportChange(event: Event): Promise<void> {
       <div v-if="projectStore.project" style="display: flex; gap: 8px">
         <button :disabled="!projectStore.canUndo" title="Ctrl+Z" @click="projectStore.undo()">Annuler</button>
         <button :disabled="!projectStore.canRedo" title="Ctrl+Maj+Z" @click="projectStore.redo()">Rétablir</button>
-        <button @click="onExport">Exporter JSON</button>
+        <button @click="onExportJson">Exporter JSON</button>
         <button @click="onImportClick">Importer JSON</button>
+        <button @click="onExportSvg">Exporter SVG</button>
         <input ref="importInput" type="file" accept=".json,application/json" style="display: none" @change="onImportChange" />
         <button @click="uiStore.openDialog({ kind: 'recentProjects' })">Projets récents</button>
         <button @click="uiStore.openDialog({ kind: 'advancedOptions' })">Options avancées</button>
@@ -95,6 +109,7 @@ async function onImportChange(event: Event): Promise<void> {
         <button @click="uiStore.openDialog({ kind: 'newProject' })">Nouveau projet</button>
       </div>
     </header>
+    <p v-if="svgExportError" class="export-error">{{ svgExportError }}</p>
 
     <div class="app-body">
       <Sidebar v-if="projectStore.project" />
@@ -139,6 +154,13 @@ async function onImportChange(event: Event): Promise<void> {
 .app-canvas {
   flex: 1;
   position: relative;
+}
+.export-error {
+  margin: 0;
+  padding: 6px 16px;
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
+  font-size: 13px;
 }
 .empty-state {
   display: flex;

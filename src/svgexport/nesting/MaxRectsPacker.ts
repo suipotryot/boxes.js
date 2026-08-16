@@ -154,7 +154,7 @@ export function packThicknessGroup(panels: Panel[], bedW: number, bedH: number, 
   return pages;
 }
 
-function boundingBox(points: Point[]): Rect {
+export function boundingBox(points: Point[]): Rect {
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
   const minX = Math.min(...xs);
