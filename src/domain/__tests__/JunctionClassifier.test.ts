@@ -79,6 +79,25 @@ describe('classifyJunctions', () => {
     // 4 distinct endpoints total, but (0,100) is shared by both walls -> 3 entries.
     expect(junctions.size).toBe(3);
   });
+
+  it('KNOWN LIMITATION: 3+ collinear segments converging on the same side of one point last-write-wins', () => {
+    // Three unrelated vertical segments (e.g. from unrelated branches of a
+    // deeply nested zone tree) all happen to end, from the north, at the
+    // same point -- a coincidence the plan flags as a hard case (M8, not
+    // fixed here: JunctionInfo holds one ref per side, not a list). This
+    // test exists to characterize the actual behavior (silent overwrite,
+    // no crash, last-processed wall wins) rather than leave it undocumented.
+    const w1 = wall('w1', { x: 0, y: 0 }, { x: 0, y: 50 });
+    const w2 = wall('w2', { x: 0, y: 10 }, { x: 0, y: 50 });
+    const w3 = wall('w3', { x: 0, y: 20 }, { x: 0, y: 50 });
+
+    const junctions = classifyJunctions([w1, w2, w3]);
+    const info = junctions.get(pointKey({ x: 0, y: 50 }))!;
+
+    // Only the last-processed wall's contribution survives; w1 and w2's
+    // presence at this point is silently lost rather than tracked.
+    expect(info.north).toEqual({ segmentId: 'w3' });
+  });
 });
 
 describe('junctionDegreeForWall', () => {

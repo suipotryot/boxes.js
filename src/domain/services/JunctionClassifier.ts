@@ -25,6 +25,19 @@ export interface JunctionInfo {
  * along the wall's own axis are occupied). If the point instead coincides
  * with one of the wall's own endpoints, the wall only extends away from the
  * point on one side.
+ *
+ * Known limitation (M8-flagged in the plan, not fixed): each of the 4
+ * sides holds a single JunctionRef, not a list. Three or more *different*
+ * wall segments all ending at the same point on the same side (e.g. three
+ * separate divider segments, from unrelated branches of the zone tree,
+ * that happen to be collinear and converge at exactly one coordinate) will
+ * silently last-write-wins rather than erroring -- the earlier segments'
+ * presence at that point is lost, which could under-count a T-junction's
+ * degree there. This requires a fairly specific deep-nesting coincidence to
+ * trigger and doesn't crash, just under-classifies; upgrading each side to
+ * an array (and updating every consumer: junctionDegreeForWall, and
+ * PanelBuilder's compound-edge/T-junction/X-crossing logic) is the fix,
+ * deferred rather than attempted in the time available for this pass.
  */
 export function classifyJunctions(walls: WallSegment[], epsilon: number = EPSILON): Map<string, JunctionInfo> {
   const points = collectCandidatePoints(walls, epsilon);
