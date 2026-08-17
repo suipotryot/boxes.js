@@ -19,8 +19,8 @@ const DEFAULT_OUTER_COLOR = '#a67c52';
  * outer-wall color/height is no longer a dedicated field (per the plan's
  * corrected design) -- instead this auto-creates the first color entry
  * ("Bords") from baseWallHeightMm and assigns it as outerColorId, editable
- * afterwards through the color legend like any divider color. The zone
- * tree starts as a single leaf (an empty box, no splits yet).
+ * afterwards through the color legend like any divider color. The divider
+ * grid starts empty (no lines yet).
  */
 export function createNewProject(input: NewProjectInput): Project {
   const outerColor: ColorEntry = {
@@ -63,6 +63,6 @@ export function createNewProject(input: NewProjectInput): Project {
     name: input.name,
     config,
     colors: [outerColor],
-    zoneTree: { kind: 'leaf', id: createId('zone') },
+    grid: { lines: [] },
   };
 }

@@ -1,6 +1,6 @@
 import type { ColorEntry } from '../models/ColorHeightRegistry';
+import type { DividerGrid } from '../models/Grid';
 import type { Project } from '../models/Project';
-import type { ZoneNode } from '../models/Zone';
 
 /**
  * A divider can never exceed an active shelf's heightMm (confirmed
@@ -16,35 +16,30 @@ export function canSetColorHeight(project: Project, colorId: string, heightMm: n
   if (colorId === project.config.outerColorId) {
     return true; // the shelf attaches to the outer walls regardless of their height
   }
-  if (!isColorUsedByDivider(project.zoneTree, colorId)) {
+  if (!isColorUsedByDivider(project.grid, colorId)) {
     return true; // not in use yet, nothing to violate
   }
   return heightMm <= shelf.heightMm;
 }
 
 export function canSetShelfHeight(project: Project, heightMm: number): boolean {
-  return heightMm >= tallestDividerHeightMm(project.zoneTree, project.colors);
+  return heightMm >= tallestDividerHeightMm(project.grid, project.colors);
 }
 
-export function isColorUsedByDivider(zoneTree: ZoneNode, colorId: string): boolean {
-  if (zoneTree.kind === 'leaf') {
-    return false;
-  }
-  return (
-    zoneTree.dividerColorId === colorId ||
-    isColorUsedByDivider(zoneTree.first, colorId) ||
-    isColorUsedByDivider(zoneTree.second, colorId)
-  );
+export function isColorUsedByDivider(grid: DividerGrid, colorId: string): boolean {
+  return grid.lines.some((line) => line.colorId === colorId || line.segmentOverrides.some((o) => !o.removed && o.colorId === colorId));
 }
 
-export function tallestDividerHeightMm(zoneTree: ZoneNode, colors: ColorEntry[]): number {
-  if (zoneTree.kind === 'leaf') {
-    return 0;
+export function tallestDividerHeightMm(grid: DividerGrid, colors: ColorEntry[]): number {
+  const heightOf = (id: string): number => colors.find((c) => c.id === id)?.heightMm ?? 0;
+  let max = 0;
+  for (const line of grid.lines) {
+    max = Math.max(max, heightOf(line.colorId));
+    for (const override of line.segmentOverrides) {
+      if (!override.removed && override.colorId) {
+        max = Math.max(max, heightOf(override.colorId));
+      }
+    }
   }
-  const ownHeight = colors.find((c) => c.id === zoneTree.dividerColorId)?.heightMm ?? 0;
-  return Math.max(
-    ownHeight,
-    tallestDividerHeightMm(zoneTree.first, colors),
-    tallestDividerHeightMm(zoneTree.second, colors),
-  );
+  return max;
 }

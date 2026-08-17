@@ -28,7 +28,7 @@ function onShelfToggle(event: Event): void {
   // Default to the tallest existing divider (the minimum valid height)
   // rather than an arbitrary constant, so enabling the shelf doesn't
   // immediately collide with the height constraint in the common case.
-  const heightMm = Math.max(tallestDividerHeightMm(project.zoneTree, project.colors), 1);
+  const heightMm = Math.max(tallestDividerHeightMm(project.grid, project.colors), 1);
   const ok = projectStore.setShelf({ heightMm, mode: 'fixed' });
   if (!ok) {
     // Force the native checkbox back -- Vue won't re-sync it on its own
@@ -61,6 +61,15 @@ function onShelfModeChange(event: Event): void {
 <template>
   <aside class="sidebar">
     <ColorLegend />
+
+    <h3>Cloisons</h3>
+    <div class="option-row">
+      <button :class="{ primary: uiStore.linePlacementAxis === 'x' }" @click="uiStore.setLinePlacementAxis('x')">+ Ligne verticale</button>
+      <button :class="{ primary: uiStore.linePlacementAxis === 'y' }" @click="uiStore.setLinePlacementAxis('y')">+ Ligne horizontale</button>
+    </div>
+    <p v-if="uiStore.linePlacementAxis" style="color: var(--color-fg-muted); font-size: 12px">
+      Cliquez dans la vue 2D pour placer la ligne (Échap pour annuler).
+    </p>
 
     <h3>Options</h3>
     <label class="option-row">

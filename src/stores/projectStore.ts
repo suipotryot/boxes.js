@@ -1,17 +1,27 @@
 import { defineStore } from 'pinia';
 
 import { ColorHeightRegistry } from '@/domain/models/ColorHeightRegistry';
+import type { LineNeighborRef } from '@/domain/models/Grid';
 import type { Notch } from '@/domain/models/Notch';
 import type { Panel } from '@/domain/models/Panel';
 import type { Project, ProjectConfig } from '@/domain/models/Project';
 import type { ShelfConfig } from '@/domain/models/Shelf';
 import type { Axis, Rect } from '@/domain/models/types';
 import type { WallSegment } from '@/domain/models/WallSegment';
-import type { ZoneNode, ZoneSplit } from '@/domain/models/Zone';
+import {
+  addLine,
+  addSegmentNotch,
+  canAddLine,
+  canMoveLineTo,
+  moveLine,
+  removeLine,
+  removeSegmentNotch,
+  setSegmentColor,
+  setSegmentRemoved,
+} from '@/domain/services/GridDivider';
 import { canSetColorHeight, canSetShelfHeight } from '@/domain/services/HeightConstraints';
 import { createNewProject, type NewProjectInput } from '@/domain/services/ProjectFactory';
 import { generatePanels, resolveInnerRect } from '@/domain/services/ProjectGenerator';
-import { canSplitZone, computeZoneRects, mergeZone, splitZone } from '@/domain/services/ZoneTree';
 import { extract } from '@/domain/services/WallExtractor';
 import { HistoryManager } from '@/storage/HistoryManager';
 
@@ -49,7 +59,7 @@ export const useProjectStore = defineStore('project', {
       const colors = new ColorHeightRegistry(state.project.colors);
       const innerRect = resolveInnerRect(state.project.config);
       return extract({
-        zoneTree: state.project.zoneTree,
+        grid: state.project.grid,
         innerRect,
         outerThickness: state.project.config.outerThickness,
         innerThickness: state.project.config.innerThickness,
@@ -91,23 +101,50 @@ export const useProjectStore = defineStore('project', {
       }
       this.historyVersion++;
     },
-    /** Returns false (no-op) if the split wouldn't leave usable space (plus
-     * the divider's own thickness) for both resulting zones. */
-    splitZone(zoneId: string, axis: Axis, firstSize: number, dividerColorId: string): boolean {
+    /** Returns false (no-op) if the position is too close to a box edge or
+     * to an existing line of the same axis. */
+    addLine(axis: Axis, positionMm: number, colorId: string): boolean {
       if (!this.project) return false;
       const innerRect = resolveInnerRect(this.project.config);
-      const zoneRect = computeZoneRects(this.project.zoneTree, innerRect, this.project.config.innerThickness).get(zoneId);
-      if (!zoneRect || !canSplitZone(zoneRect, axis, firstSize, this.project.config.innerThickness)) {
-        return false;
-      }
+      if (!canAddLine(this.project.grid.lines, axis, positionMm, innerRect)) return false;
       this.pushHistory();
-      this.project.zoneTree = splitZone(this.project.zoneTree, zoneId, axis, firstSize, dividerColorId);
+      this.project.grid = addLine(this.project.grid, axis, positionMm, colorId, innerRect);
       return true;
     },
-    mergeZone(splitId: string) {
+    /** Returns false (no-op) if the new position would cross a same-axis neighbour. */
+    moveLine(lineId: string, positionMm: number): boolean {
+      if (!this.project) return false;
+      const innerRect = resolveInnerRect(this.project.config);
+      if (!canMoveLineTo(this.project.grid.lines, lineId, positionMm, innerRect)) return false;
+      this.pushHistory();
+      this.project.grid = moveLine(this.project.grid, lineId, positionMm);
+      return true;
+    },
+    removeLine(lineId: string) {
+      if (!this.project) return;
+      const innerRect = resolveInnerRect(this.project.config);
+      this.pushHistory();
+      this.project.grid = removeLine(this.project.grid, lineId, innerRect);
+    },
+    updateLineColor(lineId: string, colorId: string) {
+      if (!this.project) return;
+      const line = this.project.grid.lines.find((l) => l.id === lineId);
+      if (line) {
+        this.pushHistory();
+        line.colorId = colorId;
+      }
+    },
+    /** Segment-level actions: ready for use as soon as a segment-editing UI
+     * exists, not yet wired to any dialog/renderer in this pass. */
+    setSegmentRemoved(lineId: string, start: LineNeighborRef, end: LineNeighborRef, removed: boolean) {
       if (!this.project) return;
       this.pushHistory();
-      this.project.zoneTree = mergeZone(this.project.zoneTree, splitId);
+      this.project.grid = setSegmentRemoved(this.project.grid, lineId, start, end, removed);
+    },
+    setSegmentColor(lineId: string, start: LineNeighborRef, end: LineNeighborRef, colorId: string | null) {
+      if (!this.project) return;
+      this.pushHistory();
+      this.project.grid = setSegmentColor(this.project.grid, lineId, start, end, colorId);
     },
     /** Returns false (no-op) if the new height would push a divider above an active shelf. */
     updateColorHeight(colorId: string, heightMm: number): boolean {
@@ -125,14 +162,6 @@ export const useProjectStore = defineStore('project', {
       if (entry) {
         this.pushHistory();
         entry.color = hex;
-      }
-    },
-    updateDividerColor(splitId: string, colorId: string) {
-      if (!this.project) return;
-      const split = findSplit(this.project.zoneTree, splitId);
-      if (split) {
-        this.pushHistory();
-        split.dividerColorId = colorId;
       }
     },
     /** Resolves a hex color to an existing entry or creates a new one at baseWallHeightMm.
@@ -159,27 +188,15 @@ export const useProjectStore = defineStore('project', {
       this.project.config.shelf = shelf;
       return true;
     },
-    addNotch(splitId: string, notch: Notch) {
+    addNotch(lineId: string, start: LineNeighborRef, end: LineNeighborRef, notch: Notch) {
       if (!this.project) return;
-      const split = findSplit(this.project.zoneTree, splitId);
-      if (split) {
-        this.pushHistory();
-        split.notches.push(notch);
-      }
+      this.pushHistory();
+      this.project.grid = addSegmentNotch(this.project.grid, lineId, start, end, notch);
     },
-    removeNotch(splitId: string, notchId: string) {
+    removeNotch(lineId: string, start: LineNeighborRef, end: LineNeighborRef, notchId: string) {
       if (!this.project) return;
-      const split = findSplit(this.project.zoneTree, splitId);
-      if (split) {
-        this.pushHistory();
-        split.notches = split.notches.filter((n) => n.id !== notchId);
-      }
+      this.pushHistory();
+      this.project.grid = removeSegmentNotch(this.project.grid, lineId, start, end, notchId);
     },
   },
 });
-
-function findSplit(tree: ZoneNode, id: string): ZoneSplit | null {
-  if (tree.kind === 'leaf') return null;
-  if (tree.id === id) return tree;
-  return findSplit(tree.first, id) ?? findSplit(tree.second, id);
-}

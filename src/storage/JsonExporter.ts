@@ -40,8 +40,8 @@ export function isValidProjectShape(data: unknown): data is Project {
   if (typeof p.config !== 'object' || p.config === null) {
     return false;
   }
-  if (typeof p.zoneTree !== 'object' || p.zoneTree === null) {
-    return false;
+  if (typeof p.grid !== 'object' || p.grid === null || !Array.isArray((p.grid as { lines?: unknown }).lines)) {
+    return false; // rejects pre-grid-model projects (zoneTree) as a deliberate breaking change -- no migration shim.
   }
   const config = p.config as Record<string, unknown>;
   const requiredConfigKeys = ['outerThickness', 'innerThickness', 'outerColorId', 'dimX', 'dimY', 'hasBottom'];

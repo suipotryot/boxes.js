@@ -1,7 +1,7 @@
 import type { Notch } from './Notch';
 import type { Point } from './types';
 
-/** Absolute-coordinate, axis-aligned wall, flattened out of the ZoneNode tree. */
+/** Absolute-coordinate, axis-aligned wall, flattened out of the divider grid. */
 export interface WallSegment {
   id: string;
   a: Point;

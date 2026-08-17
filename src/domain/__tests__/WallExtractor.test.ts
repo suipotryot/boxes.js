@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { ColorHeightRegistry } from '../models/ColorHeightRegistry';
-import type { ZoneLeaf, ZoneSplit } from '../models/Zone';
+import type { DividerGrid, GridLine, LineNeighborRef } from '../models/Grid';
 import { extract } from '../services/WallExtractor';
 
-const leaf = (id: string): ZoneLeaf => ({ kind: 'leaf', id });
+const edgeStart: LineNeighborRef = { kind: 'edge', side: 'start' };
+const edgeEnd: LineNeighborRef = { kind: 'edge', side: 'end' };
 
 function makeColors(): ColorHeightRegistry {
   return new ColorHeightRegistry([
@@ -13,11 +14,13 @@ function makeColors(): ColorHeightRegistry {
   ]);
 }
 
+const emptyGrid: DividerGrid = { lines: [] };
+
 describe('WallExtractor.extract', () => {
-  it('produces the 4 outer walls (centerline convention) and no dividers for an empty box', () => {
+  it('produces the 4 outer walls (centerline convention) and no dividers for an empty grid', () => {
     const colors = makeColors();
     const walls = extract({
-      zoneTree: leaf('only'),
+      grid: emptyGrid,
       innerRect: { x: 5, y: 5, width: 100, height: 50 },
       outerThickness: 5,
       innerThickness: 3,
@@ -48,20 +51,11 @@ describe('WallExtractor.extract', () => {
     expect([north!.a.x, north!.b.x].sort((a, b) => a - b)).toEqual([2.5, 107.5]);
   });
 
-  it('adds one centered divider wall for a single x-axis split', () => {
+  it('adds one wall segment for a single x-axis (vertical) line spanning the full box', () => {
     const colors = makeColors();
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'split1',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: leaf('left'),
-      second: leaf('right'),
-    };
+    const line: GridLine = { id: 'v1', axis: 'x', positionMm: 40, colorId: 'divider', segmentOverrides: [] };
     const walls = extract({
-      zoneTree: root,
+      grid: { lines: [line] },
       innerRect: { x: 0, y: 0, width: 100, height: 50 },
       outerThickness: 4,
       innerThickness: 2,
@@ -75,29 +69,18 @@ describe('WallExtractor.extract', () => {
     expect(divider!.colorId).toBe('divider');
     expect(divider!.height).toBe(40);
     expect(divider!.thickness).toBe(2);
-    // Gap is [40, 42] in x (firstSize=40, thickness=2) -> centerline at x=41.
-    expect(divider!.a.x).toBeCloseTo(41);
-    expect(divider!.b.x).toBeCloseTo(41);
-    // Root-level split: both y-ends border the outer wall, so the span is
-    // extended by outerThickness/2 = 2 beyond the raw [0,50] rect, reaching
-    // exactly the north/south outer walls' own centerlines.
+    expect(divider!.a.x).toBeCloseTo(40);
+    expect(divider!.b.x).toBeCloseTo(40);
+    // Single segment, both ends border the box edge -> extended by
+    // outerThickness/2 = 2 beyond the raw [0,50] span.
     expect([divider!.a.y, divider!.b.y].sort((a, b) => a - b)).toEqual([-2, 52]);
   });
 
-  it('adds one centered divider wall for a single y-axis split', () => {
+  it('adds one wall segment for a single y-axis (horizontal) line spanning the full box', () => {
     const colors = makeColors();
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'split1',
-      axis: 'y',
-      firstSize: 20,
-      dividerColorId: 'divider',
-      notches: [],
-      first: leaf('top'),
-      second: leaf('bottom'),
-    };
+    const line: GridLine = { id: 'h1', axis: 'y', positionMm: 20, colorId: 'divider', segmentOverrides: [] };
     const walls = extract({
-      zoneTree: root,
+      grid: { lines: [line] },
       innerRect: { x: 0, y: 0, width: 60, height: 80 },
       outerThickness: 4,
       innerThickness: 4,
@@ -106,37 +89,17 @@ describe('WallExtractor.extract', () => {
     });
 
     const divider = walls.find((w) => !w.isOuter)!;
-    // Gap is [20, 24] in y -> centerline at y=22.
-    expect(divider.a.y).toBeCloseTo(22);
-    expect(divider.b.y).toBeCloseTo(22);
-    // Root-level split: both x-ends border the outer wall, extended by
-    // outerThickness/2 = 2 beyond the raw [0,60] rect.
+    expect(divider.a.y).toBeCloseTo(20);
+    expect(divider.b.y).toBeCloseTo(20);
     expect([divider.a.x, divider.b.x].sort((a, b) => a - b)).toEqual([-2, 62]);
   });
 
-  it('produces one divider wall per split in a nested tree', () => {
+  it('produces one wall segment per PRESENT segment, and splits a line at every crossing', () => {
     const colors = makeColors();
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'root',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: {
-        kind: 'split',
-        id: 'left-split',
-        axis: 'y',
-        firstSize: 30,
-        dividerColorId: 'divider',
-        notches: [],
-        first: leaf('top-left'),
-        second: leaf('bottom-left'),
-      },
-      second: leaf('right'),
-    };
+    const v: GridLine = { id: 'v1', axis: 'x', positionMm: 40, colorId: 'divider', segmentOverrides: [] };
+    const h: GridLine = { id: 'h1', axis: 'y', positionMm: 30, colorId: 'divider', segmentOverrides: [] };
     const walls = extract({
-      zoneTree: root,
+      grid: { lines: [v, h] },
       innerRect: { x: 0, y: 0, width: 100, height: 100 },
       outerThickness: 2,
       innerThickness: 2,
@@ -144,36 +107,41 @@ describe('WallExtractor.extract', () => {
       colors,
     });
 
-    expect(walls.filter((w) => !w.isOuter)).toHaveLength(2);
+    // v (2 segments, split by h) + h (2 segments, split by v) = 4 divider walls.
+    expect(walls.filter((w) => !w.isOuter)).toHaveLength(4);
   });
 
-  it('extends a nested divider exactly to its parent divider centerline, not just its own leaf-rect edge', () => {
-    // Regression test: a divider's span must reach whatever it butts
-    // against (outer wall or ancestor divider) at that thing's centerline,
-    // not stop at the raw leaf-rect edge -- otherwise T/X junctions are
-    // never detected because the endpoints are half a thickness apart.
+  it('a removed segment produces NO wall segment -- that is the gap', () => {
     const colors = makeColors();
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'root',
+    const v: GridLine = {
+      id: 'v1',
       axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: {
-        kind: 'split',
-        id: 'left-split',
-        axis: 'y',
-        firstSize: 20,
-        dividerColorId: 'divider',
-        notches: [],
-        first: leaf('top-left'),
-        second: leaf('bottom-left'),
-      },
-      second: leaf('right'),
+      positionMm: 40,
+      colorId: 'divider',
+      segmentOverrides: [{ id: 'o1', start: edgeStart, end: edgeEnd, removed: true, colorId: null, notches: [] }],
     };
     const walls = extract({
-      zoneTree: root,
+      grid: { lines: [v] },
+      innerRect: { x: 0, y: 0, width: 100, height: 50 },
+      outerThickness: 4,
+      innerThickness: 2,
+      outerColorId: 'outer',
+      colors,
+    });
+
+    expect(walls.filter((w) => !w.isOuter)).toHaveLength(0);
+    expect(walls).toHaveLength(4); // outer walls unaffected
+  });
+
+  it('extends a segment bounded by another line exactly to that line centerline, not just the crossing coordinate', () => {
+    // Regression equivalent of the old tree-based "reach parent centerline" test:
+    // a segment's endpoint must land exactly on the bordering line's own
+    // centerline, otherwise JunctionClassifier's exact-point matching misses it.
+    const colors = makeColors();
+    const v: GridLine = { id: 'v1', axis: 'x', positionMm: 40, colorId: 'divider', segmentOverrides: [] };
+    const h: GridLine = { id: 'h1', axis: 'y', positionMm: 20, colorId: 'divider', segmentOverrides: [] };
+    const walls = extract({
+      grid: { lines: [v, h] },
       innerRect: { x: 0, y: 0, width: 100, height: 50 },
       outerThickness: 2,
       innerThickness: 2,
@@ -182,14 +150,10 @@ describe('WallExtractor.extract', () => {
     });
 
     const dividers = walls.filter((w) => !w.isOuter);
-    const rootDivider = dividers.find((w) => w.a.y !== w.b.y || w.a.x === w.b.x)!; // vertical
-    const nestedDivider = dividers.find((w) => w.a.y === w.b.y)!; // horizontal
-
-    // root divider centerline: x = 0 + 40 + 2/2 = 41.
-    expect(rootDivider.a.x).toBeCloseTo(41);
-    // nested divider's east endpoint must land exactly on that centerline.
-    const nestedEastX = Math.max(nestedDivider.a.x, nestedDivider.b.x);
-    expect(nestedEastX).toBeCloseTo(41);
+    // h1's endpoint toward v1 must land exactly on v1's centerline (x=40).
+    const hSegments = dividers.filter((w) => w.a.y === w.b.y);
+    const reachesV1 = hSegments.some((w) => Math.max(w.a.x, w.b.x) === 40 || Math.min(w.a.x, w.b.x) === 40);
+    expect(reachesV1).toBe(true);
   });
 
   it('gives every wall a deterministic id, stable across repeated extract() calls', () => {
@@ -198,29 +162,24 @@ describe('WallExtractor.extract', () => {
     // edit dialog -- must not go stale just because something unrelated
     // changed and triggered a recompute.
     const colors = makeColors();
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'split1',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: leaf('left'),
-      second: leaf('right'),
-    };
+    const line: GridLine = { id: 'v1', axis: 'x', positionMm: 40, colorId: 'divider', segmentOverrides: [] };
     const input = {
-      zoneTree: root,
+      grid: { lines: [line] },
       innerRect: { x: 0, y: 0, width: 100, height: 50 },
       outerThickness: 4,
       innerThickness: 2,
       outerColorId: 'outer',
       colors,
     };
-    const first = extract(input).map((w) => w.id).sort();
-    const second = extract(input).map((w) => w.id).sort();
+    const first = extract(input)
+      .map((w) => w.id)
+      .sort();
+    const second = extract(input)
+      .map((w) => w.id)
+      .sort();
     expect(second).toEqual(first);
     // The 4 outer walls specifically must be identifiable by side, not by
-    // an opaque generated id, since they never correspond to a split node.
+    // an opaque generated id, since they never correspond to a grid line.
     expect(first).toEqual(expect.arrayContaining(['outer-west', 'outer-east', 'outer-north', 'outer-south']));
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { GridLine } from '@/domain/models/Grid';
 import type { Project, ProjectConfig } from '@/domain/models/Project';
-import type { ZoneSplit } from '@/domain/models/Zone';
 import { buildExportFiles } from '../ExportPipeline';
 
 function baseConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
@@ -37,16 +37,7 @@ function baseConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
 
 describe('buildExportFiles', () => {
   it('produces one file per (thickness, page) with a descriptive filename', () => {
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'root',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: { kind: 'leaf', id: 'left' },
-      second: { kind: 'leaf', id: 'right' },
-    };
+    const line: GridLine = { id: 'v1', axis: 'x', positionMm: 40, colorId: 'divider', segmentOverrides: [] };
     const project: Project = {
       id: 'p1',
       name: 'My Box',
@@ -55,7 +46,7 @@ describe('buildExportFiles', () => {
         { id: 'outer', color: '#888', heightMm: 40 },
         { id: 'divider', color: '#f00', heightMm: 30 },
       ],
-      zoneTree: root,
+      grid: { lines: [line] },
     };
 
     const files = buildExportFiles(project);
@@ -79,7 +70,7 @@ describe('buildExportFiles', () => {
       name: 'Tiny Bed Box',
       config: baseConfig({ advanced: { ...baseConfig().advanced, laserBedX: 120, laserBedY: 100 } }),
       colors: [{ id: 'outer', color: '#888', heightMm: 40 }],
-      zoneTree: { kind: 'leaf', id: 'only' },
+      grid: { lines: [] },
     };
 
     const files = buildExportFiles(project);
@@ -92,7 +83,7 @@ describe('buildExportFiles', () => {
       name: 'Box: "special" / chars?',
       config: baseConfig(),
       colors: [{ id: 'outer', color: '#888', heightMm: 40 }],
-      zoneTree: { kind: 'leaf', id: 'only' },
+      grid: { lines: [] },
     };
     const files = buildExportFiles(project);
     expect(files.every((f) => !/["/:*?<>|\\]/.test(f.filename.replace(/\.svg$/, '')))).toBe(true);

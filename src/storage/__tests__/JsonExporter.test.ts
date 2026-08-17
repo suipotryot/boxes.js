@@ -18,7 +18,7 @@ function validProject() {
       shelf: null,
       advanced: {},
     },
-    zoneTree: { kind: 'leaf', id: 'z1' },
+    grid: { lines: [] },
   };
 }
 
@@ -46,8 +46,17 @@ describe('isValidProjectShape', () => {
     expect(isValidProjectShape({ ...validProject(), config: { foo: 'bar' } })).toBe(false);
   });
 
-  it('rejects a project with a non-object zoneTree', () => {
-    expect(isValidProjectShape({ ...validProject(), zoneTree: 'oops' })).toBe(false);
+  it('rejects a project with a non-object grid', () => {
+    expect(isValidProjectShape({ ...validProject(), grid: 'oops' })).toBe(false);
+  });
+
+  it('rejects a project whose grid.lines is not an array', () => {
+    expect(isValidProjectShape({ ...validProject(), grid: { lines: 'oops' } })).toBe(false);
+  });
+
+  it('rejects a pre-grid-model project (old zoneTree shape, no grid field)', () => {
+    const { grid: _grid, ...rest } = validProject();
+    expect(isValidProjectShape({ ...rest, zoneTree: { kind: 'leaf', id: 'z1' } })).toBe(false);
   });
 });
 

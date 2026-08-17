@@ -1,6 +1,6 @@
 import type { ColorEntry } from './ColorHeightRegistry';
+import type { DividerGrid } from './Grid';
 import type { ShelfConfig } from './Shelf';
-import type { ZoneNode } from './Zone';
 
 export interface DimensionSpec {
   value: number;
@@ -48,5 +48,5 @@ export interface Project {
   name: string;
   config: ProjectConfig;
   colors: ColorEntry[];
-  zoneTree: ZoneNode;
+  grid: DividerGrid;
 }

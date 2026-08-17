@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia';
 
+import type { Axis } from '@/domain/models/types';
+
 export type ActiveDialog =
   | { kind: 'newProject' }
-  | { kind: 'splitZone'; zoneId: string }
+  | { kind: 'addLine'; axis: Axis; positionMm: number }
   | { kind: 'edgeEdit'; wallId: string }
   | { kind: 'advancedOptions' }
   | { kind: 'recentProjects' }
@@ -16,8 +18,11 @@ export interface Viewport {
 }
 
 export interface UiState {
-  selectedZoneId: string | null;
   selectedEdgeId: string | null;
+  /** Non-null while the user has armed "add a line" mode from the sidebar
+   * -- the canvas then shows a ghost line following the cursor on this
+   * axis, and a click places it (opening AddLineDialog to confirm). */
+  linePlacementAxis: Axis | null;
   activeDialog: ActiveDialog;
   /** Hides the intermediate shelf/lid in the 3D view so the dividers
    * underneath stay visible -- see the plan's shelf-visibility decision. */
@@ -28,8 +33,8 @@ export interface UiState {
 
 export const useUiStore = defineStore('ui', {
   state: (): UiState => ({
-    selectedZoneId: null,
     selectedEdgeId: null,
+    linePlacementAxis: null,
     activeDialog: null,
     shelfVisible: true,
     showDimensions: false,
@@ -42,17 +47,17 @@ export const useUiStore = defineStore('ui', {
     closeDialog() {
       this.activeDialog = null;
     },
-    selectZone(zoneId: string | null) {
-      this.selectedZoneId = zoneId;
-      this.selectedEdgeId = null;
-    },
     selectEdge(wallId: string | null) {
       this.selectedEdgeId = wallId;
-      this.selectedZoneId = null;
     },
     clearSelection() {
-      this.selectedZoneId = null;
       this.selectedEdgeId = null;
+    },
+    /** Arms line-placement mode for `axis`, or disarms it if that axis is
+     * already armed (toggle, so the same sidebar button both starts and
+     * cancels placement). */
+    setLinePlacementAxis(axis: Axis | null) {
+      this.linePlacementAxis = this.linePlacementAxis === axis ? null : axis;
     },
     setViewport(viewport: Viewport) {
       this.viewport = viewport;

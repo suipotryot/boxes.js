@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { ColorHeightRegistry } from '../models/ColorHeightRegistry';
+import type { GridLine } from '../models/Grid';
 import type { ProjectConfig } from '../models/Project';
-import type { ZoneSplit } from '../models/Zone';
 import type { WallSegment } from '../models/WallSegment';
 import { classifyJunctions } from '../services/JunctionClassifier';
 import { buildWallPanel, wallLength } from '../services/PanelBuilder';
@@ -138,18 +138,11 @@ describe('buildWallPanel: single-split box (T-junctions at both ends of the divi
     { id: 'divider', color: '#f00', heightMm: 40 },
   ]);
   const config = baseConfig({ outerColorId: 'outer', hasBottom: true });
-  const root: ZoneSplit = {
-    kind: 'split',
-    id: 'root',
-    axis: 'x',
-    firstSize: 40,
-    dividerColorId: 'divider',
-    notches: [],
-    first: { kind: 'leaf', id: 'left' },
-    second: { kind: 'leaf', id: 'right' },
-  };
+  // centerX = firstSize(40) + innerThickness/2(1) = 41, matching the old
+  // tree model's split geometry exactly for this config.
+  const line: GridLine = { id: 'v1', axis: 'x', positionMm: 41, colorId: 'divider', segmentOverrides: [] };
   const walls = extract({
-    zoneTree: root,
+    grid: { lines: [line] },
     innerRect: { x: 0, y: 0, width: 100, height: 50 },
     outerThickness: config.outerThickness,
     innerThickness: config.innerThickness,
@@ -213,18 +206,9 @@ describe('buildWallPanel: compound edge protrusion depth', () => {
       { id: 'divider', color: '#f00', heightMm: 60 },
     ]);
     const config = baseConfig({ outerColorId: 'outer', outerThickness: 5, innerThickness: 2, hasBottom: true });
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'root',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: { kind: 'leaf', id: 'left' },
-      second: { kind: 'leaf', id: 'right' },
-    };
+    const line: GridLine = { id: 'v1', axis: 'x', positionMm: 41, colorId: 'divider', segmentOverrides: [] };
     const walls = extract({
-      zoneTree: root,
+      grid: { lines: [line] },
       innerRect: { x: 0, y: 0, width: 100, height: 50 },
       outerThickness: config.outerThickness,
       innerThickness: config.innerThickness,
@@ -245,58 +229,28 @@ describe('buildWallPanel: compound edge protrusion depth', () => {
 
 describe('buildWallPanel: X-crossing half-lap notch', () => {
   it('carves a notch of depth min(heightA, heightB)/2 into the through-wall, from either its top or its bottom', () => {
-    const colors = new ColorHeightRegistry([
-      { id: 'outer', color: '#888', heightMm: 60 },
-      { id: 'divider', color: '#f00', heightMm: 40 },
-    ]);
+    // NOTE: under the grid-line divider model, a grid line is always cut
+    // into separate wall segments at EVERY point a perpendicular line
+    // crosses it (see WallExtractor/GridDivider) -- so WallExtractor's
+    // own output can no longer produce a wall that passes through an
+    // interior crossing point uncut (which is what findXCrossingNotches
+    // requires: junction strictly interior to the wall's own u-span, not
+    // at one of its own endpoints). That scenario was only reachable in
+    // the old recursive-split model, where a sibling divider confined to
+    // half the box could touch a longer, uncut ancestor divider's face
+    // without cutting it. The half-lap notch mechanism itself is still
+    // intact code (unchanged), so this test exercises it directly against
+    // a hand-built WallSegment[] -- mirroring how JunctionClassifier's own
+    // X-crossing test constructs walls -- rather than through extract().
     const config = baseConfig({ outerColorId: 'outer', hasBottom: true });
-    // Root x-split at 40; both children get a y-split at the same offset (20)
-    // so their dividers are collinear and meet nose-to-nose against the
-    // root divider -> a genuine X-crossing on the root divider.
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'root',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: {
-        kind: 'split',
-        id: 'left-split',
-        axis: 'y',
-        firstSize: 20,
-        dividerColorId: 'divider',
-        notches: [],
-        first: { kind: 'leaf', id: 'top-left' },
-        second: { kind: 'leaf', id: 'bottom-left' },
-      },
-      second: {
-        kind: 'split',
-        id: 'right-split',
-        axis: 'y',
-        firstSize: 20,
-        dividerColorId: 'divider',
-        notches: [],
-        first: { kind: 'leaf', id: 'top-right' },
-        second: { kind: 'leaf', id: 'bottom-right' },
-      },
-    };
-    const walls = extract({
-      zoneTree: root,
-      innerRect: { x: 0, y: 0, width: 100, height: 100 },
-      outerThickness: config.outerThickness,
-      innerThickness: config.innerThickness,
-      outerColorId: config.outerColorId,
-      colors,
-    });
+    const rootDivider: WallSegment = { id: 'root', a: { x: 41, y: -2 }, b: { x: 41, y: 102 }, height: 40, thickness: 2, isOuter: false, colorId: 'divider', notches: [] };
+    const da: WallSegment = { id: 'da', a: { x: -2, y: 21 }, b: { x: 41, y: 21 }, height: 40, thickness: 2, isOuter: false, colorId: 'divider', notches: [] };
+    const db: WallSegment = { id: 'db', a: { x: 41, y: 21 }, b: { x: 102, y: 21 }, height: 40, thickness: 2, isOuter: false, colorId: 'divider', notches: [] };
+    const walls = [rootDivider, da, db];
     const junctions = classifyJunctions(walls);
-    // The root divider is the one spanning the full height (the "through" wall).
-    const rootDivider = walls
-      .filter((w) => !w.isOuter)
-      .reduce((a, b) => (wallLength(a) > wallLength(b) ? a : b));
 
     const panel = buildWallPanel(rootDivider, walls, junctions, config);
-    const expectedDepth = 40 / 2; // min(40,40)/2, both dividers are height 40
+    const expectedDepth = 40 / 2; // min(40,40)/2, both siblings are height 40
 
     // A notch is a *localized* dip -- it won't move the overall bounding
     // box if the rest of that edge still reaches the extreme elsewhere, so
@@ -327,27 +281,18 @@ describe('buildWallPanel: outline closes cleanly when a wall is taller than a ne
       { id: 'tall', color: '#f00', heightMm: 55 },
     ]);
     const config = baseConfig({ outerColorId: 'outer', hasBottom: true });
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'root',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'short',
-      notches: [],
-      first: { kind: 'leaf', id: 'left' },
-      second: {
-        kind: 'split',
-        id: 'right-split',
-        axis: 'y',
-        firstSize: 20,
-        dividerColorId: 'tall',
-        notches: [],
-        first: { kind: 'leaf', id: 'top-right' },
-        second: { kind: 'leaf', id: 'bottom-right' },
-      },
-    };
+    // v1 (short, height 40) and h1 (tall, height 55) cross at x=41; h1 gets
+    // cut into 2 segments there (every grid line is cut at every crossing
+    // -- see WallExtractor). The segment starting AT that crossing (its own
+    // u=0 / 'left' end) is the one whose left-end comb butts a shorter
+    // neighbour (combHeight = min(55,40) = 40 < 55) -- exactly the
+    // regression condition (the old bug was specific to the 'left' side's
+    // double-reversal, so it must be exercised there, not just anywhere
+    // height===55 happens to appear).
+    const v1: GridLine = { id: 'v1', axis: 'x', positionMm: 41, colorId: 'short', segmentOverrides: [] };
+    const h1: GridLine = { id: 'h1', axis: 'y', positionMm: 21, colorId: 'tall', segmentOverrides: [] };
     const walls = extract({
-      zoneTree: root,
+      grid: { lines: [v1, h1] },
       innerRect: { x: 0, y: 0, width: 100, height: 100 },
       outerThickness: config.outerThickness,
       innerThickness: config.innerThickness,
@@ -355,10 +300,7 @@ describe('buildWallPanel: outline closes cleanly when a wall is taller than a ne
       colors,
     });
     const junctions = classifyJunctions(walls);
-    // The child divider (height 55) butts its left end against the root
-    // divider (height 40) -> combHeight = min(55, 40) = 40 < 55, exactly
-    // the condition that exposes the bug.
-    const childDivider = walls.find((w) => !w.isOuter && w.height === 55)!;
+    const childDivider = walls.find((w) => !w.isOuter && w.height === 55 && Math.abs(w.a.x - 41) < 1e-6)!;
 
     const panel = buildWallPanel(childDivider, walls, junctions, config);
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { ColorHeightRegistry } from '../models/ColorHeightRegistry';
+import type { GridLine } from '../models/Grid';
 import type { FingerJointSettings } from '../models/Project';
-import type { ZoneSplit } from '../models/Zone';
 import { buildBasePlate } from '../services/BasePlateBuilder';
 import { fingerEdgePath, withMinMargin } from '../services/FingerJoint';
 import { extract } from '../services/WallExtractor';
@@ -23,7 +23,7 @@ describe('buildBasePlate', () => {
   it('returns null when hasBottom is false', () => {
     const colors = new ColorHeightRegistry([{ id: 'outer', color: '#888', heightMm: 60 }]);
     const walls = extract({
-      zoneTree: { kind: 'leaf', id: 'only' },
+      grid: { lines: [] },
       innerRect: { x: 0, y: 0, width: 100, height: 50 },
       outerThickness: 4,
       innerThickness: 2,
@@ -40,18 +40,9 @@ describe('buildBasePlate', () => {
     ]);
     const innerRect = { x: 0, y: 0, width: 100, height: 50 };
     const outerThickness = 4;
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'root',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: { kind: 'leaf', id: 'left' },
-      second: { kind: 'leaf', id: 'right' },
-    };
+    const line: GridLine = { id: 'v1', axis: 'x', positionMm: 41, colorId: 'divider', segmentOverrides: [] };
     const walls = extract({
-      zoneTree: root,
+      grid: { lines: [line] },
       innerRect,
       outerThickness,
       innerThickness: 2,

@@ -8,7 +8,7 @@ import EdgeEditDialog from '@/components/dialogs/EdgeEditDialog.vue';
 import NewProjectDialog from '@/components/dialogs/NewProjectDialog.vue';
 import RecentProjectsDialog from '@/components/dialogs/RecentProjectsDialog.vue';
 import Scene3DPanel from '@/components/Scene3DPanel.vue';
-import SplitZoneDialog from '@/components/dialogs/SplitZoneDialog.vue';
+import AddLineDialog from '@/components/dialogs/AddLineDialog.vue';
 import type { NewProjectInput } from '@/domain/services/ProjectFactory';
 import { exportProject } from '@/svgexport/ExportPipeline';
 import { exportProjectAsJson, importProjectFromFile } from '@/storage/JsonExporter';
@@ -126,7 +126,7 @@ async function onImportChange(event: Event): Promise<void> {
     </template>
     <NewProjectDialog v-else-if="uiStore.activeDialog?.kind === 'newProject'" @create="onCreateProject" />
     <RecentProjectsDialog v-if="projectStore.project && uiStore.activeDialog?.kind === 'recentProjects'" />
-    <SplitZoneDialog v-if="uiStore.activeDialog?.kind === 'splitZone'" :zone-id="uiStore.activeDialog.zoneId" />
+    <AddLineDialog v-if="uiStore.activeDialog?.kind === 'addLine'" :axis="uiStore.activeDialog.axis" :position-mm="uiStore.activeDialog.positionMm" />
     <EdgeEditDialog v-if="uiStore.activeDialog?.kind === 'edgeEdit'" :wall-id="uiStore.activeDialog.wallId" />
     <AdvancedOptionsPanel v-if="uiStore.activeDialog?.kind === 'advancedOptions'" />
   </div>

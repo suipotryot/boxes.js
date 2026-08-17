@@ -9,16 +9,15 @@ export interface CanvasManagerOptions {
 }
 
 /**
- * Owns the Konva.Stage and its layers. Layer order (back to front) matches
- * the plan: background (outer contour) -> zones (split targets) -> walls
- * (edit targets, on top so hit-testing distinguishes "clicked a wall" from
- * "clicked empty zone" natively) -> dimensions (togglable) -> interaction
- * (hover/selection highlight).
+ * Owns the Konva.Stage and its layers. Layer order (back to front):
+ * background (outer contour) -> placement (line-placement ghost preview) ->
+ * walls (click/drag targets, on top so hit-testing prioritizes them) ->
+ * dimensions (togglable) -> interaction (hover/selection highlight).
  */
 export class CanvasManager {
   readonly stage: Konva.Stage;
   readonly backgroundLayer: Konva.Layer;
-  readonly zoneLayer: Konva.Layer;
+  readonly placementLayer: Konva.Layer;
   readonly wallLayer: Konva.Layer;
   readonly dimensionLayer: Konva.Layer;
   readonly interactionLayer: Konva.Layer;
@@ -35,11 +34,11 @@ export class CanvasManager {
     });
 
     this.backgroundLayer = new Konva.Layer();
-    this.zoneLayer = new Konva.Layer();
+    this.placementLayer = new Konva.Layer();
     this.wallLayer = new Konva.Layer();
     this.dimensionLayer = new Konva.Layer();
     this.interactionLayer = new Konva.Layer();
-    this.stage.add(this.backgroundLayer, this.zoneLayer, this.wallLayer, this.dimensionLayer, this.interactionLayer);
+    this.stage.add(this.backgroundLayer, this.placementLayer, this.wallLayer, this.dimensionLayer, this.interactionLayer);
 
     this.wireZoomPan();
   }

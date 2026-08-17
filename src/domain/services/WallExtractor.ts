@@ -1,11 +1,11 @@
 import type { ColorHeightRegistry } from '../models/ColorHeightRegistry';
+import type { DividerGrid, LineNeighborRef } from '../models/Grid';
 import type { Rect } from '../models/types';
-import type { ZoneNode, ZoneSplit } from '../models/Zone';
 import type { WallSegment } from '../models/WallSegment';
-import { type BoundaryKind, type BoundarySides, computeBoundarySides, computeZoneRects } from './ZoneTree';
+import { computeLineSegments, segmentWallId } from './GridDivider';
 
 export interface WallExtractorInput {
-  zoneTree: ZoneNode;
+  grid: DividerGrid;
   /** Inner cavity rect (inside the outer walls' inner face). */
   innerRect: Rect;
   outerThickness: number;
@@ -15,54 +15,68 @@ export interface WallExtractorInput {
 }
 
 /**
- * Flattens the ZoneNode tree into absolute WallSegments: the 4 outer walls
- * plus one divider wall per ZoneSplit. Wall ids are deterministic (fixed
- * 'outer-*' ids for the 4 sides, `divider-${split.id}` for dividers) rather
- * than freshly random each call -- extract() reruns on every project
- * mutation via a Pinia getter, and anything holding onto a wall id across
- * renders (selection state, an open edit dialog) would otherwise go stale
- * the instant an unrelated part of the project changed.
+ * Flattens the grid model into absolute WallSegments: the 4 outer walls
+ * plus one WallSegment per PRESENT segment of every grid line. Wall ids are
+ * deterministic (fixed 'outer-*' ids for the 4 sides, `segmentWallId(...)`
+ * for dividers) rather than freshly random each call -- extract() reruns on
+ * every project mutation via a Pinia getter, and anything holding onto a
+ * wall id across renders (selection state, an open edit dialog) would
+ * otherwise go stale the instant an unrelated part of the project changed.
  *
- * Every wall is represented by its
- * *centerline* -- outer walls included, inset outerThickness/2 in from the
- * true outer envelope -- so that two perpendicular walls always meet
- * endpoint-to-endpoint at a shared point, letting outer-wall corners reuse
- * the same compound-edge corner-joint handling as divider wall ends.
+ * Every wall is represented by its *centerline* -- outer walls included,
+ * inset outerThickness/2 in from the true outer envelope -- so that two
+ * perpendicular walls always meet endpoint-to-endpoint at a shared point,
+ * letting JunctionClassifier match junctions by exact point coincidence.
  *
- * A divider's own leaf/split rect only extends to the *edge* of the gap
- * it borders (see ZoneTree.computeZoneRects), not to the centerline of
- * whatever occupies that gap -- so each divider span is grown by half the
- * bordering thickness on every side, using computeBoundarySides to know
- * whether that side borders the outer wall (outerThickness/2) or an
- * ancestor's divider (innerThickness/2). Without this, a divider's endpoint
- * would sit half a thickness short of the wall it butts against, and
- * JunctionClassifier's exact-point matching would silently miss the joint.
+ * A segment's `startMm`/`endMm` (from computeLineSegments) already land
+ * exactly on the bordering line's own centerline when the boundary is
+ * another line -- computeAxisBoundaries records that line's own positionMm
+ * directly. Only a boundary against the box's own edge needs extending, by
+ * outerThickness/2, since the inner rect's edge sits that much short of the
+ * outer wall's centerline. This is simpler than the old tree-based
+ * computeBoundarySides pass: a segment already carries the nature of both
+ * its own boundaries via its start/end LineNeighborRef, no separate
+ * side-annotation walk needed.
  */
 export function extract(input: WallExtractorInput): WallSegment[] {
-  const { zoneTree, innerRect, outerThickness, innerThickness, outerColorId, colors } = input;
+  const { grid, innerRect, outerThickness, innerThickness, outerColorId, colors } = input;
 
   const walls: WallSegment[] = [...buildOuterWalls(innerRect, outerThickness, outerColorId, colors)];
 
-  const zoneRects = computeZoneRects(zoneTree, innerRect, innerThickness);
-  const boundarySides = computeBoundarySides(zoneTree);
-  for (const split of collectSplits(zoneTree)) {
-    const rect = zoneRects.get(split.id);
-    const sides = boundarySides.get(split.id);
-    if (!rect || !sides) {
-      throw new Error(`Missing computed rect/boundary for split ${split.id}`);
+  for (const line of grid.lines) {
+    for (const segment of computeLineSegments(line, grid.lines, innerRect)) {
+      if (segment.removed) {
+        continue; // an absent segment simply produces no wall -- that IS the gap.
+      }
+      const height = colors.getHeight(segment.colorId);
+      // A 'line' boundary's offsetMm IS the bordering line's own centerline
+      // already (computeAxisBoundaries records each crossing line's own
+      // positionMm) -- no extension needed there. Only an 'edge' boundary
+      // needs extending, since offsetMm there is the INNER rect's own edge,
+      // outerThickness/2 short of the outer wall's centerline.
+      const extend = (ref: LineNeighborRef): number => (ref.kind === 'edge' ? outerThickness / 2 : 0);
+      const u0 = segment.startMm - extend(segment.start);
+      const u1 = segment.endMm + extend(segment.end);
+      const base: Omit<WallSegment, 'a' | 'b'> = {
+        id: segmentWallId(line.id, segment.start, segment.end),
+        height,
+        thickness: innerThickness,
+        isOuter: false,
+        colorId: segment.colorId,
+        notches: segment.notches,
+      };
+      walls.push(
+        line.axis === 'x'
+          ? { ...base, a: { x: innerRect.x + line.positionMm, y: innerRect.y + u0 }, b: { x: innerRect.x + line.positionMm, y: innerRect.y + u1 } }
+          : { ...base, a: { x: innerRect.x + u0, y: innerRect.y + line.positionMm }, b: { x: innerRect.x + u1, y: innerRect.y + line.positionMm } },
+      );
     }
-    walls.push(buildDividerWall(split, rect, sides, outerThickness, innerThickness, colors));
   }
 
   return walls;
 }
 
-function buildOuterWalls(
-  innerRect: Rect,
-  outerThickness: number,
-  outerColorId: string,
-  colors: ColorHeightRegistry,
-): WallSegment[] {
+function buildOuterWalls(innerRect: Rect, outerThickness: number, outerColorId: string, colors: ColorHeightRegistry): WallSegment[] {
   const half = outerThickness / 2;
   const cx = innerRect.x - half;
   const cy = innerRect.y - half;
@@ -87,42 +101,4 @@ function buildOuterWalls(
     make('outer-north', { x: cx, y: cy }, { x: cx + cw, y: cy }),
     make('outer-south', { x: cx, y: cy + ch }, { x: cx + cw, y: cy + ch }),
   ];
-}
-
-function buildDividerWall(
-  split: ZoneSplit,
-  rect: Rect,
-  sides: BoundarySides,
-  outerThickness: number,
-  innerThickness: number,
-  colors: ColorHeightRegistry,
-): WallSegment {
-  const height = colors.getHeight(split.dividerColorId);
-  const base: Omit<WallSegment, 'a' | 'b'> = {
-    id: `divider-${split.id}`,
-    height,
-    thickness: innerThickness,
-    isOuter: false,
-    colorId: split.dividerColorId,
-    notches: split.notches,
-  };
-  const extent = (side: BoundaryKind): number => (side === 'outer' ? outerThickness / 2 : innerThickness / 2);
-
-  if (split.axis === 'x') {
-    const centerX = rect.x + split.firstSize + innerThickness / 2;
-    const y0 = rect.y - extent(sides.north);
-    const y1 = rect.y + rect.height + extent(sides.south);
-    return { ...base, a: { x: centerX, y: y0 }, b: { x: centerX, y: y1 } };
-  }
-  const centerY = rect.y + split.firstSize + innerThickness / 2;
-  const x0 = rect.x - extent(sides.west);
-  const x1 = rect.x + rect.width + extent(sides.east);
-  return { ...base, a: { x: x0, y: centerY }, b: { x: x1, y: centerY } };
-}
-
-function collectSplits(node: ZoneNode): ZoneSplit[] {
-  if (node.kind === 'leaf') {
-    return [];
-  }
-  return [node, ...collectSplits(node.first), ...collectSplits(node.second)];
 }

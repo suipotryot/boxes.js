@@ -1,24 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
+import type { GridLine } from '../models/Grid';
 import type { Project } from '../models/Project';
-import type { ZoneSplit } from '../models/Zone';
 import { canSetColorHeight, canSetShelfHeight } from '../services/HeightConstraints';
 
 function project(overrides: Partial<Project> = {}): Project {
-  const tree: ZoneSplit = {
-    kind: 'split',
-    id: 'root',
-    axis: 'x',
-    firstSize: 40,
-    dividerColorId: 'divider',
-    notches: [],
-    first: { kind: 'leaf', id: 'left' },
-    second: { kind: 'leaf', id: 'right' },
-  };
+  const line: GridLine = { id: 'v1', axis: 'x', positionMm: 40, colorId: 'divider', segmentOverrides: [] };
   return {
     id: 'p1',
     name: 'Test',
-    zoneTree: tree,
+    grid: { lines: [line] },
     colors: [
       { id: 'outer', color: '#888', heightMm: 60 },
       { id: 'divider', color: '#f00', heightMm: 30 },
@@ -80,6 +71,37 @@ describe('canSetColorHeight', () => {
     const p = project();
     expect(canSetColorHeight(p, 'unused-color', 1000)).toBe(true);
   });
+
+  it('a color used only by a segment override (not the line default) still constrains', () => {
+    const line: GridLine = {
+      id: 'v1',
+      axis: 'x',
+      positionMm: 40,
+      colorId: 'divider',
+      segmentOverrides: [{ id: 'o1', start: { kind: 'edge', side: 'start' }, end: { kind: 'edge', side: 'end' }, removed: false, colorId: 'segment-only', notches: [] }],
+    };
+    const p = project({
+      grid: { lines: [line] },
+      colors: [...project().colors, { id: 'segment-only', color: '#0f0', heightMm: 30 }],
+    });
+    expect(canSetColorHeight(p, 'segment-only', 36)).toBe(false);
+    expect(canSetColorHeight(p, 'segment-only', 35)).toBe(true);
+  });
+
+  it('a color only present on a REMOVED segment does not constrain', () => {
+    const line: GridLine = {
+      id: 'v1',
+      axis: 'x',
+      positionMm: 40,
+      colorId: 'divider',
+      segmentOverrides: [{ id: 'o1', start: { kind: 'edge', side: 'start' }, end: { kind: 'edge', side: 'end' }, removed: true, colorId: 'gone', notches: [] }],
+    };
+    const p = project({
+      grid: { lines: [line] },
+      colors: [...project().colors, { id: 'gone', color: '#00f', heightMm: 30 }],
+    });
+    expect(canSetColorHeight(p, 'gone', 1000)).toBe(true);
+  });
 });
 
 describe('canSetShelfHeight', () => {
@@ -94,8 +116,24 @@ describe('canSetShelfHeight', () => {
     expect(canSetShelfHeight(p, 100)).toBe(true);
   });
 
-  it('allows any height when there are no dividers yet', () => {
-    const p = project({ zoneTree: { kind: 'leaf', id: 'only' } });
+  it('allows any height when there are no lines yet', () => {
+    const p = project({ grid: { lines: [] } });
     expect(canSetShelfHeight(p, 0)).toBe(true);
+  });
+
+  it('a taller segment override raises the tallest-height bound above the line default', () => {
+    const line: GridLine = {
+      id: 'v1',
+      axis: 'x',
+      positionMm: 40,
+      colorId: 'divider', // heightMm 30
+      segmentOverrides: [{ id: 'o1', start: { kind: 'edge', side: 'start' }, end: { kind: 'edge', side: 'end' }, removed: false, colorId: 'taller', notches: [] }],
+    };
+    const p = project({
+      grid: { lines: [line] },
+      colors: [...project().colors, { id: 'taller', color: '#0f0', heightMm: 50 }],
+    });
+    expect(canSetShelfHeight(p, 49)).toBe(false);
+    expect(canSetShelfHeight(p, 50)).toBe(true);
   });
 });

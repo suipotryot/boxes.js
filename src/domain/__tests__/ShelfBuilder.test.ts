@@ -39,7 +39,7 @@ function baseConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
 const innerRect = { x: 0, y: 0, width: 100, height: 50 };
 const colors = new ColorHeightRegistry([{ id: 'outer', color: '#888', heightMm: 60 }]);
 const outerWalls = extract({
-  zoneTree: { kind: 'leaf', id: 'only' },
+  grid: { lines: [] },
   innerRect,
   outerThickness: 4,
   innerThickness: 2,

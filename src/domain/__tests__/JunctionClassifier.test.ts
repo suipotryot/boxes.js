@@ -98,6 +98,36 @@ describe('classifyJunctions', () => {
     // presence at this point is silently lost rather than tracked.
     expect(info.north).toEqual({ segmentId: 'w3' });
   });
+
+  it('GRID MODEL: 3 present segments along one line, crossed by 2 perpendicular lines, never collide (no known-limitation trigger)', () => {
+    // Under the grid-line model (GridDivider.ts), a single vertical line
+    // spanning the whole box and crossed by 2 horizontal lines produces
+    // exactly this shape: 3 wall segments along the vertical line (vA, vB,
+    // vC), each horizontal line itself split into 2 segments by the
+    // vertical line (h1L/h1R, h2L/h2R). At each crossing point, only ONE
+    // line per axis can ever be at that exact coordinate (MIN_GRID_SPACING_MM
+    // forbids two same-axis lines from sharing a position), so at most one
+    // wall segment contributes per side -- the "3+ unrelated segments on the
+    // same side" limitation structurally cannot trigger here.
+    const vA = wall('vA', { x: 50, y: 0 }, { x: 50, y: 30 });
+    const vB = wall('vB', { x: 50, y: 30 }, { x: 50, y: 70 });
+    const vC = wall('vC', { x: 50, y: 70 }, { x: 50, y: 100 });
+    const h1L = wall('h1L', { x: 0, y: 30 }, { x: 50, y: 30 });
+    const h1R = wall('h1R', { x: 50, y: 30 }, { x: 100, y: 30 });
+    const h2L = wall('h2L', { x: 0, y: 70 }, { x: 50, y: 70 });
+    const h2R = wall('h2R', { x: 50, y: 70 }, { x: 100, y: 70 });
+
+    const junctions = classifyJunctions([vA, vB, vC, h1L, h1R, h2L, h2R]);
+
+    const at30 = junctions.get(pointKey({ x: 50, y: 30 }))!;
+    expect(at30).toEqual({ point: { x: 50, y: 30 }, north: { segmentId: 'vA' }, south: { segmentId: 'vB' }, east: { segmentId: 'h1R' }, west: { segmentId: 'h1L' } });
+    expect(junctionDegreeForWall(at30, vA)).toBe(2); // full X-crossing: vA/vB continue through, h1L/h1R continue through
+    expect(junctionDegreeForWall(at30, h1L)).toBe(2);
+
+    const at70 = junctions.get(pointKey({ x: 50, y: 70 }))!;
+    expect(at70).toEqual({ point: { x: 50, y: 70 }, north: { segmentId: 'vB' }, south: { segmentId: 'vC' }, east: { segmentId: 'h2R' }, west: { segmentId: 'h2L' } });
+    expect(junctionDegreeForWall(at70, vC)).toBe(2);
+  });
 });
 
 describe('junctionDegreeForWall', () => {

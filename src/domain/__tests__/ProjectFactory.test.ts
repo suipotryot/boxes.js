@@ -21,9 +21,9 @@ describe('createNewProject', () => {
     expect(project.config.outerColorId).toBe(project.colors[0]!.id);
   });
 
-  it('starts with an empty zone tree (single leaf, no splits)', () => {
+  it('starts with an empty divider grid (no lines yet)', () => {
     const project = createNewProject(input);
-    expect(project.zoneTree.kind).toBe('leaf');
+    expect(project.grid.lines).toEqual([]);
   });
 
   it('carries the dimensions and thicknesses through unchanged', () => {

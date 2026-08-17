@@ -11,7 +11,7 @@ import { extract } from './WallExtractor';
 /**
  * Orchestrates the full pipeline from project state to the flat list of
  * panels consumed by the 2D canvas, the 3D view, and SVG export alike:
- * resolve the inner cavity rect -> flatten the zone tree into walls ->
+ * resolve the inner cavity rect -> flatten the divider grid into walls ->
  * classify their junctions -> build every wall panel, the base plate, and
  * the shelf. Meant to be called once per project mutation (e.g. behind a
  * Pinia computed), not independently by each consumer.
@@ -21,7 +21,7 @@ export function generatePanels(project: Project): Panel[] {
   const innerRect = resolveInnerRect(project.config);
 
   const walls = extract({
-    zoneTree: project.zoneTree,
+    grid: project.grid,
     innerRect,
     outerThickness: project.config.outerThickness,
     innerThickness: project.config.innerThickness,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { GridLine } from '../models/Grid';
 import type { Project, ProjectConfig } from '../models/Project';
-import type { ZoneSplit } from '../models/Zone';
 import { generatePanels, resolveInnerRect } from '../services/ProjectGenerator';
 
 function baseConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
@@ -56,7 +56,7 @@ describe('generatePanels', () => {
       name: 'Test',
       config: baseConfig(),
       colors: [{ id: 'outer', color: '#888', heightMm: 60 }],
-      zoneTree: { kind: 'leaf', id: 'only' },
+      grid: { lines: [] },
     };
     const panels = generatePanels(project);
 
@@ -67,17 +67,8 @@ describe('generatePanels', () => {
     expect(panels.every((p) => p.outline.length >= 4)).toBe(true);
   });
 
-  it('adds one dividerWall panel per split, and skips the base plate when hasBottom is false', () => {
-    const root: ZoneSplit = {
-      kind: 'split',
-      id: 'root',
-      axis: 'x',
-      firstSize: 40,
-      dividerColorId: 'divider',
-      notches: [],
-      first: { kind: 'leaf', id: 'left' },
-      second: { kind: 'leaf', id: 'right' },
-    };
+  it('adds one dividerWall panel per line segment, and skips the base plate when hasBottom is false', () => {
+    const line: GridLine = { id: 'v1', axis: 'x', positionMm: 40, colorId: 'divider', segmentOverrides: [] };
     const project: Project = {
       id: 'p1',
       name: 'Test',
@@ -86,7 +77,7 @@ describe('generatePanels', () => {
         { id: 'outer', color: '#888', heightMm: 60 },
         { id: 'divider', color: '#f00', heightMm: 40 },
       ],
-      zoneTree: root,
+      grid: { lines: [line] },
     };
     const panels = generatePanels(project);
 
@@ -100,7 +91,7 @@ describe('generatePanels', () => {
       name: 'Test',
       config: baseConfig({ shelf: { heightMm: 20, mode: 'removable' } }),
       colors: [{ id: 'outer', color: '#888', heightMm: 60 }],
-      zoneTree: { kind: 'leaf', id: 'only' },
+      grid: { lines: [] },
     };
     const panels = generatePanels(project);
 
