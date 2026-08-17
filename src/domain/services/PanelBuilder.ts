@@ -186,7 +186,31 @@ function buildEndEdge(
   if (combHeight > 0) {
     const segments = fingerEdgePath(combHeight, fingerSettings, startWithFinger);
     for (const segment of segments) {
-      const outward = segment.kind === 'finger' ? protrusionDepth : 0;
+      // A 'finger' band must reach all the way through the mate's full
+      // thickness (its own centerline reach + protrusionDepth = the
+      // mate's far face) to interlock cleanly. A 'space' band (the
+      // alternating comb interior) must retreat the SAME distance the
+      // OTHER way -- to the mate's *near* face, not stop at its
+      // centerline -- leaving the mate's entire thickness open there for
+      // its own complementary-phase finger. Reaching only to the
+      // centerline for space bands (i.e. `outward = 0`, the previous
+      // behavior) left a permanent thisWall.thickness/2 x
+      // mate.thickness/2 sliver double-claimed by BOTH walls at every
+      // single junction, regardless of finger/space phase -- not an edge
+      // case, a standing collision at every corner.
+      //
+      // 'flush' (the closing margin at each end of the comb, see
+      // fingerEdgePath's own docstring) is deliberately NOT retracted: per
+      // its own contract it's "uncut material on both sides, not a joint
+      // feature" -- a small solid corner block both mating edges agree on,
+      // always sized identically, so it doesn't need to leave room for a
+      // complementary tooth the way a space band does. It also always sits
+      // at each end of the comb, so it's what buildTopEdge's/
+      // buildBottomEdge's own flat spans (u=0..length, unaware of any of
+      // this) actually connect to -- retracting it here would reopen the
+      // exact "spurious jump across the comb" bug this end-edge code was
+      // already fixed for once.
+      const outward = segment.kind === 'finger' ? protrusionDepth : segment.kind === 'space' ? -protrusionDepth : 0;
       const u = side === 'right' ? length + outward : -outward;
       points.push({ x: u, y: segment.start });
       points.push({ x: u, y: segment.start + segment.length });
@@ -195,7 +219,14 @@ function buildEndEdge(
     points.push({ x: side === 'right' ? length : 0, y: 0 });
   }
   if (wall.height > combHeight) {
-    points.push({ x: side === 'right' ? length : 0, y: wall.height });
+    // Continue straight up from wherever the comb's last band actually
+    // left off (retracted for space/flush, protruding for finger) -- not a
+    // fresh `length`/`0`, which would jump back out to the centerline and
+    // splice a spurious diagonal/straight segment across the comb whenever
+    // the last band wasn't a bare centerline reach (see the "outline
+    // closes cleanly" regression test).
+    const lastU = points.at(-1)?.x ?? (side === 'right' ? length : 0);
+    points.push({ x: lastU, y: wall.height });
   }
 
   // Left edge is traversed top-to-bottom in the outline; bottom edge starts

@@ -15,6 +15,23 @@ export function panelToMesh(panel: Panel, colorHex: string): THREE.Mesh {
   const shape = buildShape(panel.outline, panel.holes);
   const geometry = new THREE.ExtrudeGeometry(shape, { depth: panel.materialThickness, bevelEnabled: false });
   const material = new THREE.MeshStandardMaterial({ color: colorHex, side: THREE.DoubleSide });
+
+  // ExtrudeGeometry extrudes a flat shape from local Z=0 to Z=depth --
+  // entirely to one side. basePlate/shelf outlines are genuinely meant to
+  // sit ON their own Z origin (the floor, or the shelf height) and extend
+  // upward, so that's correct as-is. But wall.a/wall.b (a wall panel's own
+  // placement3d.origin) is documented everywhere as the wall's CENTERLINE
+  // -- the 2D canvas draws it centered (WallRenderer's offsetY:
+  // thickness/2) -- so a wall's mesh must be re-centered here too, or its
+  // actual material sits shifted a full half-thickness off that centerline
+  // while every hole cut for it elsewhere (BasePlateBuilder's
+  // bottomFingerHoles, sized symmetrically around the same centerline)
+  // stays put -- exposing a half-thickness sliver of whatever is
+  // behind/below through each hole instead of the tooth fully plugging it.
+  if (!HORIZONTAL_KINDS.has(panel.kind)) {
+    geometry.translate(0, 0, -panel.materialThickness / 2);
+  }
+
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = panel.id;
 

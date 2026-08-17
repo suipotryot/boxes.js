@@ -55,14 +55,20 @@ export function fingerEdgePath(length: number, settings: FingerJointSettings, st
 
 /**
  * Positions of the finger-shaped holes to cut into a carrying wall's face
- * for a T-junction: reuses the entering wall's own comb pattern (which
- * always starts with a finger at its tip) and keeps only the finger spans,
- * since a hole is only needed where the entering wall actually has
- * material to insert.
+ * for a T-junction: reuses the entering wall's own comb pattern and keeps
+ * the 'finger' AND 'flush' (margin) spans, since PanelBuilder.buildEndEdge
+ * protrudes the entering wall's material fully through the carrying wall
+ * at BOTH of those (only a genuine 'space' band retreats to the near face,
+ * with nothing to cut a hole for). A carrying wall isn't itself "ending"
+ * at a T-junction the way two walls both terminating into a corner are --
+ * there's no complementary wall to share an unpunched margin block with --
+ * so leaving 'flush' bands out of the hole set (as an earlier version of
+ * this did) left the entering wall's margin material colliding with solid,
+ * uncut material there instead of passing cleanly through.
  */
 export function fingerHoleRow(startOffset: number, length: number, settings: FingerJointSettings, holeHeight: number): Rect[] {
   return fingerEdgePath(length, settings, true)
-    .filter((segment) => segment.kind === 'finger')
+    .filter((segment) => segment.kind === 'finger' || segment.kind === 'flush')
     .map((segment) => ({ x: startOffset + segment.start, y: 0, width: segment.length, height: holeHeight }));
 }
 

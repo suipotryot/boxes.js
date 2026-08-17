@@ -80,15 +80,28 @@ describe('fingerEdgePath', () => {
 });
 
 describe('fingerHoleRow', () => {
-  it('emits one hole per finger segment, sized and positioned to match', () => {
+  it('emits one hole per finger AND flush (margin) segment, sized and positioned to match', () => {
+    // PanelBuilder.buildEndEdge protrudes the entering wall's material
+    // fully through the carrying wall at BOTH 'finger' and 'flush' bands
+    // (only a genuine 'space' band retreats short of it) -- so both need a
+    // matching hole here, or the entering wall's margin material collides
+    // with the carrying wall's otherwise-solid, uncut material there.
     const holes = fingerHoleRow(0, 100, settings, 4);
-    const expectedFingerSegments = fingerEdgePath(100, settings, true).filter((s) => s.kind === 'finger');
-    expect(holes).toHaveLength(expectedFingerSegments.length);
+    const expectedSegments = fingerEdgePath(100, settings, true).filter((s) => s.kind === 'finger' || s.kind === 'flush');
+    expect(holes).toHaveLength(expectedSegments.length);
     holes.forEach((hole, i) => {
-      expect(hole.x).toBeCloseTo(expectedFingerSegments[i]!.start, 6);
-      expect(hole.width).toBeCloseTo(expectedFingerSegments[i]!.length, 6);
+      expect(hole.x).toBeCloseTo(expectedSegments[i]!.start, 6);
+      expect(hole.width).toBeCloseTo(expectedSegments[i]!.length, 6);
       expect(hole.height).toBe(4);
     });
+  });
+
+  it('does NOT emit a hole for a space segment -- the entering wall retreats short of the carrying wall there', () => {
+    const holes = fingerHoleRow(0, 100, settings, 4);
+    const spaceSegments = fingerEdgePath(100, settings, true).filter((s) => s.kind === 'space');
+    for (const space of spaceSegments) {
+      expect(holes.some((h) => Math.abs(h.x - space.start) < 1e-6)).toBe(false);
+    }
   });
 
   it('offsets all holes by startOffset', () => {

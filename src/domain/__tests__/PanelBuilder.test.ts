@@ -225,6 +225,42 @@ describe('buildWallPanel: compound edge protrusion depth', () => {
     expect(box.minX).toBeCloseTo(-config.outerThickness / 2, 6);
     expect(box.maxX).toBeCloseTo(length + config.outerThickness / 2, 6);
   });
+
+  it('retracts a SPACE band to the mate\'s near face, not its centerline, so it never collides with the mate\'s own finger there', () => {
+    // Regression for the bug matching the user's own diagnosis: reaching
+    // only to the mate's centerline for space/flush bands (the previous
+    // behavior) left a permanent thisWall.thickness/2 x mate.thickness/2
+    // sliver double-claimed by both walls at every junction, regardless of
+    // finger/space phase -- visible in 3D as "teeth crossing within the
+    // thickness" at every corner, not an isolated edge case.
+    const wallA: WallSegment = { id: 'a', a: { x: 0, y: 0 }, b: { x: 0, y: 30 }, height: 20, thickness: 2, isOuter: false, colorId: 'c', notches: [] };
+    const wallB: WallSegment = { id: 'b', a: { x: 0, y: 30 }, b: { x: 50, y: 30 }, height: 20, thickness: 4, isOuter: false, colorId: 'c', notches: [] };
+    const walls = [wallA, wallB];
+    const junctions = classifyJunctions(walls);
+    const config = baseConfig({
+      advanced: {
+        ...baseConfig().advanced,
+        fingerJoint: { style: 'rectangular', fingerMm: 10, spaceMm: 10, widthMm: 2, edgeWidthMm: 0, playMm: 0, extraLengthMm: 0, surroundingSpaces: 0 },
+      },
+    });
+
+    const panel = buildWallPanel(wallA, walls, junctions, config);
+    // wallA's RIGHT end (u=length=30) mates with wallB (thickness 4,
+    // protrusionDepth=2), 'a' < 'b' -> starts with a finger: finger band
+    // v=[0,10] at u=length+2=32 (through the mate's full thickness),
+    // space band v=[10,20] at u=length-2=28 (retracted to the mate's near
+    // face -- NOT u=30, the old buggy "reach only to centerline" value).
+    const hasPoint = (x: number, y: number) => panel.outline.some((p) => Math.abs(p.x - x) < 1e-6 && Math.abs(p.y - y) < 1e-6);
+    expect(hasPoint(32, 0)).toBe(true);
+    expect(hasPoint(32, 10)).toBe(true);
+    expect(hasPoint(28, 10)).toBe(true);
+    expect(hasPoint(28, 20)).toBe(true);
+    // (30,10) would only appear if the space band still reached the bare
+    // centerline (the bug); NOTE (30,20) legitimately exists regardless --
+    // that's buildTopEdge's own flat span (u=length, v=height), unrelated
+    // to this end-edge comb.
+    expect(hasPoint(30, 10)).toBe(false);
+  });
 });
 
 describe('buildWallPanel: X-crossing half-lap notch', () => {

@@ -65,3 +65,47 @@ describe('panelToMesh: wall orientation', () => {
     expect(worldPoint.z).toBeCloseTo(0, 6);
   });
 });
+
+describe('panelToMesh: material thickness centered on the wall centerline', () => {
+  it('extrudes a wall symmetrically around its own local origin (the centerline), not entirely to one side', () => {
+    // wall.a/wall.b are documented everywhere (WallExtractor, WallRenderer)
+    // as the wall's CENTERLINE -- the 2D canvas draws a wall's strip
+    // centered on it (offsetY: thickness/2). THREE.ExtrudeGeometry's
+    // default behaviour extrudes a flat shape from local Z=0 to Z=depth,
+    // i.e. entirely to ONE side -- without an explicit re-centering
+    // translation, a wall's actual material would sit shifted by a full
+    // half-thickness off its own centerline, while every hole cut for it
+    // elsewhere (BasePlateBuilder's bottomFingerHoles, sized symmetrically
+    // around the same centerline) would not move to match -- exposing a
+    // half-thickness sliver of whatever is behind/below through each hole.
+    const materialThickness = 2;
+    const mesh = panelToMesh({ ...wallPanel(0), materialThickness }, '#ffffff');
+    mesh.geometry.computeBoundingBox();
+    const bbox = mesh.geometry.boundingBox!;
+    expect(bbox.min.z).toBeCloseTo(-materialThickness / 2, 6);
+    expect(bbox.max.z).toBeCloseTo(materialThickness / 2, 6);
+  });
+
+  it('leaves basePlate/shelf panels un-centered -- they sit ON their own Z origin (the floor / shelf height), not straddling it', () => {
+    const materialThickness = 4;
+    const basePlatePanel: Panel = {
+      id: 'p1',
+      kind: 'basePlate',
+      materialThickness,
+      outline: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 0, y: 10 },
+      ],
+      holes: [],
+      placement3d: { origin: { x: 0, y: 0, z: 0 }, rotationZ: 0 },
+      sourceIds: [],
+    };
+    const mesh = panelToMesh(basePlatePanel, '#ffffff');
+    mesh.geometry.computeBoundingBox();
+    const bbox = mesh.geometry.boundingBox!;
+    expect(bbox.min.z).toBeCloseTo(0, 6);
+    expect(bbox.max.z).toBeCloseTo(materialThickness, 6);
+  });
+});
