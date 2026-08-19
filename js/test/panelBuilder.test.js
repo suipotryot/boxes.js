@@ -9,6 +9,7 @@ import { createGrid, setSegmentHeight, toggleWall } from '../model/Grid.js';
 import { enumerateWallRuns } from '../model/GridQuery.js';
 import { buildWallPanel } from '../geometry/PanelBuilder.js';
 import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
+import { computePieces } from '../geometry/PieceFactory.js';
 import { createDefaultProject } from '../state/Project.js';
 import { pieceBounds } from '../geometry/SvgPath.js';
 
@@ -208,6 +209,71 @@ test('a removed segment still splits a divider into two pieces even with heights
   const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
   assert(dividerRuns.length === 1, `expected exactly 1 remaining piece (the top cell), got ${dividerRuns.length}`);
   assertClose(dividerRuns[0].length, 50, 1e-9, 'the remaining piece should be just the top cell\'s span');
+});
+
+// X crossing, unequal heights: the notch must be sized to half of the
+// SHORTER of the two crossing pieces, on BOTH pieces — never either
+// piece's own height taken alone (that would either overlap or leave a
+// gap where they're supposed to interlock; see PanelBuilder's
+// splitHeight() docstring for the derivation).
+function xCrossingGrid(hHeight, vHeight) {
+  const t = createDefaultProject();
+  t.grid = createGrid([90, 130], [70, 100]);
+  t.grid = setSegmentHeight(t.grid, 'h', 0, 1, hHeight);
+  t.grid = setSegmentHeight(t.grid, 'h', 1, 1, hHeight);
+  t.grid = setSegmentHeight(t.grid, 'v', 1, 0, vHeight);
+  t.grid = setSegmentHeight(t.grid, 'v', 1, 1, vHeight);
+  const runs = enumerateWallRuns(t.grid);
+  const v = buildWallPanel(runs.find((r) => r.kind === 'v' && r.c === 1), t.grid, t, true);
+  const h = buildWallPanel(runs.find((r) => r.kind === 'h' && r.r === 1), t.grid, t, true);
+  return { v, h };
+}
+
+test('X crossing: the horizontal piece (shorter) keeps its ordinary edge notch, the vertical piece (taller) gets an enclosed hole instead', () => {
+  const { v, h } = xCrossingGrid(30, 50); // h shorter than v
+  assert(isSimplePolygon(v.outline) && isSimplePolygon(h.outline), 'outlines self-intersect');
+  assert(v.holes.length === 1, `the taller (v) piece should get exactly 1 enclosed half-lap hole, got ${v.holes.length}`);
+  assert(isSimplePolygon(v.holes[0]), 'the half-lap hole should be a simple rectangle');
+  const holeYs = v.holes[0].map((p) => p.y);
+  assertClose(Math.min(...holeYs), 15, 1e-9, 'hole should start at half of the shorter (30mm) height');
+  assertClose(Math.max(...holeYs), 30, 1e-9, 'hole should end exactly at the shorter piece\'s own height, not touch the taller piece\'s own top (50)');
+  const holeXs = v.holes[0].map((p) => p.x);
+  assertClose(Math.max(...holeXs) - Math.min(...holeXs), 3, 1e-9, 'hole width should equal the shorter (h) piece\'s own thickness');
+
+  // h stays a plain edge notch (no hole) — v=0 is h's own true edge either way.
+  assert(h.holes.length === 0, 'the shorter (h) piece should have no enclosed hole, only its ordinary edge notch');
+});
+
+test('X crossing: roles reversed (v shorter than h) — same rule, opposite piece gets the hole', () => {
+  const { v, h } = xCrossingGrid(50, 30); // v shorter than h
+  assert(isSimplePolygon(v.outline) && isSimplePolygon(h.outline), 'outlines self-intersect');
+  assert(v.holes.length === 0, 'the now-shorter (v) piece should have no enclosed hole');
+  assert(h.holes.length === 0, 'h always uses a plain edge notch regardless of which side is shorter');
+  // v's own free edge should dip to half of the shorter (its own, 30) height.
+  const vYs = v.outline.map((p) => p.y);
+  assert(vYs.some((y) => Math.abs(y - 15) < 1e-9), 'v\'s edge notch should reach exactly half of its own (shorter) height');
+});
+
+test('X crossing: equal (but both shortened) heights stay symmetric with no holes on either side', () => {
+  const { v, h } = xCrossingGrid(30, 30);
+  assert(v.holes.length === 0 && h.holes.length === 0, 'equal heights should never need an enclosed hole on either piece');
+  assert(isSimplePolygon(v.outline) && isSimplePolygon(h.outline), 'outlines self-intersect');
+});
+
+test('X crossing: the half-lap hole shrinks (not grows) under burn correction', () => {
+  const t = createDefaultProject();
+  t.grid = createGrid([90, 130], [70, 100]);
+  t.grid = setSegmentHeight(t.grid, 'h', 0, 1, 30);
+  t.grid = setSegmentHeight(t.grid, 'h', 1, 1, 30);
+  const pieces = computePieces(t);
+  const v = pieces.find((p) => p.id === 'wall-v-1-0');
+  assert(v.holes.length === 1);
+  const xs = v.holes[0].map((p) => p.x);
+  const ys = v.holes[0].map((p) => p.y);
+  const width = Math.max(...xs) - Math.min(...xs);
+  const height = Math.max(...ys) - Math.min(...ys);
+  assert(width < 3, `burn-corrected hole width (${width}) should be smaller than nominal (3)`);
+  assert(height < 15, `burn-corrected hole height (${height}) should be smaller than nominal (15)`);
 });
 
 run();
