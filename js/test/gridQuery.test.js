@@ -3,7 +3,7 @@
 // its correctness at corners, T junctions, and X crossings is what keeps
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, run } from './testHarness.js';
-import { createGrid, setSegmentHeight } from '../model/Grid.js';
+import { createGrid, setSegmentHeight, setSegmentThicknessGroup, toggleWall } from '../model/Grid.js';
 import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt } from '../model/GridQuery.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
@@ -51,12 +51,31 @@ test('enumerateWallRuns merges a plain 2x2 grid into 4 outer sides + 2 dividers,
   assert(innerRuns.length === 2, `expected 2 interior divider runs, got ${innerRuns.length}`);
 });
 
-test('enumerateWallRuns splits a run where a segment is genuinely customized differently', () => {
-  let grid = createGrid([80, 80], [50, 50]); // 2 cols x 2 rows, so the divider at c=1 is 2 cells that CAN diverge
+test('enumerateWallRuns does NOT split a run when only the height varies along it', () => {
+  // A height difference is not a physical gap — the piece is still cut
+  // from one sheet, just with a stepped top profile (PanelBuilder).
+  let grid = createGrid([80, 80], [50, 50]); // 2 cols x 2 rows, divider at c=1 is 2 cells
   grid = setSegmentHeight(grid, 'v', 1, 1, 30); // customize only the bottom cell's height
   const runs = enumerateWallRuns(grid);
   const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
-  assert(dividerRuns.length === 2, `a genuinely customized segment should break the run in two, got ${dividerRuns.length} run(s)`);
+  assert(dividerRuns.length === 1, `a height-only difference should stay one run, got ${dividerRuns.length} run(s)`);
+});
+
+test('enumerateWallRuns DOES split a run where a segment is removed (a real gap)', () => {
+  let grid = createGrid([80, 80], [50, 50]);
+  grid = toggleWall(grid, 'v', 1, 1); // remove the bottom cell of the divider
+  const runs = enumerateWallRuns(grid);
+  const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
+  assert(dividerRuns.length === 1, `expected exactly 1 remaining run (the top cell only), got ${dividerRuns.length}`);
+  assert(dividerRuns[0].rStart === 0 && dividerRuns[0].rEnd === 0, 'the remaining run should be just the top cell');
+});
+
+test('enumerateWallRuns DOES split a run where the thickness group genuinely differs', () => {
+  let grid = createGrid([80, 80], [50, 50]);
+  grid = setSegmentThicknessGroup(grid, 'v', 1, 1, 'outer'); // bottom cell overridden to a different material thickness
+  const runs = enumerateWallRuns(grid);
+  const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
+  assert(dividerRuns.length === 2, `a thickness-group difference should break the run (one sheet = one thickness), got ${dividerRuns.length} run(s)`);
 });
 
 test('crossingAt classifies an X crossing as "through" and a T junction as "stems"', () => {

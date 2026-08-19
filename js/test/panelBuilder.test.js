@@ -5,7 +5,7 @@
 // through-piece) are mortise holes; X crossings (two through-pieces
 // crossing each other) are half-lap notches on both.
 import { test, assert, assertClose, run } from './testHarness.js';
-import { createGrid } from '../model/Grid.js';
+import { createGrid, setSegmentHeight, toggleWall } from '../model/Grid.js';
 import { enumerateWallRuns } from '../model/GridQuery.js';
 import { buildWallPanel } from '../geometry/PanelBuilder.js';
 import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
@@ -174,6 +174,40 @@ test('M2 example: a 2x2 grid with internal dividers produces exactly 7 pieces (1
     assert(isSimplePolygon(piece.outline), `${piece.id} outline self-intersects`);
     for (const hole of piece.holes) assert(isSimplePolygon(hole), `${piece.id} has a self-intersecting hole`);
   }
+});
+
+test('a height difference along a divider stays one piece with a stepped profile, not two pieces', () => {
+  const t = createDefaultProject();
+  t.grid = createGrid([80, 80], [50, 50]); // 2 cols x 2 rows: divider at c=1 is 2 cells
+  t.grid = toggleWall(t.grid, 'h', 0, 1); // no crossing divider at the row boundary —
+  t.grid = toggleWall(t.grid, 'h', 1, 1); // isolate the height-step from any T/X junction
+  t.grid = setSegmentHeight(t.grid, 'v', 1, 1, 30); // bottom cell shorter than the top cell (50)
+  const runs = enumerateWallRuns(t.grid);
+  const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
+  assert(dividerRuns.length === 1, `a height-only difference should stay one piece, got ${dividerRuns.length}`);
+
+  const piece = buildWallPanel(dividerRuns[0], t.grid, t, true);
+  assert(isSimplePolygon(piece.outline), 'stepped-height divider outline self-intersects');
+
+  // The end nearer the shorter cell (bPoint, bottom) should comb only up
+  // to that cell's own height, not the taller cell's — this is the same
+  // "each end uses its own local mate/height" discipline as junctions.
+  const ys = piece.outline.map((p) => p.y);
+  assert(ys.every((y) => y <= 50 + 1e-6), 'no point should exceed the taller cell\'s height');
+  assert(ys.some((y) => Math.abs(y - 30) < 1e-6), 'the outline should reach exactly the shorter cell\'s height at the step');
+  assert(ys.some((y) => Math.abs(y - 50) < 1e-6), 'the outline should still reach the taller cell\'s height elsewhere');
+});
+
+test('a removed segment still splits a divider into two pieces even with heights otherwise matching', () => {
+  const t = createDefaultProject();
+  t.grid = createGrid([80, 80], [50, 50]);
+  t.grid = toggleWall(t.grid, 'h', 0, 1);
+  t.grid = toggleWall(t.grid, 'h', 1, 1);
+  t.grid = toggleWall(t.grid, 'v', 1, 1); // remove the bottom cell entirely — a real gap
+  const runs = enumerateWallRuns(t.grid);
+  const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
+  assert(dividerRuns.length === 1, `expected exactly 1 remaining piece (the top cell), got ${dividerRuns.length}`);
+  assertClose(dividerRuns[0].length, 50, 1e-9, 'the remaining piece should be just the top cell\'s span');
 });
 
 run();

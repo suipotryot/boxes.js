@@ -1,15 +1,21 @@
 // Builds one wall RUN's flat-pattern outline — a run is a maximal chain of
-// contiguous, identically-customized grid cells (GridQuery.enumerateWallRuns),
+// contiguous, same-thickness-group grid cells (GridQuery.enumerateWallRuns),
 // so a plain undivided side of the box is one physical piece, not one per
-// grid cell it happens to span. A local (u,v) rectangle where u runs along
-// the run's length and v runs up its height, with:
+// grid cell it happens to span, and heights can vary along it without
+// splitting it (a stepped profile), since only a genuine gap (a removed
+// cell) or a thickness-group change is a real physical break. A local
+// (u,v) rectangle where u runs along the run's length and v runs up its
+// height, with:
 //   - the two ends combed to interlock with whatever they meet there (end
-//     junctions — corners, or a run whose *own* end lands at a T);
+//     junctions — corners, or a run whose *own* end lands at a T), using
+//     the *local* height of whichever cell sits at that end;
+//   - the free edge (opposite the base plate) stepped to each covered
+//     cell's own resolved height;
 //   - the bottom combed into the base plate;
 //   - a mortise hole wherever a *stem* run's end lands mid-span (a T
 //     junction where THIS run is the through-piece);
 //   - a half-lap notch wherever a perpendicular run passes fully through
-//     mid-span (an X crossing).
+//     mid-span (an X crossing), sized to *that position's* local height.
 //
 // Central convention (write once, reference everywhere — this exact
 // omission is what causes half-thickness/overshoot bugs): a wall's tab
@@ -52,6 +58,39 @@ function endEdgePoints({ length: L, height: H, mateHalfThickness, fj, startWithF
   return reverse ? pts.slice().reverse() : pts;
 }
 
+// Per-cell resolved height along the run's own u axis, ascending. Even a
+// perfectly uniform run gets exactly one span here — the general edge
+// builders below degrade to the old flat/simple behavior for free.
+function heightProfile(run, grid, project) {
+  const spans = [];
+  if (run.kind === 'v') {
+    for (let r = run.rStart; r <= run.rEnd; r++) {
+      spans.push({
+        uStart: yAt(grid, r) - yAt(grid, run.rStart),
+        uEnd: yAt(grid, r + 1) - yAt(grid, run.rStart),
+        height: resolveHeight(grid.vWalls[run.c][r], project),
+      });
+    }
+  } else {
+    for (let c = run.cStart; c <= run.cEnd; c++) {
+      spans.push({
+        uStart: xAt(grid, c) - xAt(grid, run.cStart),
+        uEnd: xAt(grid, c + 1) - xAt(grid, run.cStart),
+        height: resolveHeight(grid.hWalls[c][run.r], project),
+      });
+    }
+  }
+  return spans;
+}
+
+// The height in effect at position `u`. At an exact span boundary this
+// resolves to the span *before* u — an arbitrary but consistent choice for
+// the rare case of a crossing landing exactly on a height step.
+function heightAt(spans, u, epsilon = 1e-9) {
+  for (const s of spans) if (u >= s.uStart - epsilon && u <= s.uEnd + epsilon) return s.height;
+  return spans[spans.length - 1].height;
+}
+
 // Any interior grid point of `run` where something perpendicular touches —
 // mid-run, never at the run's own two ends. `u` is that point's distance
 // along the run's own length axis from its start.
@@ -76,11 +115,13 @@ function interiorCrossings(run, grid) {
 // The half-lap notch's footprint on ONE of the two crossing pieces: wide
 // enough (along u) to receive the *other* piece's full thickness, deep
 // enough (into v, from whichever edge this piece notches from) to remove
-// exactly half of THIS piece's own height — so when both pieces' notches
-// meet, together they fill the full height with no overlap and no gap.
-function notchRange(crossing, ownHeightMm, project) {
+// exactly half of THIS piece's own height *at that position* — so when
+// both pieces' notches meet, together they fill the full height with no
+// overlap and no gap, even if this run's height varies elsewhere.
+function notchRange(crossing, spans, project) {
   const halfWidth = resolveThickness(crossing.seg, project) / 2;
-  return { uStart: crossing.u - halfWidth, uEnd: crossing.u + halfWidth, depth: ownHeightMm / 2 };
+  const ownHeight = heightAt(spans, crossing.u);
+  return { uStart: crossing.u - halfWidth, uEnd: crossing.u + halfWidth, depth: ownHeight / 2 };
 }
 
 // Splits `segments` (as from fingerEdgePath) so none of them overlap
@@ -117,8 +158,8 @@ export function bottomCombSegments(run, grid, project, notchesFromBottom) {
   if (!notchesFromBottom) return raw;
   const crossings = interiorCrossings(run, grid).filter((c) => c.type === 'through');
   if (crossings.length === 0) return raw;
-  const height = resolveHeight(run.seg, project);
-  const excludeRanges = crossings.map((c) => notchRange(c, height, project));
+  const spans = heightProfile(run, grid, project);
+  const excludeRanges = crossings.map((c) => notchRange(c, spans, project));
   return clipSegmentsExcluding(raw, excludeRanges);
 }
 
@@ -127,7 +168,7 @@ export function bottomCombSegments(run, grid, project, notchesFromBottom) {
 // crossing (see buildWallPanel: 'h' runs notch from the bottom, 'v' runs
 // from the top — never both from the same side, or the two crossing
 // pieces would collide instead of interlocking).
-function bottomEdgePoints({ run, grid, project, mateHalfThickness, notchesFromBottom }) {
+function bottomEdgePoints({ run, grid, project, spans, mateHalfThickness, notchesFromBottom }) {
   const events = [];
   if (mateHalfThickness > 0) {
     for (const s of bottomCombSegments(run, grid, project, notchesFromBottom)) {
@@ -137,10 +178,9 @@ function bottomEdgePoints({ run, grid, project, mateHalfThickness, notchesFromBo
     events.push({ uStart: 0, uEnd: run.length, y: 0 });
   }
   if (notchesFromBottom) {
-    const height = resolveHeight(run.seg, project);
     for (const c of interiorCrossings(run, grid)) {
       if (c.type !== 'through') continue;
-      const n = notchRange(c, height, project);
+      const n = notchRange(c, spans, project);
       events.push({ uStart: n.uStart, uEnd: n.uEnd, y: n.depth });
     }
     events.sort((a, b) => a.uStart - b.uStart);
@@ -153,22 +193,28 @@ function bottomEdgePoints({ run, grid, project, mateHalfThickness, notchesFromBo
   return pts;
 }
 
-// Top edge (v=height), normally a flat line, notched down toward
-// mid-height wherever this run notches from the top at an X crossing.
-function topEdgePoints(run, grid, project, height, notchesFromTop) {
-  if (!notchesFromTop) return [{ x: run.length, y: height }, { x: 0, y: height }];
-  const crossings = interiorCrossings(run, grid).filter((c) => c.type === 'through');
-  if (crossings.length === 0) return [{ x: run.length, y: height }, { x: 0, y: height }];
-  const notches = crossings.map((c) => notchRange(c, height, project));
+// The free edge (v=height, opposite the base plate): stepped to each
+// covered cell's own resolved height, additionally notched down toward
+// local-height/2 wherever this run notches from this side at an X
+// crossing (notches is empty for a run that notches from the other side).
+function freeEdgePoints(run, spans, notches) {
+  const boundarySet = new Set([0, run.length]);
+  for (const s of spans) { boundarySet.add(s.uStart); boundarySet.add(s.uEnd); }
+  for (const n of notches) { boundarySet.add(n.uStart); boundarySet.add(n.uEnd); }
+  const boundaries = [...boundarySet].sort((a, b) => a - b);
+
   const pts = [];
-  let u = 0;
-  for (const n of notches) {
-    if (n.uStart > u) pts.push({ x: u, y: height }, { x: n.uStart, y: height });
-    pts.push({ x: n.uStart, y: height - n.depth }, { x: n.uEnd, y: height - n.depth });
-    u = n.uEnd;
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const uStart = boundaries[i];
+    const uEnd = boundaries[i + 1];
+    if (uEnd <= uStart) continue;
+    const mid = (uStart + uEnd) / 2;
+    let y = heightAt(spans, mid);
+    const notch = notches.find((n) => mid > n.uStart && mid < n.uEnd);
+    if (notch) y -= notch.depth;
+    pts.push({ x: uStart, y }, { x: uEnd, y });
   }
-  if (u < run.length) pts.push({ x: u, y: height }, { x: run.length, y: height });
-  return pts.reverse(); // top edge traverses length -> 0
+  return pts.reverse(); // the free edge traverses length -> 0
 }
 
 // Mortise holes for T junctions where THIS run is the through-piece: one
@@ -176,7 +222,9 @@ function topEdgePoints(run, grid, project, height, notchesFromTop) {
 // fingerEdgePath(stemHeight, fj, stemStartWithFinger) a stem run's own
 // endEdgePoints will use for that end), so a hole can never drift out of
 // sync with the tenon meant to sit in it. Width is the stem's own
-// thickness (a physical footprint, not a mating protrusion).
+// thickness (a physical footprint, not a mating protrusion). The stem's
+// own height is read directly off its grid cell, independent of whether
+// *our* run's height varies elsewhere.
 function mortiseHoles(run, grid, project) {
   const fj = project.fingerJoint;
   const stemStartWithFinger = run.kind === 'h';
@@ -208,8 +256,10 @@ function mortiseHoles(run, grid, project) {
  */
 export function buildWallPanel(run, grid, project, hasBasePlate) {
   const { kind, aPoint, bPoint, seg, length } = run;
-  const height = resolveHeight(seg, project);
   const fj = project.fingerJoint;
+  const spans = heightProfile(run, grid, project);
+  const heightA = spans[0].height;
+  const heightB = spans[spans.length - 1].height;
 
   const matesA = perpendicularMatesAtPoint(grid, kind, aPoint[0], aPoint[1]);
   const matesB = perpendicularMatesAtPoint(grid, kind, bPoint[0], bPoint[1]);
@@ -228,10 +278,13 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   const notchesFromBottom = kind === 'h';
   const baseHalf = hasBasePlate ? matingProtrusion(project.outerThicknessMm) : 0;
 
-  const bottom = bottomEdgePoints({ run, grid, project, mateHalfThickness: baseHalf, notchesFromBottom });
-  const right = endEdgePoints({ length, height, mateHalfThickness: halfB, fj, startWithFinger, atRight: true, reverse: false });
-  const top = topEdgePoints(run, grid, project, height, !notchesFromBottom);
-  const left = endEdgePoints({ length, height, mateHalfThickness: halfA, fj, startWithFinger, atRight: false, reverse: true });
+  const throughCrossings = interiorCrossings(run, grid).filter((c) => c.type === 'through');
+  const freeEdgeNotches = notchesFromBottom ? [] : throughCrossings.map((c) => notchRange(c, spans, project));
+
+  const bottom = bottomEdgePoints({ run, grid, project, spans, mateHalfThickness: baseHalf, notchesFromBottom });
+  const right = endEdgePoints({ length, height: heightB, mateHalfThickness: halfB, fj, startWithFinger, atRight: true, reverse: false });
+  const top = freeEdgePoints(run, spans, freeEdgeNotches);
+  const left = endEdgePoints({ length, height: heightA, mateHalfThickness: halfA, fj, startWithFinger, atRight: false, reverse: true });
 
   const outline = simplifyPolygon([...bottom, ...right, ...top, ...left]);
 

@@ -32,22 +32,23 @@ export function perpendicularMatesAtPoint(grid, wallKind, pointC, pointR) {
   return mates;
 }
 
-/** Maximal runs of contiguous, identically-customized present segments
- *  along one grid line — this is what actually gets cut as one physical
- *  piece. Two adjacent present cells only merge into one run if they
- *  share the same heightMm and thicknessGroup; a genuine per-segment
- *  customization still produces a real break, but the common case (no
- *  customization at all, or a whole divider set uniformly) merges into
- *  a single piece instead of one piece per grid cell. The outer
- *  perimeter is always exactly one run per side by construction — outer
- *  segments can never be removed and Grid.setSegmentHeight always
- *  propagates height to the whole perimeter together, so they can never
- *  disagree. */
+/** Maximal runs of contiguous present segments sharing the same
+ *  thicknessGroup along one grid line — this is what actually gets cut as
+ *  one physical piece. thicknessGroup must match to merge (one piece is
+ *  cut from one sheet of one thickness — that's a physical constraint,
+ *  not a preference), but heightMm does *not* have to match: a run of
+ *  segments with different per-segment heights still merges into a
+ *  single piece with a stepped top profile (PanelBuilder builds that
+ *  profile from each covered cell's own resolved height). Removing a
+ *  segment (present:false) is the only thing that actually breaks a run
+ *  in two — a genuine physical gap, unlike a height difference. The
+ *  outer perimeter is always exactly one run per side by construction —
+ *  outer segments can never be removed and are always 'outer' group. */
 export function enumerateWallRuns(grid) {
   const cols = grid.sx.length;
   const rows = grid.sy.length;
   const runs = [];
-  const sameCustomization = (a, b) => a.heightMm === b.heightMm && a.thicknessGroup === b.thicknessGroup;
+  const sameGroup = (a, b) => a.thicknessGroup === b.thicknessGroup;
 
   for (let c = 0; c <= cols; c++) {
     let r = 0;
@@ -55,7 +56,7 @@ export function enumerateWallRuns(grid) {
       const seg = grid.vWalls[c][r];
       if (!seg.present) { r++; continue; }
       let rEnd = r;
-      while (rEnd + 1 < rows && grid.vWalls[c][rEnd + 1].present && sameCustomization(grid.vWalls[c][rEnd + 1], seg)) rEnd++;
+      while (rEnd + 1 < rows && grid.vWalls[c][rEnd + 1].present && sameGroup(grid.vWalls[c][rEnd + 1], seg)) rEnd++;
       runs.push({
         kind: 'v', c, rStart: r, rEnd, seg,
         aPoint: [c, r], bPoint: [c, rEnd + 1],
@@ -71,7 +72,7 @@ export function enumerateWallRuns(grid) {
       const seg = grid.hWalls[c][r];
       if (!seg.present) { c++; continue; }
       let cEnd = c;
-      while (cEnd + 1 < cols && grid.hWalls[cEnd + 1][r].present && sameCustomization(grid.hWalls[cEnd + 1][r], seg)) cEnd++;
+      while (cEnd + 1 < cols && grid.hWalls[cEnd + 1][r].present && sameGroup(grid.hWalls[cEnd + 1][r], seg)) cEnd++;
       runs.push({
         kind: 'h', r, cStart: c, cEnd, seg,
         aPoint: [c, r], bPoint: [cEnd + 1, r],
@@ -87,12 +88,13 @@ export function enumerateWallRuns(grid) {
 /** What crosses a run perpendicularly at one of its *interior* grid
  *  points (c,r) — a boundary between two cells that got merged into the
  *  same run. 'through' means a perpendicular run passes fully across
- *  (both neighbors present, same height/group — by the same rule
+ *  (both neighbors present, same thicknessGroup — by the same rule
  *  enumerateWallRuns itself uses to merge, so they're necessarily one
- *  continuous perpendicular piece): that's an X crossing, needing a
- *  half-lap notch on both pieces. 'stems' means one or two perpendicular
- *  pieces merely end here: a T junction, needing a mortise hole in this
- *  run for each stem's tenon (its ordinary end-comb, unchanged). */
+ *  continuous perpendicular piece, even if their heights happen to
+ *  differ): that's an X crossing, needing a half-lap notch on both
+ *  pieces. 'stems' means one or two perpendicular pieces merely end
+ *  here: a T junction, needing a mortise hole in this run for each
+ *  stem's tenon (its ordinary end-comb, unchanged). */
 export function crossingAt(grid, wallKind, pointC, pointR) {
   const cols = grid.sx.length;
   const rows = grid.sy.length;
@@ -106,7 +108,7 @@ export function crossingAt(grid, wallKind, pointC, pointR) {
   }
   const aPresent = !!a && a.present;
   const bPresent = !!b && b.present;
-  if (aPresent && bPresent && a.heightMm === b.heightMm && a.thicknessGroup === b.thicknessGroup) {
+  if (aPresent && bPresent && a.thicknessGroup === b.thicknessGroup) {
     return { type: 'through', seg: a };
   }
   const stems = [];
