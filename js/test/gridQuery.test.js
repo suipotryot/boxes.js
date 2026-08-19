@@ -3,8 +3,8 @@
 // its correctness at corners, T junctions, and X crossings is what keeps
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, run } from './testHarness.js';
-import { createGrid } from '../model/Grid.js';
-import { perpendicularMatesAtPoint } from '../model/GridQuery.js';
+import { createGrid, setSegmentHeight } from '../model/Grid.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt } from '../model/GridQuery.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
   const grid = createGrid([150], [100]);
@@ -39,6 +39,35 @@ test('an X crossing: all four converging wall ends see exactly two mates', () =>
   assert(vMates.length === 2, `expected 2 mates for the vertical divider at the X crossing, got ${vMates.length}`);
   assert(hMates.length === 2, `expected 2 mates for the horizontal divider at the X crossing, got ${hMates.length}`);
   assert([...vMates, ...hMates].every((m) => m.thicknessGroup === 'inner'), 'all mates at an interior X crossing should be inner-group');
+});
+
+test('enumerateWallRuns merges a plain 2x2 grid into 4 outer sides + 2 dividers, never one run per grid cell', () => {
+  const grid = createGrid([90, 130], [70, 100]);
+  const runs = enumerateWallRuns(grid);
+  assert(runs.length === 6, `expected 6 runs (4 sides + 2 dividers), got ${runs.length}`);
+  const outerRuns = runs.filter((r) => r.seg.thicknessGroup === 'outer');
+  const innerRuns = runs.filter((r) => r.seg.thicknessGroup === 'inner');
+  assert(outerRuns.length === 4, `expected 4 outer runs, got ${outerRuns.length}`);
+  assert(innerRuns.length === 2, `expected 2 interior divider runs, got ${innerRuns.length}`);
+});
+
+test('enumerateWallRuns splits a run where a segment is genuinely customized differently', () => {
+  let grid = createGrid([80, 80], [50, 50]); // 2 cols x 2 rows, so the divider at c=1 is 2 cells that CAN diverge
+  grid = setSegmentHeight(grid, 'v', 1, 1, 30); // customize only the bottom cell's height
+  const runs = enumerateWallRuns(grid);
+  const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
+  assert(dividerRuns.length === 2, `a genuinely customized segment should break the run in two, got ${dividerRuns.length} run(s)`);
+});
+
+test('crossingAt classifies an X crossing as "through" and a T junction as "stems"', () => {
+  const grid = createGrid([90, 130], [70, 100]);
+  const through = crossingAt(grid, 'v', 1, 1); // the X crossing
+  assert(through.type === 'through', `expected 'through' at the X crossing, got '${through.type}'`);
+
+  const tGrid = createGrid([80, 80], [100]); // T-junction-only grid
+  const stems = crossingAt(tGrid, 'h', 1, 0); // top edge, where the divider lands mid-span
+  assert(stems.type === 'stems', `expected 'stems' at a T junction, got '${stems.type}'`);
+  assert(stems.stems.length === 1, `expected exactly 1 stem, got ${stems.stems.length}`);
 });
 
 run();
