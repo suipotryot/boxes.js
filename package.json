@@ -1,0 +1,11 @@
+{
+  "name": "boxes-js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Générateur local de plans de découpe laser pour boîtes à cloisons, inspiré de boxes.py TrayLayout.",
+  "type": "module",
+  "scripts": {
+    "test": "node js/test/run-all.js",
+    "serve": "node js/dev/serve.js"
+  }
+}
