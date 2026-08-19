@@ -31,6 +31,76 @@ function edgeNotchPoints(segments, fj, axisPoint, inward, reverse) {
   return reverse ? pts.slice().reverse() : pts;
 }
 
+// Finger holes for interior dividers. Unlike the outer notches above,
+// these never touch the plate's boundary, so — unlike the "touching hole"
+// bug class that motivated carving outer notches into the outline itself —
+// each can safely be an independent closed hole; burn correction offsets
+// it inward on its own without any risk of drifting off an edge it never
+// touches. Same fingerEdgePath(length, fj, startWithFinger) call, same
+// length and startWithFinger, as the wall's own bottomEdgePoints in
+// PanelBuilder — so a hole can never drift out of sync with the tabs it's
+// meant to receive. Hole width is the *wall's own* resolved thickness
+// (mixed thickness groups included, since resolveThickness already
+// respects a segment's individually-set thicknessGroup) — this is a
+// physical footprint, not a mating protrusion, so it's never mate.thickness/2.
+//
+// Winding matters here: BurnCorrection reuses the exact same
+// outward-normal formula for holes as for outlines, just with the offset
+// distance negated, so each hole's point order must make that formula's
+// normal point away from the hole's own interior, or burn correction
+// *grows* holes instead of shrinking them. Verified empirically per loop
+// below (not just derived by symmetry) — swapping which axis is the
+// "thickness" one between the v and h cases is a reflection, which flips
+// which point order is correct, so the v-loop and h-loop orders below are
+// deliberately *not* the same shape with x/y swapped. A regression test
+// asserts a burn-corrected hole is smaller than nominal, not larger.
+function dividerFingerHoles(grid, project) {
+  const cols = grid.sx.length;
+  const rows = grid.sy.length;
+  const fj = project.fingerJoint;
+  const holes = [];
+
+  for (let c = 1; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      const seg = grid.vWalls[c][r];
+      if (!seg.present) continue;
+      const half = resolveThickness(seg, project) / 2;
+      const x = xAt(grid, c);
+      const y0 = yAt(grid, r);
+      for (const fs of fingerEdgePath(grid.sy[r], fj, true)) {
+        if (fs.kind !== 'finger') continue;
+        holes.push([
+          { x: x - half, y: y0 + fs.start },
+          { x: x + half, y: y0 + fs.start },
+          { x: x + half, y: y0 + fs.start + fs.length },
+          { x: x - half, y: y0 + fs.start + fs.length },
+        ]);
+      }
+    }
+  }
+
+  for (let c = 0; c < cols; c++) {
+    for (let r = 1; r < rows; r++) {
+      const seg = grid.hWalls[c][r];
+      if (!seg.present) continue;
+      const half = resolveThickness(seg, project) / 2;
+      const y = yAt(grid, r);
+      const x0 = xAt(grid, c);
+      for (const fs of fingerEdgePath(grid.sx[c], fj, false)) {
+        if (fs.kind !== 'finger') continue;
+        holes.push([
+          { x: x0 + fs.start, y: y - half },
+          { x: x0 + fs.start + fs.length, y: y - half },
+          { x: x0 + fs.start + fs.length, y: y + half },
+          { x: x0 + fs.start, y: y + half },
+        ]);
+      }
+    }
+  }
+
+  return holes;
+}
+
 export function buildBasePlate(grid, project) {
   const cols = grid.sx.length;
   const rows = grid.sy.length;
@@ -74,6 +144,6 @@ export function buildBasePlate(grid, project) {
     thicknessGroup: 'outer',
     thicknessMm: project.outerThicknessMm,
     outline,
-    holes: [],
+    holes: dividerFingerHoles(grid, project),
   };
 }
