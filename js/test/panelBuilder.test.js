@@ -276,4 +276,28 @@ test('X crossing: the half-lap hole shrinks (not grows) under burn correction', 
   assert(height < 15, `burn-corrected hole height (${height}) should be smaller than nominal (15)`);
 });
 
+test('X crossing coinciding exactly with a height step on the OTHER run: both pieces still use the true shorter height, not one arbitrary side of the step', () => {
+  // Only the cell on ONE side of the crossing is shortened, so the
+  // horizontal divider's own height step lands exactly on the same grid
+  // point as the X crossing with the vertical divider. Reported by the
+  // user reproducing this exact edit through the real editor.
+  const t = createDefaultProject();
+  t.grid = createGrid([90, 130], [70, 100]);
+  t.grid = setSegmentHeight(t.grid, 'h', 1, 1, 20); // only the right cell of the horizontal divider
+  const runs = enumerateWallRuns(t.grid);
+  const hPiece = buildWallPanel(runs.find((r) => r.kind === 'h' && r.r === 1), t.grid, t, true);
+  const vPiece = buildWallPanel(runs.find((r) => r.kind === 'v' && r.c === 1), t.grid, t, true);
+  assert(isSimplePolygon(hPiece.outline), 'h outline self-intersects at the coincident step/crossing');
+  assert(isSimplePolygon(vPiece.outline), 'v outline self-intersects at the coincident step/crossing');
+
+  // The true local height of h right at the crossing is 20 (the shorter,
+  // customized side) — not 50 (the unmodified side), regardless of which
+  // side a naive "resolve at this exact boundary" lookup might pick.
+  assert(vPiece.holes.length === 1, `v (taller, 50) should get exactly 1 enclosed hole, got ${vPiece.holes.length}`);
+  assert(isSimplePolygon(vPiece.holes[0]), 'v\'s half-lap hole should be simple');
+  const holeYs = vPiece.holes[0].map((p) => p.y);
+  assertClose(Math.min(...holeYs), 10, 1e-6, 'hole should start at half of the true shorter height (20/2=10), not half of 50');
+  assertClose(Math.max(...holeYs), 20, 1e-6, 'hole should end at the true shorter height (20), not touch v\'s own top (50)');
+});
+
 run();

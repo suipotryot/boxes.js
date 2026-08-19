@@ -86,12 +86,17 @@ function heightProfile(run, grid, project) {
   return spans;
 }
 
-// The height in effect at position `u`. At an exact span boundary this
-// resolves to the span *before* u — an arbitrary but consistent choice for
-// the rare case of a crossing landing exactly on a height step.
+// The height in effect at position `u`. At an exact span boundary — the
+// rare case of a crossing landing exactly on this run's own height step —
+// this resolves to the *shorter* of the two touching spans, not
+// arbitrarily "the one before": the notch/hole logic below is only
+// physically sound if it's always working from the more conservative
+// (shorter) height on offer at that exact point, same as splitHeight()
+// does for the other axis.
 function heightAt(spans, u, epsilon = 1e-9) {
-  for (const s of spans) if (u >= s.uStart - epsilon && u <= s.uEnd + epsilon) return s.height;
-  return spans[spans.length - 1].height;
+  let min = Infinity;
+  for (const s of spans) if (u >= s.uStart - epsilon && u <= s.uEnd + epsilon) min = Math.min(min, s.height);
+  return min === Infinity ? spans[spans.length - 1].height : min;
 }
 
 // Any interior grid point of `run` where something perpendicular touches —
@@ -122,6 +127,16 @@ function notchURange(crossing, project) {
   return { uStart: crossing.u - halfWidth, uEnd: crossing.u + halfWidth };
 }
 
+// The perpendicular run's local height at a crossing point — the shorter
+// of its *two* touching cells (crossing.segs), not arbitrarily just one:
+// a height step on the *other* run can land exactly on this same point
+// (both runs' steps can coincide, since neither run's merging cares about
+// the other's heights at all), and using only one side there silently
+// ignores whichever cell the caller didn't happen to pick.
+function otherHeightAt(crossing, project) {
+  return Math.min(...crossing.segs.map((s) => resolveHeight(s, project)));
+}
+
 // The height a half-lap notch is sized from: the SHORTER of the two
 // crossing pieces' local heights at this exact position — never either
 // piece's own height taken alone. If both pieces were notched to half of
@@ -134,8 +149,7 @@ function notchURange(crossing, project) {
 // piece), there is nothing to interlock with, so that piece stays solid.
 function splitHeight(crossing, spans, project) {
   const ownHeight = heightAt(spans, crossing.u);
-  const otherHeight = resolveHeight(crossing.seg, project);
-  return Math.min(ownHeight, otherHeight);
+  return Math.min(ownHeight, otherHeightAt(crossing, project));
 }
 
 // Splits `segments` (as from fingerEdgePath) so none of them overlap
@@ -248,7 +262,7 @@ function freeEdgeHoles(crossings, spans, project) {
   const holes = [];
   for (const c of crossings) {
     const ownHeight = heightAt(spans, c.u);
-    const otherHeight = resolveHeight(c.seg, project);
+    const otherHeight = otherHeightAt(c, project);
     if (ownHeight <= otherHeight) continue; // handled as an edge notch instead
     const { uStart, uEnd } = notchURange(c, project);
     const half = otherHeight / 2;
@@ -325,7 +339,7 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
 
   const throughCrossings = interiorCrossings(run, grid).filter((c) => c.type === 'through');
   const freeEdgeNotches = notchesFromBottom ? [] : throughCrossings
-    .filter((c) => heightAt(spans, c.u) <= resolveHeight(c.seg, project))
+    .filter((c) => heightAt(spans, c.u) <= otherHeightAt(c, project))
     .map((c) => ({ ...notchURange(c, project), depth: splitHeight(c, spans, project) / 2 }));
   const freeHoles = notchesFromBottom ? [] : freeEdgeHoles(throughCrossings, spans, project);
 

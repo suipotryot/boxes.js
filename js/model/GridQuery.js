@@ -92,9 +92,15 @@ export function enumerateWallRuns(grid) {
  *  enumerateWallRuns itself uses to merge, so they're necessarily one
  *  continuous perpendicular piece, even if their heights happen to
  *  differ): that's an X crossing, needing a half-lap notch on both
- *  pieces. 'stems' means one or two perpendicular pieces merely end
- *  here: a T junction, needing a mortise hole in this run for each
- *  stem's tenon (its ordinary end-comb, unchanged). */
+ *  pieces. `segs` carries *both* of the perpendicular run's cells
+ *  touching this point (not just one) — they can have different heights
+ *  (a height step can land exactly on a crossing point), and a caller
+ *  computing "how tall is the other piece here" needs to consider both,
+ *  not arbitrarily just one side. `seg` (either one — thickness is
+ *  guaranteed equal, that's the merge condition) stays for callers that
+ *  only need thickness. 'stems' means one or two perpendicular pieces
+ *  merely end here: a T junction, needing a mortise hole in this run for
+ *  each stem's tenon (its ordinary end-comb, unchanged). */
 export function crossingAt(grid, wallKind, pointC, pointR) {
   const cols = grid.sx.length;
   const rows = grid.sy.length;
@@ -109,7 +115,7 @@ export function crossingAt(grid, wallKind, pointC, pointR) {
   const aPresent = !!a && a.present;
   const bPresent = !!b && b.present;
   if (aPresent && bPresent && a.thicknessGroup === b.thicknessGroup) {
-    return { type: 'through', seg: a };
+    return { type: 'through', seg: a, segs: [a, b] };
   }
   const stems = [];
   if (aPresent) stems.push(a);
