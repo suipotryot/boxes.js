@@ -211,11 +211,13 @@ test('a removed segment still splits a divider into two pieces even with heights
   assertClose(dividerRuns[0].length, 50, 1e-9, 'the remaining piece should be just the top cell\'s span');
 });
 
-// X crossing, unequal heights: the notch must be sized to half of the
-// SHORTER of the two crossing pieces, on BOTH pieces — never either
-// piece's own height taken alone (that would either overlap or leave a
-// gap where they're supposed to interlock; see PanelBuilder's
-// splitHeight() docstring for the derivation).
+// X crossing, unequal heights: the shorter (or equal) piece notches half
+// of its own height, same as always. The taller piece notches from its
+// own edge all the way down to the shorter piece's *full* height, not
+// just half of it — confirmed behavior (the user rejected "half of the
+// taller piece's own height" as leaving too little material removed, and
+// also rejected "opens from the base instead of its own edge"). See
+// PanelBuilder's crossingNotchDepth() docstring for the derivation.
 function xCrossingGrid(hHeight, vHeight) {
   const t = createDefaultProject();
   t.grid = createGrid([90, 130], [70, 100]);
@@ -229,51 +231,49 @@ function xCrossingGrid(hHeight, vHeight) {
   return { v, h };
 }
 
-test('X crossing: the horizontal piece (shorter) keeps its ordinary edge notch, the vertical piece (taller) gets an enclosed hole instead', () => {
+test('X crossing: the horizontal piece (shorter) notches half its own height; the vertical piece (taller) notches all the way down to the shorter piece\'s full height', () => {
   const { v, h } = xCrossingGrid(30, 50); // h shorter than v
   assert(isSimplePolygon(v.outline) && isSimplePolygon(h.outline), 'outlines self-intersect');
-  assert(v.holes.length === 1, `the taller (v) piece should get exactly 1 enclosed half-lap hole, got ${v.holes.length}`);
-  assert(isSimplePolygon(v.holes[0]), 'the half-lap hole should be a simple rectangle');
-  const holeYs = v.holes[0].map((p) => p.y);
-  assertClose(Math.min(...holeYs), 15, 1e-9, 'hole should start at half of the shorter (30mm) height');
-  assertClose(Math.max(...holeYs), 30, 1e-9, 'hole should end exactly at the shorter piece\'s own height, not touch the taller piece\'s own top (50)');
-  const holeXs = v.holes[0].map((p) => p.x);
-  assertClose(Math.max(...holeXs) - Math.min(...holeXs), 3, 1e-9, 'hole width should equal the shorter (h) piece\'s own thickness');
+  assert(v.holes.length === 0 && h.holes.length === 0, 'a height-mismatched X crossing should never produce an enclosed hole, only edge notches');
 
-  // h stays a plain edge notch (no hole) — v=0 is h's own true edge either way.
-  assert(h.holes.length === 0, 'the shorter (h) piece should have no enclosed hole, only its ordinary edge notch');
+  // v (taller, 50) notches from its own top down to 20 (h's full height) —
+  // depth 30, not 25 (half of v's own 50) and not 15 (half of h's 30... wait h is 30 here).
+  const vYs = v.outline.map((p) => p.y);
+  assertClose(Math.max(...vYs), 50, 1e-9, 'v\'s own top should still be reached elsewhere along its length');
+  assert(vYs.some((y) => Math.abs(y - 30) < 1e-9), 'v\'s notch should reach exactly down to h\'s full height (30), not just half of it (15)');
+
+  // h (shorter, 30) is unaffected: still notches half of its own height, as before.
+  const hYs = h.outline.map((p) => p.y);
+  assert(hYs.some((y) => Math.abs(y - 15) < 1e-9), 'h\'s notch should still be half of its own height (15)');
 });
 
-test('X crossing: roles reversed (v shorter than h) — same rule, opposite piece gets the hole', () => {
+test('X crossing: roles reversed (v shorter than h) — h now notches all the way down to v\'s full height', () => {
   const { v, h } = xCrossingGrid(50, 30); // v shorter than h
   assert(isSimplePolygon(v.outline) && isSimplePolygon(h.outline), 'outlines self-intersect');
-  assert(v.holes.length === 0, 'the now-shorter (v) piece should have no enclosed hole');
-  assert(h.holes.length === 0, 'h always uses a plain edge notch regardless of which side is shorter');
-  // v's own free edge should dip to half of the shorter (its own, 30) height.
+  assert(v.holes.length === 0 && h.holes.length === 0);
+  // v (now shorter, 30) still notches half of its own height (15).
   const vYs = v.outline.map((p) => p.y);
   assert(vYs.some((y) => Math.abs(y - 15) < 1e-9), 'v\'s edge notch should reach exactly half of its own (shorter) height');
 });
 
-test('X crossing: equal (but both shortened) heights stay symmetric with no holes on either side', () => {
+test('X crossing: equal (but both shortened) heights stay symmetric, each notching half of the shared height', () => {
   const { v, h } = xCrossingGrid(30, 30);
-  assert(v.holes.length === 0 && h.holes.length === 0, 'equal heights should never need an enclosed hole on either piece');
+  assert(v.holes.length === 0 && h.holes.length === 0);
   assert(isSimplePolygon(v.outline) && isSimplePolygon(h.outline), 'outlines self-intersect');
+  const vYs = v.outline.map((p) => p.y);
+  const hYs = h.outline.map((p) => p.y);
+  assert(vYs.some((y) => Math.abs(y - 15) < 1e-9) && hYs.some((y) => Math.abs(y - 15) < 1e-9), 'both should notch to exactly half of the shared 30mm height');
 });
 
-test('X crossing: the half-lap hole shrinks (not grows) under burn correction', () => {
+test('X crossing: the taller piece\'s deep notch stays simple (not self-intersecting) after burn correction', () => {
   const t = createDefaultProject();
   t.grid = createGrid([90, 130], [70, 100]);
   t.grid = setSegmentHeight(t.grid, 'h', 0, 1, 30);
   t.grid = setSegmentHeight(t.grid, 'h', 1, 1, 30);
   const pieces = computePieces(t);
   const v = pieces.find((p) => p.id === 'wall-v-1-0');
-  assert(v.holes.length === 1);
-  const xs = v.holes[0].map((p) => p.x);
-  const ys = v.holes[0].map((p) => p.y);
-  const width = Math.max(...xs) - Math.min(...xs);
-  const height = Math.max(...ys) - Math.min(...ys);
-  assert(width < 3, `burn-corrected hole width (${width}) should be smaller than nominal (3)`);
-  assert(height < 15, `burn-corrected hole height (${height}) should be smaller than nominal (15)`);
+  assert(v.holes.length === 0, 'no enclosed holes expected for this feature anymore');
+  assert(isSimplePolygon(v.outline), 'burn-corrected outline with a deep notch should stay simple');
 });
 
 test('X crossing coinciding exactly with a height step on the OTHER run: both pieces still use the true shorter height, not one arbitrary side of the step', () => {
@@ -289,15 +289,15 @@ test('X crossing coinciding exactly with a height step on the OTHER run: both pi
   const vPiece = buildWallPanel(runs.find((r) => r.kind === 'v' && r.c === 1), t.grid, t, true);
   assert(isSimplePolygon(hPiece.outline), 'h outline self-intersects at the coincident step/crossing');
   assert(isSimplePolygon(vPiece.outline), 'v outline self-intersects at the coincident step/crossing');
+  assert(vPiece.holes.length === 0);
 
   // The true local height of h right at the crossing is 20 (the shorter,
   // customized side) — not 50 (the unmodified side), regardless of which
-  // side a naive "resolve at this exact boundary" lookup might pick.
-  assert(vPiece.holes.length === 1, `v (taller, 50) should get exactly 1 enclosed hole, got ${vPiece.holes.length}`);
-  assert(isSimplePolygon(vPiece.holes[0]), 'v\'s half-lap hole should be simple');
-  const holeYs = vPiece.holes[0].map((p) => p.y);
-  assertClose(Math.min(...holeYs), 10, 1e-6, 'hole should start at half of the true shorter height (20/2=10), not half of 50');
-  assertClose(Math.max(...holeYs), 20, 1e-6, 'hole should end at the true shorter height (20), not touch v\'s own top (50)');
+  // side a naive "resolve at this exact boundary" lookup might pick. v
+  // (taller, 50) should notch down to exactly 20, not to 40 (half of 50)
+  // and not to some value derived from the unmodified 50-tall side of h.
+  const vYs = vPiece.outline.map((p) => p.y);
+  assert(vYs.some((y) => Math.abs(y - 20) < 1e-6), 'v\'s notch should reach exactly down to h\'s true local (shorter) height of 20');
 });
 
 run();

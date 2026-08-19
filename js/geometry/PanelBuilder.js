@@ -15,10 +15,11 @@
 //   - a mortise hole wherever a *stem* run's end lands mid-span (a T
 //     junction where THIS run is the through-piece);
 //   - a half-lap notch wherever a perpendicular run passes fully through
-//     mid-span (an X crossing), sized to *half of the shorter of the two
-//     crossing pieces' local heights* — never either piece's own height
-//     in isolation, or the two notches wouldn't be complementary when the
-//     heights differ (see splitHeight() below).
+//     mid-span (an X crossing): the shorter (or equal) of the two pieces
+//     notches half of its own height as usual; the taller one notches
+//     from its own edge all the way down to the shorter piece's full
+//     height (not just half), since above that there is nothing to
+//     interlock with and it should stay solid — see crossingNotchDepth().
 //
 // Central convention (write once, reference everywhere — this exact
 // omission is what causes half-thickness/overshoot bugs): a wall's tab
@@ -137,19 +138,18 @@ function otherHeightAt(crossing, project) {
   return Math.min(...crossing.segs.map((s) => resolveHeight(s, project)));
 }
 
-// The height a half-lap notch is sized from: the SHORTER of the two
-// crossing pieces' local heights at this exact position — never either
-// piece's own height taken alone. If both pieces were notched to half of
-// their *own* height, unequal heights would either overlap (both keep
-// material in the middle) or leave a gap (neither reaches the top) at the
-// crossing; splitting the shorter piece's own full extent in half, and
-// using that same split for the taller piece too, is the only way both
-// notches stay complementary — together spanning exactly the shorter
-// piece's height, nothing more. Above that (only possible for the taller
-// piece), there is nothing to interlock with, so that piece stays solid.
-function splitHeight(crossing, spans, project) {
+// A half-lap notch's depth, from this piece's own designated edge (top for
+// 'v' runs, bottom for 'h' runs — see buildWallPanel). The shorter (or
+// equal) piece notches half of its *own* height, same as when both
+// pieces match. The *taller* piece notches all the way down to the
+// shorter piece's full height instead of just half of it — confirmed
+// behavior: above that point there's nothing shorter to interlock with,
+// so the taller piece should stay solid there, not leave an untouched
+// island of material floating past where the notch already opened.
+function crossingNotchDepth(crossing, spans, project) {
   const ownHeight = heightAt(spans, crossing.u);
-  return Math.min(ownHeight, otherHeightAt(crossing, project));
+  const otherHeight = otherHeightAt(crossing, project);
+  return ownHeight <= otherHeight ? ownHeight / 2 : ownHeight - otherHeight;
 }
 
 // Splits `segments` (as from fingerEdgePath) so none of them overlap
@@ -194,11 +194,10 @@ export function bottomCombSegments(run, grid, project, notchesFromBottom) {
 // notches removed wherever this run notches from the bottom at an X
 // crossing (see buildWallPanel: 'h' runs notch from the bottom, 'v' runs
 // from the top — never both from the same side, or the two crossing
-// pieces would collide instead of interlocking). A bottom notch always
-// stays a true edge notch (open at v=0) regardless of relative height,
-// since v=0 is this run's own real edge either way — unlike the free
-// edge (see buildWallPanel), which can turn into an enclosed hole when
-// this run is the taller of the two.
+// pieces would collide instead of interlocking). Always a true edge
+// notch (open at v=0), same as the free edge (see buildWallPanel) — only
+// the depth changes depending on which of the two crossing pieces is
+// taller.
 function bottomEdgePoints({ run, grid, project, spans, mateHalfThickness, notchesFromBottom }) {
   const events = [];
   if (mateHalfThickness > 0) {
@@ -212,8 +211,8 @@ function bottomEdgePoints({ run, grid, project, spans, mateHalfThickness, notche
     for (const c of interiorCrossings(run, grid)) {
       if (c.type !== 'through') continue;
       const { uStart, uEnd } = notchURange(c, project);
-      const half = splitHeight(c, spans, project) / 2;
-      events.push({ uStart, uEnd, y: half });
+      const depth = crossingNotchDepth(c, spans, project);
+      events.push({ uStart, uEnd, y: depth });
     }
     events.sort((a, b) => a.uStart - b.uStart);
   }
@@ -227,10 +226,10 @@ function bottomEdgePoints({ run, grid, project, spans, mateHalfThickness, notche
 
 // The free edge (v=height, opposite the base plate): stepped to each
 // covered cell's own resolved height, additionally notched down wherever
-// this run notches from this side at an X crossing AND is the shorter (or
-// equal) of the two crossing pieces there — `notches` only ever contains
-// those; the "this run is taller" case is a separate enclosed hole (see
-// buildWallPanel's freeEdgeHoles), not part of this edge at all.
+// this run notches from this side at an X crossing (depth from
+// crossingNotchDepth — half of this run's own height if it's the shorter
+// or equal piece there, or all the way down to the other piece's height
+// if this run is the taller one).
 function freeEdgePoints(run, spans, notches) {
   const boundarySet = new Set([0, run.length]);
   for (const s of spans) { boundarySet.add(s.uStart); boundarySet.add(s.uEnd); }
@@ -249,31 +248,6 @@ function freeEdgePoints(run, spans, notches) {
     pts.push({ x: uStart, y }, { x: uEnd, y });
   }
   return pts.reverse(); // the free edge traverses length -> 0
-}
-
-// The enclosed half-lap holes for X crossings where THIS run is the
-// *taller* of the two crossing pieces at that position: the shorter
-// piece's own top half needs to slot in somewhere strictly inside this
-// run's height, not at this run's own top edge, so it's a hole through
-// the face, not a boundary notch. Point order verified empirically to
-// shrink (not grow) under BurnCorrection's shared outward-normal formula,
-// same discipline as every other hole in this codebase.
-function freeEdgeHoles(crossings, spans, project) {
-  const holes = [];
-  for (const c of crossings) {
-    const ownHeight = heightAt(spans, c.u);
-    const otherHeight = otherHeightAt(c, project);
-    if (ownHeight <= otherHeight) continue; // handled as an edge notch instead
-    const { uStart, uEnd } = notchURange(c, project);
-    const half = otherHeight / 2;
-    holes.push([
-      { x: uStart, y: half },
-      { x: uEnd, y: half },
-      { x: uEnd, y: otherHeight },
-      { x: uStart, y: otherHeight },
-    ]);
-  }
-  return holes;
 }
 
 // Mortise holes for T junctions where THIS run is the through-piece: one
@@ -339,9 +313,7 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
 
   const throughCrossings = interiorCrossings(run, grid).filter((c) => c.type === 'through');
   const freeEdgeNotches = notchesFromBottom ? [] : throughCrossings
-    .filter((c) => heightAt(spans, c.u) <= otherHeightAt(c, project))
-    .map((c) => ({ ...notchURange(c, project), depth: splitHeight(c, spans, project) / 2 }));
-  const freeHoles = notchesFromBottom ? [] : freeEdgeHoles(throughCrossings, spans, project);
+    .map((c) => ({ ...notchURange(c, project), depth: crossingNotchDepth(c, spans, project) }));
 
   const bottom = bottomEdgePoints({ run, grid, project, spans, mateHalfThickness: baseHalf, notchesFromBottom });
   const right = endEdgePoints({ length, height: heightB, mateHalfThickness: halfB, fj, startWithFinger, atRight: true, reverse: false });
@@ -356,6 +328,6 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
     thicknessGroup: seg.thicknessGroup,
     thicknessMm: resolveThickness(seg, project),
     outline,
-    holes: [...mortiseHoles(run, grid, project), ...freeHoles],
+    holes: mortiseHoles(run, grid, project),
   };
 }
