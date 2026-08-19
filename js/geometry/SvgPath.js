@@ -23,6 +23,21 @@ export function pieceToSvgElement(piece, { interactive = false } = {}) {
   return path;
 }
 
+/** A ready-to-insert standalone <svg> for one piece, sized to its bounds
+ *  plus padding. Used identically for the full-size preview strip and (in
+ *  a smaller instance) anywhere else a quick piece thumbnail is needed. */
+export function pieceToStandaloneSvg(piece, { padding = 10, minSize = 0 } = {}) {
+  const bounds = pieceBounds(piece);
+  const w = bounds.width + padding * 2;
+  const h = bounds.height + padding * 2;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `${bounds.minX - padding} ${bounds.minY - padding} ${w} ${h}`);
+  svg.setAttribute('width', Math.max(minSize, w));
+  svg.setAttribute('height', Math.max(minSize, h));
+  svg.appendChild(pieceToSvgElement(piece));
+  return svg;
+}
+
 export function pieceBounds(piece) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const p of piece.outline) {

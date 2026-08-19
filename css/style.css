@@ -4,7 +4,11 @@
   --panel-bg: #ffffff;
   --border: #d8d5cd;
   --ink: #2a2822;
+  --muted: #6b675c;
   --accent: #b45309;
+  --outer: #8a6d3b;
+  --inner: #4a7a8c;
+  --selected: #c0392b;
 }
 
 * { box-sizing: border-box; }
@@ -22,35 +26,152 @@ header {
 }
 
 h1 { margin: 0 0 0.25rem; font-size: 1.25rem; }
-.subtitle { margin: 0; color: #6b675c; font-size: 0.9rem; }
+h3 { margin: 1rem 0 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+h3:first-child { margin-top: 0; }
+.subtitle { margin: 0; color: var(--muted); font-size: 0.9rem; }
 
-#pieces {
-  display: flex;
-  flex-wrap: wrap;
+/* --- editor layout --- */
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
   gap: 1rem;
-  padding: 1.5rem;
+  padding: 1rem;
+  align-items: start;
 }
 
-.piece-card {
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.editor-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.editor-canvas {
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.5rem;
 }
 
-.piece-card svg {
+.editor-svg {
   display: block;
+  width: 100%;
+  height: auto;
+  max-height: 60vh;
 }
 
-.piece-card .label {
-  font-size: 0.75rem;
-  color: #6b675c;
-  margin-top: 0.25rem;
+/* --- grid rendering --- */
+
+.grid-cell {
+  fill: #eef0ea;
+  pointer-events: none;
+}
+
+.wall-segment { cursor: pointer; }
+.wall-hit {
+  stroke: transparent;
+  stroke-width: 5;
+  fill: none;
+}
+
+.wall-line {
+  stroke-width: 1.6;
+  fill: none;
+  stroke-linecap: round;
+}
+.wall-line.present.group-outer { stroke: var(--outer); }
+.wall-line.present.group-inner { stroke: var(--inner); }
+.wall-line.absent {
+  stroke: #b9b6ad;
+  stroke-width: 1;
+  stroke-dasharray: 3 2.5;
+}
+/* Same specificity (3 classes) as .wall-line.present.group-* so it isn't
+   silently outranked by the group color rule — a plain .wall-line.selected
+   (2 classes) would lose to that 3-class rule and never show. */
+.wall-line.present.selected,
+.wall-line.absent.selected {
+  stroke: var(--selected);
+  stroke-width: 2.6;
+}
+.wall-segment:hover .wall-line { opacity: 0.7; }
+
+/* --- forms --- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.6rem;
+}
+.field-label { font-size: 0.75rem; color: var(--muted); }
+.field input, .field select {
+  font: inherit;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-bg);
+  color: var(--ink);
+}
+.hint { font-size: 0.72rem; color: var(--muted); }
+
+.btn {
+  font: inherit;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fbfaf7;
+  color: var(--ink);
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+.inspector.empty { color: var(--muted); font-size: 0.85rem; }
+.inspector h3 { margin-top: 0; }
+
+/* --- live preview strip --- */
+
+.preview-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0.75rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.preview-card {
+  flex: 0 0 auto;
   text-align: center;
 }
-
-.piece-card path {
+.preview-card svg { display: block; }
+.preview-card path {
   fill: #eadfc7;
   stroke: var(--accent);
   stroke-width: 0.6;
+}
+.preview-label {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

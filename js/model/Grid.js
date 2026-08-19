@@ -103,3 +103,56 @@ export function toggleFloor(grid, c, r) {
   next.floors[c][r].present = !next.floors[c][r].present;
   return next;
 }
+
+function segmentsEqual(a, b) {
+  return a.present === b.present && a.heightMm === b.heightMm && a.thicknessGroup === b.thicknessGroup;
+}
+
+/** Resizes the grid to a new sx/sy. Outer-perimeter segments are always
+ *  regenerated fresh (the perimeter invariant always wins, and a manual
+ *  heightMm override on an outer segment is rare enough not to be worth
+ *  preserving across a resize). Interior wall/floor customization is
+ *  carried over wherever its (kind,c,r) position still exists *and* is
+ *  still interior in the new grid; everywhere else a genuine
+ *  customization is dropped. Returns { grid, lostCustomization } so the
+ *  caller can warn before committing a resize that would silently drop
+ *  existing edits. */
+export function resizeGrid(grid, newSxMm, newSyMm) {
+  const next = createGrid(newSxMm, newSyMm);
+  const oldCols = grid.sx.length, oldRows = grid.sy.length;
+  const newCols = newSxMm.length, newRows = newSyMm.length;
+  let lostCustomization = false;
+
+  for (let c = 0; c <= oldCols; c++) {
+    for (let r = 0; r < oldRows; r++) {
+      if (isOuterSegment(grid, 'v', c, r)) continue;
+      const oldSeg = grid.vWalls[c][r];
+      if (segmentsEqual(oldSeg, defaultSegment(false))) continue;
+      const stillInner = c <= newCols && r < newRows && !isOuterSegment(next, 'v', c, r);
+      if (stillInner) next.vWalls[c][r] = { ...oldSeg };
+      else lostCustomization = true;
+    }
+  }
+
+  for (let c = 0; c < oldCols; c++) {
+    for (let r = 0; r <= oldRows; r++) {
+      if (isOuterSegment(grid, 'h', c, r)) continue;
+      const oldSeg = grid.hWalls[c][r];
+      if (segmentsEqual(oldSeg, defaultSegment(false))) continue;
+      const stillInner = c < newCols && r <= newRows && !isOuterSegment(next, 'h', c, r);
+      if (stillInner) next.hWalls[c][r] = { ...oldSeg };
+      else lostCustomization = true;
+    }
+  }
+
+  for (let c = 0; c < oldCols; c++) {
+    for (let r = 0; r < oldRows; r++) {
+      if (grid.floors[c][r].present !== false) continue; // only a removed floor counts as customized
+      const stillExists = c < newCols && r < newRows;
+      if (stillExists) next.floors[c][r].present = false;
+      else lostCustomization = true;
+    }
+  }
+
+  return { grid: next, lostCustomization };
+}
