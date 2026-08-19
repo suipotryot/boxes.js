@@ -1,8 +1,8 @@
-import { createM1ExampleProject } from './state/Project.js';
+import { createM2ExampleProject } from './state/Project.js';
 import { computePieces } from './geometry/PieceFactory.js';
 import { pieceToSvgElement, pieceBounds } from './geometry/SvgPath.js';
 
-const project = createM1ExampleProject();
+const project = createM2ExampleProject();
 const pieces = computePieces(project);
 
 const container = document.getElementById('pieces');

@@ -31,3 +31,16 @@ export function createM1ExampleProject() {
   project.outerHeightMm = 50;
   return project;
 }
+
+// Milestone-2 fixture: a 2x2 grid of internal dividers, used to prove T
+// junctions (each divider meeting the outer perimeter) and the one X
+// crossing (where the two dividers meet each other) all produce correct,
+// non-self-intersecting flat-pack outlines. Unequal cell sizes so the
+// grid is visibly not just a symmetric square split.
+export function createM2ExampleProject() {
+  const project = createDefaultProject('M2 — jonctions T et X (grille 2×2)');
+  project.grid = createGrid([90, 130], [70, 100]);
+  project.outerHeightMm = 50;
+  project.innerHeightMm = 50;
+  return project;
+}

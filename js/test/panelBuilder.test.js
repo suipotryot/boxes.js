@@ -74,4 +74,82 @@ test('base plate outline is simple and closed for a single-cell box', () => {
   assertClose(bounds.height, 100, 0.5, 'plate height');
 });
 
+// M2: T junctions and the X crossing must use *the mate's* half-thickness
+// at each end independently — never the wall's own thickness, never a
+// value shared uniformly across both ends of the same wall. Depth is read
+// off the built outline (finger points sit at x = -half at the u=0 end and
+// x = length + half at the u=length end; see PanelBuilder's endEdgePoints).
+function findWall(walls, kind, c, r) {
+  const w = walls.find((x) => x.kind === kind && x.c === c && x.r === r);
+  assert(w, `wall ${kind} ${c},${r} not found`);
+  return w;
+}
+function xExtent(outline) {
+  const xs = outline.map((p) => p.x);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs) };
+}
+
+test('T junction: the stem divider protrudes by the outer edge half-thickness at both ends, not its own inner thickness', () => {
+  const t = createDefaultProject();
+  t.grid = createGrid([80, 80], [100]); // 2 cols x 1 row: one interior vertical divider
+  t.outerThicknessMm = 3;
+  t.innerThicknessMm = 5;
+  const walls = enumerateWallSegments(t.grid);
+  const divider = findWall(walls, 'v', 1, 0);
+  const piece = buildWallPanel(divider, t.grid, t, true);
+  assert(isSimplePolygon(piece.outline), 'T-junction divider outline self-intersects');
+  const { minX, maxX } = xExtent(piece.outline);
+  assertClose(minX, -1.5, 1e-6, 'divider top-end protrusion should be outerThickness/2');
+  assertClose(maxX - 100, 1.5, 1e-6, 'divider bottom-end protrusion should be outerThickness/2');
+});
+
+test('T junction: each through-wall half uses its own end\'s mate independently', () => {
+  const t = createDefaultProject();
+  t.grid = createGrid([80, 80], [100]);
+  t.outerThicknessMm = 3;
+  t.innerThicknessMm = 5;
+  const walls = enumerateWallSegments(t.grid);
+  const throughHalf = findWall(walls, 'h', 0, 0); // left half of the top edge
+  const piece = buildWallPanel(throughHalf, t.grid, t, true);
+  assert(isSimplePolygon(piece.outline), 'through-wall outline self-intersects');
+  const { minX, maxX } = xExtent(piece.outline);
+  assertClose(minX, -1.5, 1e-6, 'outer-corner end should protrude by outerThickness/2');
+  assertClose(maxX - 80, 2.5, 1e-6, 'T-junction end should protrude by innerThickness/2, not outerThickness/2');
+});
+
+test('X crossing: all four converging walls protrude by half the inner divider thickness', () => {
+  const x = createDefaultProject();
+  x.grid = createGrid([90, 130], [70, 100]); // 2x2: two interior dividers cross at the center
+  x.outerThicknessMm = 3;
+  x.innerThicknessMm = 7;
+  const walls = enumerateWallSegments(x.grid);
+  const vAbove = findWall(walls, 'v', 1, 0); // ends at the crossing (bPoint)
+  const vBelow = findWall(walls, 'v', 1, 1); // starts at the crossing (aPoint)
+  const hLeft = findWall(walls, 'h', 0, 1); // ends at the crossing (bPoint)
+  const hRight = findWall(walls, 'h', 1, 1); // starts at the crossing (aPoint)
+
+  const pAbove = buildWallPanel(vAbove, x.grid, x, true);
+  const pBelow = buildWallPanel(vBelow, x.grid, x, true);
+  const pLeft = buildWallPanel(hLeft, x.grid, x, true);
+  const pRight = buildWallPanel(hRight, x.grid, x, true);
+
+  assertClose(xExtent(pAbove.outline).maxX - 70, 3.5, 1e-6, 'vAbove crossing-end protrusion');
+  assertClose(xExtent(pBelow.outline).minX, -3.5, 1e-6, 'vBelow crossing-end protrusion');
+  assertClose(xExtent(pLeft.outline).maxX - 90, 3.5, 1e-6, 'hLeft crossing-end protrusion');
+  assertClose(xExtent(pRight.outline).minX, -3.5, 1e-6, 'hRight crossing-end protrusion');
+});
+
+test('M2 example: a 2x2 grid with internal dividers (T junctions + an X crossing) produces simple, non-self-intersecting outlines everywhere', () => {
+  const m2 = createDefaultProject();
+  m2.grid = createGrid([90, 130], [70, 100]);
+  const walls = enumerateWallSegments(m2.grid);
+  assert(walls.length === 12, `expected 12 wall segments in a 2x2 grid, got ${walls.length}`);
+  for (const w of walls) {
+    const piece = buildWallPanel(w, m2.grid, m2, true);
+    assert(isSimplePolygon(piece.outline), `${piece.id} outline self-intersects`);
+  }
+  const plate = buildBasePlate(m2.grid, m2);
+  assert(isSimplePolygon(plate.outline), 'M2 base plate outline self-intersects');
+});
+
 run();
