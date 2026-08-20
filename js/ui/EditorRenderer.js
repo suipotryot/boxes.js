@@ -3,7 +3,7 @@
 // does the hit-testing; there's no manual picking code and no redraw loop
 // to keep in sync with model state, unlike a Canvas-based editor.
 import { svgEl } from './dom.js';
-import { xAt, yAt } from '../model/Grid.js';
+import { xAt, yAt } from '../model/GridQuery.js';
 
 const PAD_MM = 15;
 
@@ -31,14 +31,14 @@ export function renderEditorSvg(project, selected, onSelect) {
   const grid = project.grid;
   const cols = grid.sx.length;
   const rows = grid.sy.length;
-  const width = grid.sx.reduce((a, b) => a + b, 0);
-  const height = grid.sy.reduce((a, b) => a + b, 0);
+  const width = xAt(grid, project, cols);
+  const height = yAt(grid, project, rows);
 
   const cellRects = [];
   for (let c = 0; c < cols; c++) {
     for (let r = 0; r < rows; r++) {
       cellRects.push(svgEl('rect', {
-        x: xAt(grid, c), y: yAt(grid, r), width: grid.sx[c], height: grid.sy[r], class: 'grid-cell',
+        x: xAt(grid, project, c), y: yAt(grid, project, r), width: grid.sx[c], height: grid.sy[r], class: 'grid-cell',
       }));
     }
   }
@@ -46,12 +46,12 @@ export function renderEditorSvg(project, selected, onSelect) {
   const segments = [];
   for (let c = 0; c <= cols; c++) {
     for (let r = 0; r < rows; r++) {
-      addWallSegment(segments, grid, 'v', c, r, xAt(grid, c), yAt(grid, r), xAt(grid, c), yAt(grid, r + 1), selected, onSelect);
+      addWallSegment(segments, grid, 'v', c, r, xAt(grid, project, c), yAt(grid, project, r), xAt(grid, project, c), yAt(grid, project, r + 1), selected, onSelect);
     }
   }
   for (let c = 0; c < cols; c++) {
     for (let r = 0; r <= rows; r++) {
-      addWallSegment(segments, grid, 'h', c, r, xAt(grid, c), yAt(grid, r), xAt(grid, c + 1), yAt(grid, r), selected, onSelect);
+      addWallSegment(segments, grid, 'h', c, r, xAt(grid, project, c), yAt(grid, project, r), xAt(grid, project, c + 1), yAt(grid, project, r), selected, onSelect);
     }
   }
 

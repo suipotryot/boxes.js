@@ -26,18 +26,18 @@
 //     of which piece is taller. See crossingNotchDepth().
 //
 // Central convention (write once, reference everywhere — this exact
-// omission is what causes half-thickness/overshoot bugs): a wall's tab
-// protrudes past its own centerline by *the mate's* thickness / 2, never
-// its own thickness. See matingProtrusion() below; every edge builder in
-// this file goes through it instead of re-deriving a protrusion depth.
+// omission is what causes underdepth/half-thickness bugs): a wall's tab
+// protrudes past its own centerline by *the mate's full* thickness, never
+// half of it — a mortise hole is always cut all the way through the piece
+// that receives it (a laser cuts through the entire sheet, there is no
+// such thing as a half-depth hole), so a tab meant to fill that hole flush
+// must reach the mate's far face regardless of where the mate's own
+// centerline sits. Every edge builder in this file uses the mate's
+// resolved thickness (resolveThickness/maxThickness) directly instead of
+// re-deriving a protrusion depth.
 import { fingerEdgePath } from './FingerJoint.js';
 import { simplifyPolygon } from './Point.js';
-import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt, perimeterHeight } from '../model/GridQuery.js';
-import { xAt, yAt } from '../model/Grid.js';
-
-export function matingProtrusion(mateThicknessMm) {
-  return mateThicknessMm / 2;
-}
+import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt, perimeterHeight, xAt, yAt } from '../model/GridQuery.js';
 
 /** A wall run's piece id — the one stable place this format is defined,
  *  so anything that needs to find a run's own piece again later (e.g. the
@@ -57,17 +57,17 @@ function maxThickness(mates, project) {
 // a non-self-intersecting outline (the left end must run top->bottom while
 // every other edge runs the other way — getting this backwards is exactly
 // the double-reversal bug that produced self-intersecting outlines before).
-function endEdgePoints({ length: L, height: H, mateHalfThickness, fj, startWithFinger, atRight, reverse }) {
+function endEdgePoints({ length: L, height: H, mateProtrusion, fj, startWithFinger, atRight, reverse }) {
   const baseU = atRight ? L : 0;
   const dir = atRight ? 1 : -1;
   let pts;
-  if (mateHalfThickness <= 0) {
+  if (mateProtrusion <= 0) {
     pts = [{ x: baseU, y: 0 }, { x: baseU, y: H }];
   } else {
     const segs = fingerEdgePath(H, fj, startWithFinger);
     pts = [];
     for (const seg of segs) {
-      const u = seg.kind === 'finger' ? baseU + dir * mateHalfThickness : baseU;
+      const u = seg.kind === 'finger' ? baseU + dir * mateProtrusion : baseU;
       pts.push({ x: u, y: seg.start });
       pts.push({ x: u, y: seg.start + seg.length });
     }
@@ -83,16 +83,16 @@ function heightProfile(run, grid, project) {
   if (run.kind === 'v') {
     for (let r = run.rStart; r <= run.rEnd; r++) {
       spans.push({
-        uStart: yAt(grid, r) - yAt(grid, run.rStart),
-        uEnd: yAt(grid, r + 1) - yAt(grid, run.rStart),
+        uStart: yAt(grid, project, r) - yAt(grid, project, run.rStart),
+        uEnd: yAt(grid, project, r + 1) - yAt(grid, project, run.rStart),
         height: resolveHeight(grid.vWalls[run.c][r], project),
       });
     }
   } else {
     for (let c = run.cStart; c <= run.cEnd; c++) {
       spans.push({
-        uStart: xAt(grid, c) - xAt(grid, run.cStart),
-        uEnd: xAt(grid, c + 1) - xAt(grid, run.cStart),
+        uStart: xAt(grid, project, c) - xAt(grid, project, run.cStart),
+        uEnd: xAt(grid, project, c + 1) - xAt(grid, project, run.cStart),
         height: resolveHeight(grid.hWalls[c][run.r], project),
       });
     }
@@ -116,19 +116,19 @@ function heightAt(spans, u, epsilon = 1e-9) {
 // Any interior grid point of `run` where something perpendicular touches —
 // mid-run, never at the run's own two ends. `u` is that point's distance
 // along the run's own length axis from its start.
-function interiorCrossings(run, grid) {
+function interiorCrossings(run, grid, project) {
   const results = [];
   if (run.kind === 'v') {
     for (let r = run.rStart + 1; r <= run.rEnd; r++) {
       const info = crossingAt(grid, 'v', run.c, r);
       if (info.type === 'none') continue;
-      results.push({ u: yAt(grid, r) - yAt(grid, run.rStart), ...info });
+      results.push({ u: yAt(grid, project, r) - yAt(grid, project, run.rStart), ...info });
     }
   } else {
     for (let c = run.cStart + 1; c <= run.cEnd; c++) {
       const info = crossingAt(grid, 'h', c, run.r);
       if (info.type === 'none') continue;
-      results.push({ u: xAt(grid, c) - xAt(grid, run.cStart), ...info });
+      results.push({ u: xAt(grid, project, c) - xAt(grid, project, run.cStart), ...info });
     }
   }
   return results;
@@ -147,7 +147,7 @@ function notchURange(crossing, project) {
 // it, never a finger straddling or landing right against it. 'through'
 // (X) reuses the half-lap notch's own width (the crossing perpendicular
 // piece's thickness); 'stems' (T) uses the thickest of the one or two
-// stems present there (mirrors matingProtrusion's own "widest mate wins"
+// stems present there (mirrors maxThickness's own "widest mate wins"
 // convention elsewhere in this file).
 function crossingExclusionRange(crossing, project) {
   if (crossing.type === 'through') return notchURange(crossing, project);
@@ -202,7 +202,7 @@ function crossingNotchDepth(crossing, spans, project) {
 export function bottomCombSegments(run, grid, project) {
   const fj = project.fingerJoint;
   const startWithFinger = run.kind === 'v';
-  const crossings = interiorCrossings(run, grid).filter((c) => c.type !== 'none');
+  const crossings = interiorCrossings(run, grid, project).filter((c) => c.type !== 'none');
   if (crossings.length === 0) return fingerEdgePath(run.length, fj, startWithFinger);
 
   const exclusions = crossings
@@ -241,12 +241,12 @@ export function bottomCombSegments(run, grid, project) {
 // pattern as freeEdgePoints, for the same reason: two independently
 // authored events covering the same stretch must not both become
 // separate point-pairs, or the outline doubles back on itself).
-function bottomEdgePoints({ run, grid, project, spans, mateHalfThickness, notchesFromBottom }) {
-  const comb = mateHalfThickness > 0
+function bottomEdgePoints({ run, grid, project, spans, mateProtrusion, notchesFromBottom }) {
+  const comb = mateProtrusion > 0
     ? bottomCombSegments(run, grid, project)
     : [{ start: 0, length: run.length, kind: 'flush' }];
   const notches = notchesFromBottom
-    ? interiorCrossings(run, grid).filter((c) => c.type === 'through')
+    ? interiorCrossings(run, grid, project).filter((c) => c.type === 'through')
       .map((c) => ({ ...notchURange(c, project), depth: crossingNotchDepth(c, spans, project) }))
     : [];
 
@@ -267,7 +267,7 @@ function bottomEdgePoints({ run, grid, project, spans, mateHalfThickness, notche
       y = notch.depth;
     } else {
       const seg = comb.find((s) => mid > s.start && mid < s.start + s.length);
-      y = seg && seg.kind === 'finger' ? -mateHalfThickness : 0;
+      y = seg && seg.kind === 'finger' ? -mateProtrusion : 0;
     }
     pts.push({ x: uStart, y }, { x: uEnd, y });
   }
@@ -314,7 +314,7 @@ function mortiseHoles(run, grid, project) {
   const fj = project.fingerJoint;
   const stemStartWithFinger = run.kind === 'h';
   const holes = [];
-  for (const crossing of interiorCrossings(run, grid)) {
+  for (const crossing of interiorCrossings(run, grid, project)) {
     if (crossing.type !== 'stems') continue;
     for (const stemSeg of crossing.stems) {
       const stemHeight = resolveHeight(stemSeg, project);
@@ -347,10 +347,10 @@ function mortiseHoles(run, grid, project) {
 // always out-of-grid), so this never needs to merge with freeEdgePoints'
 // other concerns.
 function lidTopEdgePoints(run, grid, project, height) {
-  const half = matingProtrusion(project.outerThicknessMm);
+  const protrusion = project.outerThicknessMm;
   const pts = [];
   for (const s of bottomCombSegments(run, grid, project)) {
-    const y = s.kind === 'finger' ? height + half : height;
+    const y = s.kind === 'finger' ? height + protrusion : height;
     pts.push({ x: s.start, y }, { x: s.start + s.length, y });
   }
   return pts.reverse(); // match freeEdgePoints' length -> 0 traversal
@@ -397,8 +397,8 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
 
   const matesA = perpendicularMatesAtPoint(grid, kind, aPoint[0], aPoint[1]);
   const matesB = perpendicularMatesAtPoint(grid, kind, bPoint[0], bPoint[1]);
-  const halfA = matingProtrusion(maxThickness(matesA, project));
-  const halfB = matingProtrusion(maxThickness(matesB, project));
+  const protrusionA = maxThickness(matesA, project);
+  const protrusionB = maxThickness(matesB, project);
 
   // Axis-based convention guarantees complementary alternation between any
   // two mates without needing a per-pair tie-break: a 'v' run's ends and
@@ -410,9 +410,9 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   // halves, never the same one (which would collide instead of interlock).
   const startWithFinger = kind === 'v';
   const notchesFromBottom = kind === 'h';
-  const baseHalf = hasBasePlate ? matingProtrusion(project.outerThicknessMm) : 0;
+  const baseProtrusion = hasBasePlate ? project.outerThicknessMm : 0;
 
-  const throughCrossings = interiorCrossings(run, grid).filter((c) => c.type === 'through');
+  const throughCrossings = interiorCrossings(run, grid, project).filter((c) => c.type === 'through');
   const freeEdgeNotches = notchesFromBottom ? [] : throughCrossings
     .map((c) => ({ ...notchURange(c, project), depth: crossingNotchDepth(c, spans, project) }));
 
@@ -422,10 +422,10 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   const lidActive = !!lid && lid.enabled && lid.insertHeightMm != null && seg.thicknessGroup === 'outer';
   const lidFlush = lidActive && Math.abs(lid.insertHeightMm - perimeterHeight(grid, project)) < 1e-6;
 
-  const bottom = bottomEdgePoints({ run, grid, project, spans, mateHalfThickness: baseHalf, notchesFromBottom });
-  const right = endEdgePoints({ length, height: heightB, mateHalfThickness: halfB, fj, startWithFinger, atRight: true, reverse: false });
+  const bottom = bottomEdgePoints({ run, grid, project, spans, mateProtrusion: baseProtrusion, notchesFromBottom });
+  const right = endEdgePoints({ length, height: heightB, mateProtrusion: protrusionB, fj, startWithFinger, atRight: true, reverse: false });
   const top = lidFlush ? lidTopEdgePoints(run, grid, project, heightA) : freeEdgePoints(run, spans, freeEdgeNotches);
-  const left = endEdgePoints({ length, height: heightA, mateHalfThickness: halfA, fj, startWithFinger, atRight: false, reverse: true });
+  const left = endEdgePoints({ length, height: heightA, mateProtrusion: protrusionA, fj, startWithFinger, atRight: false, reverse: true });
 
   const outline = simplifyPolygon([...bottom, ...right, ...top, ...left]);
 

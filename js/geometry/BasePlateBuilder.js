@@ -12,9 +12,9 @@
 // bottom edge uses, so a base-plate notch can never drift out of sync
 // with the wall tab it receives.
 import { simplifyPolygon } from './Point.js';
-import { matingProtrusion, bottomCombSegments } from './PanelBuilder.js';
-import { resolveThickness, enumerateWallRuns } from '../model/GridQuery.js';
-import { xAt, yAt, isOuterSegment } from '../model/Grid.js';
+import { bottomCombSegments } from './PanelBuilder.js';
+import { resolveThickness, enumerateWallRuns, xAt, yAt } from '../model/GridQuery.js';
+import { isOuterSegment } from '../model/Grid.js';
 
 // Finger holes for interior dividers. Unlike the outer notches above,
 // these never touch the plate's boundary, so — unlike the "touching hole"
@@ -47,8 +47,8 @@ function dividerFingerHoles(innerRuns, grid, project) {
     const half = resolveThickness(run.seg, project) / 2;
     const segs = bottomCombSegments(run, grid, project);
     if (run.kind === 'v') {
-      const x = xAt(grid, run.c);
-      const y0 = yAt(grid, run.rStart);
+      const x = xAt(grid, project, run.c);
+      const y0 = yAt(grid, project, run.rStart);
       for (const s of segs) {
         if (s.kind !== 'finger') continue;
         holes.push([
@@ -59,8 +59,8 @@ function dividerFingerHoles(innerRuns, grid, project) {
         ]);
       }
     } else {
-      const y = yAt(grid, run.r);
-      const x0 = xAt(grid, run.cStart);
+      const y = yAt(grid, project, run.r);
+      const x0 = xAt(grid, project, run.cStart);
       for (const s of segs) {
         if (s.kind !== 'finger') continue;
         holes.push([
@@ -75,16 +75,39 @@ function dividerFingerHoles(innerRuns, grid, project) {
   return holes;
 }
 
-function edgeNotchPoints(run, grid, project, axisPoint, inward, reverse) {
+// `axisPoint(u)` sits exactly on the compartment boundary (xAt/yAt's own
+// coordinate — where the outer wall's INNER face is, per the "walls
+// entirely outward" convention).
+//
+// `protrude:false` (base plate, flush lid): a flush segment must NOT sit
+// on that boundary — the plate's own true outer edge is
+// `outerThicknessMm` further OUT (matching the wall's OUTER face — the
+// same margin the wall panel's own corner combs already protrude past
+// their nominal length into, see PanelBuilder's endEdgePoints/halfA-B),
+// so a flush stretch of the plate extends out to meet it. A finger
+// (tooth) segment recedes back to EXACTLY the compartment boundary —
+// never past it — so the notch only ever cuts into the wall's own
+// thickness margin, and the compartment's usable floor span (measured on
+// the bare, unassembled plate, between two junctions) is the full
+// nominal span the user configured, not that span minus a wall
+// thickness.
+//
+// `protrude:true` (recessed lid): the reverse — a flush segment stays
+// right on the compartment boundary (the lid's own nominal, un-tabbed
+// span is exactly the compartment footprint), and a finger segment
+// protrudes OUTWARD past it by the full outer thickness, reaching into
+// the wall's own material to form a real tab.
+function edgeNotchPoints(run, grid, project, axisPoint, inward, reverse, protrude) {
   if (!run) return [];
-  const half = matingProtrusion(project.outerThicknessMm);
+  const depthFull = project.outerThicknessMm;
   const pts = [];
   for (const s of bottomCombSegments(run, grid, project)) {
-    const depth = s.kind === 'finger' ? half : 0;
+    const isFinger = s.kind === 'finger';
+    const offset = protrude ? (isFinger ? depthFull : 0) : (isFinger ? 0 : -depthFull);
     const p0 = axisPoint(s.start);
     const p1 = axisPoint(s.start + s.length);
-    pts.push({ x: p0.x + inward.x * depth, y: p0.y + inward.y * depth });
-    pts.push({ x: p1.x + inward.x * depth, y: p1.y + inward.y * depth });
+    pts.push({ x: p0.x + inward.x * offset, y: p0.y + inward.y * offset });
+    pts.push({ x: p1.x + inward.x * offset, y: p1.y + inward.y * offset });
   }
   return reverse ? pts.slice().reverse() : pts;
 }
@@ -102,10 +125,10 @@ function edgeNotchPoints(run, grid, project, axisPoint, inward, reverse) {
 export function buildOuterEdgeOutline(grid, project, { protrude = false } = {}) {
   const cols = grid.sx.length;
   const rows = grid.sy.length;
-  const W = grid.sx.reduce((a, b) => a + b, 0);
-  const D = grid.sy.reduce((a, b) => a + b, 0);
+  const W = xAt(grid, project, cols);
+  const D = yAt(grid, project, rows);
 
-  const runs = enumerateWallRuns(grid);
+  const runs = enumerateWallRuns(grid, project);
   const outerRuns = runs.filter((run) => isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
   const topRun = outerRuns.find((run) => run.kind === 'h' && run.r === 0);
   const bottomRun = outerRuns.find((run) => run.kind === 'h' && run.r === rows);
@@ -113,16 +136,36 @@ export function buildOuterEdgeOutline(grid, project, { protrude = false } = {}) 
   const rightRun = outerRuns.find((run) => run.kind === 'v' && run.c === cols);
 
   const sign = protrude ? -1 : 1;
-  const top = edgeNotchPoints(topRun, grid, project, (u) => ({ x: u, y: 0 }), { x: 0, y: sign }, false);
-  const right = edgeNotchPoints(rightRun, grid, project, (u) => ({ x: W, y: u }), { x: -sign, y: 0 }, false);
-  const bottom = edgeNotchPoints(bottomRun, grid, project, (u) => ({ x: u, y: D }), { x: 0, y: -sign }, true);
-  const left = edgeNotchPoints(leftRun, grid, project, (u) => ({ x: 0, y: u }), { x: sign, y: 0 }, true);
+  const top = edgeNotchPoints(topRun, grid, project, (u) => ({ x: u, y: 0 }), { x: 0, y: sign }, false, protrude);
+  const right = edgeNotchPoints(rightRun, grid, project, (u) => ({ x: W, y: u }), { x: -sign, y: 0 }, false, protrude);
+  const bottom = edgeNotchPoints(bottomRun, grid, project, (u) => ({ x: u, y: D }), { x: 0, y: -sign }, true, protrude);
+  const left = edgeNotchPoints(leftRun, grid, project, (u) => ({ x: 0, y: u }), { x: sign, y: 0 }, true, protrude);
+
+  // Each edge only knows its OWN inward axis, so a flush (margin) segment
+  // at an end only extends on that one axis — the box's actual corner
+  // (both margins at once, a diagonal point) needs both adjacent edges'
+  // contributions merged. Snap every edge's own two endpoints directly to
+  // the true corner rather than leaving each at its own single-axis
+  // approximation, which otherwise leaves a stray diagonal cut across the
+  // corner (self-intersecting once the two near-duplicate points are
+  // simplified together). `protrude:true` never extends past the nominal
+  // rectangle at an end (fingers/tabs never land exactly at a corner
+  // given a non-zero margin), so margin is 0 there.
+  const margin = protrude ? 0 : project.outerThicknessMm;
+  const topLeft = { x: -margin, y: -margin };
+  const topRight = { x: W + margin, y: -margin };
+  const bottomRight = { x: W + margin, y: D + margin };
+  const bottomLeft = { x: -margin, y: D + margin };
+  if (top.length) { top[0] = topLeft; top[top.length - 1] = topRight; }
+  if (right.length) { right[0] = topRight; right[right.length - 1] = bottomRight; }
+  if (bottom.length) { bottom[0] = bottomRight; bottom[bottom.length - 1] = bottomLeft; }
+  if (left.length) { left[0] = bottomLeft; left[left.length - 1] = topLeft; }
 
   return simplifyPolygon([...top, ...right, ...bottom, ...left]);
 }
 
 export function buildBasePlate(grid, project) {
-  const runs = enumerateWallRuns(grid);
+  const runs = enumerateWallRuns(grid, project);
   const innerRuns = runs.filter((run) => !isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
 
   return {

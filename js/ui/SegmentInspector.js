@@ -3,11 +3,10 @@
 // directly — that split keeps "select" and "toggle" from being the same
 // ambiguous click, and gives every mutation one clear origin to look for.
 import { el } from './dom.js';
-import { toggleWall, setSegmentHeight, setSegmentThicknessGroup, isOuterSegment } from '../model/Grid.js';
+import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
 
 const KIND_LABEL = { v: 'vertical', h: 'horizontal' };
-const GROUP_LABEL = { outer: 'Extérieur', inner: 'Intérieur' };
 
 export function renderInspector(project, selected, store) {
   if (!selected) {
@@ -34,17 +33,12 @@ export function renderInspector(project, selected, store) {
     outer ? el('span', { class: 'hint', text: 'Le périmètre extérieur ne peut pas être retiré.' }) : null,
   ]);
 
-  const groupSelect = el('select', {
-    disabled: outer,
-    onChange: (evt) => store.apply((p) => ({ ...p, grid: setSegmentThicknessGroup(p.grid, kind, c, r, evt.target.value) })),
-  }, [
-    el('option', { value: 'inner', selected: seg.thicknessGroup === 'inner', text: GROUP_LABEL.inner }),
-    el('option', { value: 'outer', selected: seg.thicknessGroup === 'outer', text: GROUP_LABEL.outer }),
-  ]);
+  // No group selector — a segment's thicknessGroup is fixed by its
+  // position (outer perimeter vs. interior divider), never reassignable
+  // per segment. Just show the resolved value, read-only.
   const groupRow = el('div', { class: 'field' }, [
-    el('span', { class: 'field-label', text: 'Groupe d’épaisseur' }),
-    groupSelect,
-    el('span', { class: 'hint', text: `${resolvedThickness}mm` }),
+    el('span', { class: 'field-label', text: 'Épaisseur' }),
+    el('span', { class: 'hint', text: `${resolvedThickness}mm (${outer ? 'extérieur' : 'intérieur'})` }),
   ]);
 
   const heightInput = el('input', {

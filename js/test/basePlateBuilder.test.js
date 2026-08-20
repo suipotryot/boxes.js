@@ -57,19 +57,6 @@ test('an interior divider carves finger holes into the base plate, sized by its 
   }
 });
 
-test('a divider explicitly set to the outer thickness group gets outer-width holes (mixed-thickness case)', () => {
-  const project = createDefaultProject();
-  project.grid = createGrid([80, 80], [100]);
-  project.outerThicknessMm = 3;
-  project.innerThicknessMm = 5;
-  project.grid.vWalls[1][0].thicknessGroup = 'outer'; // user override, still an interior position
-  const plate = buildBasePlate(project.grid, project);
-  assert(plate.holes.length > 0);
-  for (const hole of plate.holes) {
-    assertClose(holeWidth(hole), 3, 1e-9, 'an interior divider overridden to the outer group should get outer-thickness holes');
-  }
-});
-
 test('base plate outline and holes stay simple and non-overlapping after burn correction, with a 2x2 grid and mixed thicknesses', () => {
   const project = createDefaultProject();
   project.grid = createGrid([90, 130], [70, 100]); // T-junctions + one X crossing

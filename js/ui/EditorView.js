@@ -17,15 +17,15 @@ import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
 // may span several merged cells (GridQuery.enumerateWallRuns), so this
 // resolves through the run rather than assuming a 1:1 id match. Null for
 // an absent segment (nothing present there to highlight).
-function selectedPieceId(grid, selected) {
+function selectedPieceId(project, selected) {
   if (!selected) return null;
-  const run = runAt(grid, selected.kind, selected.c, selected.r);
+  const run = runAt(project.grid, project, selected.kind, selected.c, selected.r);
   return run ? wallPieceId(run) : null;
 }
 
 function renderPreviewStrip(project, selected) {
   const pieces = computePieces(project);
-  const highlightId = selectedPieceId(project.grid, selected);
+  const highlightId = selectedPieceId(project, selected);
   const cards = pieces.map((piece) => {
     const svg = pieceToStandaloneSvg(piece, { padding: 4, minSize: 40 });
     const highlighted = piece.id === highlightId;

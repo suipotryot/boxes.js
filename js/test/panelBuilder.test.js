@@ -52,7 +52,7 @@ const project = createDefaultProject();
 project.grid = createGrid([150], [100]);
 
 test('a single-cell box produces exactly 4 simple, non-self-intersecting wall outlines (one per side)', () => {
-  const runs = enumerateWallRuns(project.grid);
+  const runs = enumerateWallRuns(project.grid, project);
   assert(runs.length === 4, `expected 4 runs (one per side) for a single-cell box, got ${runs.length}`);
   for (const run of runs) {
     const piece = buildWallPanel(run, project.grid, project, true);
@@ -63,11 +63,14 @@ test('a single-cell box produces exactly 4 simple, non-self-intersecting wall ou
 });
 
 test('a wall panel bounding box roughly matches its length x height', () => {
-  const runs = enumerateWallRuns(project.grid);
+  const runs = enumerateWallRuns(project.grid, project);
   const vRun = findRun(runs, 'v', (r) => r.c === 0);
   const piece = buildWallPanel(vRun, project.grid, project, true);
   const bounds = pieceBounds(piece);
-  assert(bounds.width > 95 && bounds.width < 105, `unexpected length span: ${bounds.width}`);
+  // 100 nominal length + a full 3mm outer-thickness protrusion at each end
+  // (both corners mate with the outer top/bottom edge, full thickness now,
+  // not half) = 106.
+  assert(bounds.width > 95 && bounds.width < 110, `unexpected length span: ${bounds.width}`);
   assert(bounds.height > 45 && bounds.height < 55, `unexpected height span: ${bounds.height}`);
 });
 
@@ -76,7 +79,7 @@ test('different mate thickness at each end still produces a simple outline', () 
   mixed.grid = createGrid([150], [100]);
   mixed.outerThicknessMm = 3;
   mixed.innerThicknessMm = 8; // deliberately not a clean ratio, per the known regression pattern
-  const runs = enumerateWallRuns(mixed.grid);
+  const runs = enumerateWallRuns(mixed.grid, mixed);
   for (const run of runs) {
     const piece = buildWallPanel(run, mixed.grid, mixed, true);
     assert(isSimplePolygon(piece.outline), `${piece.id} self-intersects with mixed thickness`);
@@ -87,24 +90,27 @@ test('base plate outline is simple and closed for a single-cell box', () => {
   const plate = buildBasePlate(project.grid, project);
   assert(isSimplePolygon(plate.outline), 'base plate outline self-intersects');
   const bounds = pieceBounds(plate);
-  assertClose(bounds.width, 150, 0.5, 'plate width');
-  assertClose(bounds.height, 100, 0.5, 'plate height');
+  // 150/100 nominal (the compartment span) + a full 3mm outer-thickness
+  // margin on each side (where the edge notches live, so they never eat
+  // into the compartment span) = 156/106.
+  assertClose(bounds.width, 156, 0.5, 'plate width');
+  assertClose(bounds.height, 106, 0.5, 'plate height');
 });
 
-test('T junction: the divider is one piece protruding by the outer edge half-thickness at both ends', () => {
+test('T junction: the divider is one piece protruding by the outer edge\'s full thickness at both ends', () => {
   const t = createDefaultProject();
   t.grid = createGrid([80, 80], [100]); // 2 cols x 1 row: one interior vertical divider, no X crossing
   t.outerThicknessMm = 3;
   t.innerThicknessMm = 5;
-  const runs = enumerateWallRuns(t.grid);
+  const runs = enumerateWallRuns(t.grid, t);
   assert(runs.length === 5, `expected 5 runs (4 outer sides + 1 divider), got ${runs.length}`);
   const divider = findRun(runs, 'v', (r) => r.c === 1);
   const piece = buildWallPanel(divider, t.grid, t, true);
   assert(isSimplePolygon(piece.outline), 'divider outline self-intersects');
   assert(piece.holes.length === 0, 'a T-junction stem itself has no mortise holes — it has the ordinary end comb');
   const { minX, maxX } = xExtent(piece.outline);
-  assertClose(minX, -1.5, 1e-6, 'divider top-end protrusion should be outerThickness/2');
-  assertClose(maxX - 100, 1.5, 1e-6, 'divider bottom-end protrusion should be outerThickness/2');
+  assertClose(minX, -3, 1e-6, 'divider top-end protrusion should be the full outerThickness, not half — the mortise it fills is cut all the way through the outer edge');
+  assertClose(maxX - 100, 3, 1e-6, 'divider bottom-end protrusion should be the full outerThickness, not half');
 });
 
 test('T junction: the through-wall stays one piece and gets a mortise hole sized to the divider\'s own thickness', () => {
@@ -112,9 +118,13 @@ test('T junction: the through-wall stays one piece and gets a mortise hole sized
   t.grid = createGrid([80, 80], [100]);
   t.outerThicknessMm = 3;
   t.innerThicknessMm = 5;
-  const runs = enumerateWallRuns(t.grid);
+  const runs = enumerateWallRuns(t.grid, t);
   const topRun = findRun(runs, 'h', (r) => r.r === 0);
-  assertClose(topRun.length, 160, 1e-9, 'the top run should span both columns as one piece, not split at the divider');
+  // 165, not the raw sum 160: xAt now adds half the divider's own 5mm
+  // thickness on each side of the boundary it sits at (c=1), per the
+  // corrected grid coordinate model (sx/sy are clear interior spans, wall
+  // thickness is added on top, never just summed raw).
+  assertClose(topRun.length, 165, 1e-9, 'the top run should span both columns as one piece, not split at the divider');
   const piece = buildWallPanel(topRun, t.grid, t, true);
   assert(isSimplePolygon(piece.outline), 'through-wall outline self-intersects');
   assert(piece.holes.length === 2, `expected 2 mortise holes (one per finger of the divider's default 50mm-tall end comb), got ${piece.holes.length}`);
@@ -124,7 +134,7 @@ test('T junction: the through-wall stays one piece and gets a mortise hole sized
     const width = Math.max(...xs) - Math.min(...xs);
     assertClose(width, 5, 1e-9, 'mortise hole width should equal the divider\'s own (inner) thickness');
     const center = (Math.max(...xs) + Math.min(...xs)) / 2;
-    assertClose(center, 80, 1e-9, 'mortise hole should be centered on the divider\'s crossing position');
+    assertClose(center, 82.5, 1e-9, 'mortise hole should be centered on the divider\'s crossing position (xAt(1) = 80 + 5/2)');
   }
 });
 
@@ -133,12 +143,15 @@ test('X crossing: both dividers stay one piece each, with a half-lap notch and n
   x.grid = createGrid([90, 130], [70, 100]); // 2x2: two interior dividers cross once
   x.outerThicknessMm = 3;
   x.innerThicknessMm = 6;
-  const runs = enumerateWallRuns(x.grid);
+  const runs = enumerateWallRuns(x.grid, x);
   assert(runs.length === 6, `expected 6 runs (4 outer sides + 2 full-length dividers), got ${runs.length}`);
   const vDivider = findRun(runs, 'v', (r) => r.c === 1);
   const hDivider = findRun(runs, 'h', (r) => r.r === 1);
-  assertClose(vDivider.length, 170, 1e-9, 'the vertical divider should span both rows as one piece');
-  assertClose(hDivider.length, 220, 1e-9, 'the horizontal divider should span both columns as one piece');
+  // 176/226, not the raw sums 170/220 — same corrected grid coordinate
+  // model as the T-junction test above, here with two interior boundaries
+  // (both crossed dividers) each adding their own 6mm/2 contribution.
+  assertClose(vDivider.length, 176, 1e-9, 'the vertical divider should span both rows as one piece');
+  assertClose(hDivider.length, 226, 1e-9, 'the horizontal divider should span both columns as one piece');
 
   const vPiece = buildWallPanel(vDivider, x.grid, x, true);
   const hPiece = buildWallPanel(hDivider, x.grid, x, true);
@@ -166,7 +179,7 @@ test('X crossing: both dividers stay one piece each, with a half-lap notch and n
 test('M2 example: a 2x2 grid with internal dividers produces exactly 7 pieces (1 base + 4 sides + 2 dividers), all simple', () => {
   const m2 = createDefaultProject();
   m2.grid = createGrid([90, 130], [70, 100]);
-  const runs = enumerateWallRuns(m2.grid);
+  const runs = enumerateWallRuns(m2.grid, m2);
   const wallPieces = runs.map((run) => buildWallPanel(run, m2.grid, m2, true));
   const plate = buildBasePlate(m2.grid, m2);
   const allPieces = [...wallPieces, plate];
@@ -183,7 +196,7 @@ test('a height difference along a divider stays one piece with a stepped profile
   t.grid = toggleWall(t.grid, 'h', 0, 1); // no crossing divider at the row boundary —
   t.grid = toggleWall(t.grid, 'h', 1, 1); // isolate the height-step from any T/X junction
   t.grid = setSegmentHeight(t.grid, 'v', 1, 1, 30); // bottom cell shorter than the top cell (50)
-  const runs = enumerateWallRuns(t.grid);
+  const runs = enumerateWallRuns(t.grid, t);
   const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
   assert(dividerRuns.length === 1, `a height-only difference should stay one piece, got ${dividerRuns.length}`);
 
@@ -205,7 +218,7 @@ test('a removed segment still splits a divider into two pieces even with heights
   t.grid = toggleWall(t.grid, 'h', 0, 1);
   t.grid = toggleWall(t.grid, 'h', 1, 1);
   t.grid = toggleWall(t.grid, 'v', 1, 1); // remove the bottom cell entirely — a real gap
-  const runs = enumerateWallRuns(t.grid);
+  const runs = enumerateWallRuns(t.grid, t);
   const dividerRuns = runs.filter((r) => r.kind === 'v' && r.c === 1);
   assert(dividerRuns.length === 1, `expected exactly 1 remaining piece (the top cell), got ${dividerRuns.length}`);
   assertClose(dividerRuns[0].length, 50, 1e-9, 'the remaining piece should be just the top cell\'s span');
@@ -227,7 +240,7 @@ function xCrossingGrid(hHeight, vHeight) {
   t.grid = setSegmentHeight(t.grid, 'h', 1, 1, hHeight);
   t.grid = setSegmentHeight(t.grid, 'v', 1, 0, vHeight);
   t.grid = setSegmentHeight(t.grid, 'v', 1, 1, vHeight);
-  const runs = enumerateWallRuns(t.grid);
+  const runs = enumerateWallRuns(t.grid, t);
   const v = buildWallPanel(runs.find((r) => r.kind === 'v' && r.c === 1), t.grid, t, true);
   const h = buildWallPanel(runs.find((r) => r.kind === 'h' && r.r === 1), t.grid, t, true);
   return { v, h };
@@ -290,7 +303,7 @@ test('X crossing coinciding exactly with a height step on the OTHER run: both pi
   const t = createDefaultProject();
   t.grid = createGrid([90, 130], [70, 100]);
   t.grid = setSegmentHeight(t.grid, 'h', 1, 1, 20); // only the right cell of the horizontal divider
-  const runs = enumerateWallRuns(t.grid);
+  const runs = enumerateWallRuns(t.grid, t);
   const hPiece = buildWallPanel(runs.find((r) => r.kind === 'h' && r.r === 1), t.grid, t, true);
   const vPiece = buildWallPanel(runs.find((r) => r.kind === 'v' && r.c === 1), t.grid, t, true);
   assert(isSimplePolygon(hPiece.outline), 'h outline self-intersects at the coincident step/crossing');
@@ -323,7 +336,7 @@ test('X crossing: an own-axis height step coinciding with the crossing produces 
   t.grid = createGrid([90, 130], [70, 100]);
   t.grid = setSegmentHeight(t.grid, 'v', 1, 0, 20); // top cell of the vertical divider
   t.grid = setSegmentHeight(t.grid, 'v', 1, 1, 90); // bottom cell, much taller
-  const runs = enumerateWallRuns(t.grid);
+  const runs = enumerateWallRuns(t.grid, t);
   const vPiece = buildWallPanel(runs.find((r) => r.kind === 'v' && r.c === 1), t.grid, t, true);
   const hPiece = buildWallPanel(runs.find((r) => r.kind === 'h' && r.r === 1), t.grid, t, true);
   assert(isSimplePolygon(vPiece.outline) && isSimplePolygon(hPiece.outline), 'outlines self-intersect');
@@ -354,17 +367,18 @@ test('bottomCombSegments leaves a plain flush gap at an interior T junction, wit
   t.grid = createGrid([80, 80], [100]); // T junction: divider at c=1 lands mid-span on the top run
   t.outerThicknessMm = 3;
   t.innerThicknessMm = 5;
-  const runs = enumerateWallRuns(t.grid);
+  const runs = enumerateWallRuns(t.grid, t);
   const topRun = runs.find((r) => r.kind === 'h' && r.r === 0);
-  assertClose(topRun.length, 160, 1e-9);
+  assertClose(topRun.length, 165, 1e-9);
   const segs = bottomCombSegments(topRun, t.grid, t);
 
   const total = segs.reduce((s, seg) => s + seg.length, 0);
-  assertClose(total, 160, 1e-6, 'segments must still cover the run\'s full length, gaplessly');
+  assertClose(total, 165, 1e-6, 'segments must still cover the run\'s full length, gaplessly');
 
-  // The T junction lands at u=80 with the divider's own (inner, 5mm) thickness.
-  const exStart = 80 - 5 / 2;
-  const exEnd = 80 + 5 / 2;
+  // The T junction lands at u=82.5 (xAt(1) = 80 + divider's own 5mm/2) with
+  // the divider's own (inner, 5mm) thickness.
+  const exStart = 82.5 - 5 / 2;
+  const exEnd = 82.5 + 5 / 2;
   for (const seg of segs) {
     if (seg.kind !== 'finger') continue;
     const overlapsJunction = seg.start < exEnd && seg.start + seg.length > exStart;
@@ -379,18 +393,18 @@ test('bottomCombSegments leaves a plain flush gap at an interior X crossing too,
   x.grid = createGrid([90, 130], [70, 100]); // 2x2: two dividers cross once
   x.outerThicknessMm = 3;
   x.innerThicknessMm = 6;
-  const runs = enumerateWallRuns(x.grid);
+  const runs = enumerateWallRuns(x.grid, x);
   const hDivider = runs.find((r) => r.kind === 'h' && r.r === 1);
-  assertClose(hDivider.length, 220, 1e-9);
+  assertClose(hDivider.length, 226, 1e-9);
   const segs = bottomCombSegments(hDivider, x.grid, x);
 
   const total = segs.reduce((s, seg) => s + seg.length, 0);
-  assertClose(total, 220, 1e-6, 'segments must still cover the run\'s full length, gaplessly');
+  assertClose(total, 226, 1e-6, 'segments must still cover the run\'s full length, gaplessly');
 
-  // The X crossing lands at u=90 (where the vertical divider crosses),
-  // sized to its own (inner, 6mm) thickness.
-  const exStart = 90 - 6 / 2;
-  const exEnd = 90 + 6 / 2;
+  // The X crossing lands at u=93 (xAt(1) = 90 + vertical divider's own
+  // 6mm/2), sized to its own (inner, 6mm) thickness.
+  const exStart = 93 - 6 / 2;
+  const exEnd = 93 + 6 / 2;
   for (const seg of segs) {
     if (seg.kind !== 'finger') continue;
     const overlapsJunction = seg.start < exEnd && seg.start + seg.length > exStart;
@@ -398,6 +412,74 @@ test('bottomCombSegments leaves a plain flush gap at an interior X crossing too,
   }
   assert(segs.some((s) => s.kind === 'finger' && s.start + s.length <= exStart), 'expected at least one finger tiled on the left portion, before the crossing');
   assert(segs.some((s) => s.kind === 'finger' && s.start >= exEnd), 'expected at least one finger tiled on the right portion, after the crossing');
+});
+
+test('an interior T junction (a stem meeting another interior divider) also protrudes by the mate\'s FULL thickness, not half — the rule is uniform, no outer/inner branching', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [50, 50]); // 2 cols x 2 rows
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 5;
+  // Remove the vertical divider's bottom half: its remaining (top) run now
+  // ends mid-span on the horizontal divider — an interior T — instead of
+  // on the outer edge.
+  project.grid = toggleWall(project.grid, 'v', 1, 1);
+  const runs = enumerateWallRuns(project.grid, project);
+  const vDivider = runs.find((r) => r.kind === 'v' && r.c === 1 && r.rStart === 0 && r.rEnd === 0);
+  assert(vDivider, 'expected the vertical divider\'s remaining top-half run');
+  const piece = buildWallPanel(vDivider, project.grid, project, true);
+  const { minX, maxX } = xExtent(piece.outline);
+  assertClose(minX, -3, 1e-6, 'top end still mates with the outer edge: full 3mm outer thickness');
+  assertClose(maxX - vDivider.length, 5, 1e-6, 'bottom end now mates with the interior horizontal divider: full 5mm inner thickness, not 2.5');
+});
+
+test('buildBasePlate notches span the mate\'s full outer thickness, and never cross into the compartment', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([150], [100]);
+  project.outerThicknessMm = 3;
+  const plate = buildBasePlate(project.grid, project);
+  const topYs = plate.outline
+    .filter((p) => p.x > 5 && p.x < 145 && p.y < 50) // interior of the top edge only, away from corners and the far (bottom) edge
+    .map((p) => p.y);
+  assert(topYs.some((y) => Math.abs(y - -3) < 1e-6), 'expected flush stretches at the plate\'s true outer edge, -3mm (a full outerThicknessMm out from the compartment boundary)');
+  assert(topYs.some((y) => Math.abs(y - 0) < 1e-6), 'expected notches to recede back to exactly the compartment boundary, y=0');
+  assert(topYs.every((y) => y <= 1e-6), `a notch must never cross into the compartment (y>0) — found: ${topYs.filter((y) => y > 1e-6).join(',')}`);
+});
+
+test('buildBasePlate end-to-end: the user\'s reported scenario — 2x2 grid of 50mm cells, 3mm outer walls, 2mm interior divider — a 50mm compartment measures 50mm on the bare plate, not 47', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([50, 50], [50, 50]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+  const plate = buildBasePlate(project.grid, project);
+
+  // The plate's own physical footprint includes the outer margin on every
+  // side (102 nominal compartment + 3mm margin each side = 108) — see the
+  // single-cell test above for why.
+  const bounds = pieceBounds(plate);
+  assertClose(bounds.width, 108, 0.5, 'base plate\'s own physical footprint should be 108mm (102 + 3mm margin each side)');
+  assertClose(bounds.height, 108, 0.5, 'base plate\'s own physical footprint should be 108mm (102 + 3mm margin each side)');
+
+  // What actually matters — the compartment span the user measures
+  // between a wall notch and the divider hole — must be the full 50mm,
+  // not 50 minus a wall thickness. The divider hole sits at x:[50,52]
+  // (xAt(1)=51, half the 2mm divider on each side); no outline point
+  // should intrude past x=0 (the compartment's own left boundary) on its
+  // way there.
+  // The vertical divider's own finger holes (excluding the horizontal
+  // divider's, which run the other axis) all start at x=50 — the true
+  // compartment boundary of the first 50mm cell.
+  const verticalDividerHoles = plate.holes.filter((h) => Math.min(...h.map((p) => p.x)) === Math.max(...h.map((p) => p.x)) - 2);
+  assert(verticalDividerHoles.length > 0, 'expected at least one finger hole for the vertical divider');
+  const holeXs = verticalDividerHoles.flatMap((h) => h.map((p) => p.x));
+  assertClose(Math.min(...holeXs), 50, 1e-9, 'divider hole should start at x=50 — the true compartment boundary of the first 50mm cell');
+
+  // The left edge's own notch (which the user measured from) must never
+  // cross x=0 into the compartment — every outline point along the left
+  // edge stays at x<=0.
+  const leftEdgeYRange = [10, 90]; // away from the top/bottom corners
+  const leftEdgePoints = plate.outline.filter((p) => p.y > leftEdgeYRange[0] && p.y < leftEdgeYRange[1] && p.x < 50);
+  assert(leftEdgePoints.length > 0, 'expected some left-edge outline points in range');
+  assert(leftEdgePoints.every((p) => p.x <= 1e-6), `left-edge notch must never cross x=0 into the compartment — found: ${leftEdgePoints.filter((p) => p.x > 1e-6).map((p) => p.x).join(',')}`);
 });
 
 run();

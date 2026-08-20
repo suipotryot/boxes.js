@@ -94,7 +94,7 @@ test('outer wall, flush lid: its own top edge grows protruding tabs, no enclosed
   const project = createDefaultProject();
   project.grid = createGrid([150], [100]);
   project.lid = { enabled: true, insertHeightMm: 50 };
-  const runs = enumerateWallRuns(project.grid);
+  const runs = enumerateWallRuns(project.grid, project);
   const topRun = runs.find((r) => r.kind === 'h' && r.r === 0);
   const piece = buildWallPanel(topRun, project.grid, project, true);
   assert(isSimplePolygon(piece.outline), 'flush-lid wall outline self-intersects');
@@ -107,7 +107,7 @@ test('outer wall, recessed lid: its own top edge stays flat, gets enclosed holes
   const project = createDefaultProject();
   project.grid = createGrid([150], [100]);
   project.lid = { enabled: true, insertHeightMm: 30 };
-  const runs = enumerateWallRuns(project.grid);
+  const runs = enumerateWallRuns(project.grid, project);
   const topRun = runs.find((r) => r.kind === 'h' && r.r === 0);
   const piece = buildWallPanel(topRun, project.grid, project, true);
   assert(isSimplePolygon(piece.outline), 'recessed-lid wall outline self-intersects');
@@ -127,7 +127,7 @@ test('an interior divider is never affected by the lid, recessed or flush', () =
   project.grid = createGrid([80, 80], [100]); // T junction: interior divider at c=1
   project.outerThicknessMm = 3;
   project.innerThicknessMm = 5;
-  const runs = enumerateWallRuns(project.grid);
+  const runs = enumerateWallRuns(project.grid, project);
   const divider = runs.find((r) => r.kind === 'v' && r.c === 1);
 
   const withoutLid = buildWallPanel(divider, project.grid, project, true);

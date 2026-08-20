@@ -11,7 +11,7 @@ import { burnCorrect } from './BurnCorrection.js';
 export function computePieces(project) {
   const { grid } = project;
   const hasBasePlate = true; // M1: always present; per-cell floors land in a later milestone
-  const wallRuns = enumerateWallRuns(grid);
+  const wallRuns = enumerateWallRuns(grid, project);
 
   const pieces = [];
   for (const run of wallRuns) pieces.push(buildWallPanel(run, grid, project, hasBasePlate));

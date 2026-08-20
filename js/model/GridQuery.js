@@ -1,6 +1,5 @@
 // Pure, read-only queries over a Grid. No geometry here — everything is an
 // array lookup, which is the entire point of the fixed-lattice model.
-import { xAt, yAt } from './Grid.js';
 
 export function resolveThickness(segment, project) {
   return segment.thicknessGroup === 'outer' ? project.outerThicknessMm : project.innerThicknessMm;
@@ -9,6 +8,56 @@ export function resolveThickness(segment, project) {
 export function resolveHeight(segment, project) {
   if (segment.heightMm != null) return segment.heightMm;
   return segment.thicknessGroup === 'outer' ? project.outerHeightMm : project.innerHeightMm;
+}
+
+// The thickness shared by every present segment in vertical column `c`
+// (thicknessGroup can no longer be reassigned per segment — see Grid.js's
+// removed setSegmentThicknessGroup — so every present segment in a given
+// column is guaranteed to share the same thickness; reading the first one
+// is enough, no need to scan for a max). 0 if the column has no present
+// segment at all (a fully-removed interior divider contributes nothing).
+function columnThickness(grid, project, c) {
+  for (const seg of grid.vWalls[c]) if (seg.present) return resolveThickness(seg, project);
+  return 0;
+}
+
+function rowThickness(grid, project, r) {
+  for (const col of grid.hWalls) if (col[r].present) return resolveThickness(col[r], project);
+  return 0;
+}
+
+/** x-coordinate of vertical grid line `c` — NOT a raw sum of `grid.sx`.
+ *  `sx[i]` is the CLEAR INTERIOR width of compartment i (boxes.py's own
+ *  TrayLayout convention, which this app's plan always intended to
+ *  replicate but never actually implemented this way until now): each
+ *  INTERIOR grid line contributes half its own wall's thickness to each
+ *  of the two compartments it separates (centered on the line, symmetric
+ *  — unchanged, already-correct convention). Each OUTER perimeter grid
+ *  line (c=0, c=cols) contributes NOTHING — the outer wall's own material
+ *  extends entirely OUTWARD from there, never eating into the interior
+ *  span; confirmed directly with the user against a concrete worked
+ *  example (2x2 grid of 50mm cells, 3mm outer walls, 2mm divider measures
+ *  exactly 102mm end to end, not 100mm and not 105mm). */
+export function xAt(grid, project, c) {
+  const cols = grid.sx.length;
+  let x = 0;
+  for (let i = 0; i < c; i++) {
+    if (i > 0) x += columnThickness(grid, project, i) / 2;
+    x += grid.sx[i];
+    if (i + 1 < cols) x += columnThickness(grid, project, i + 1) / 2;
+  }
+  return x;
+}
+
+export function yAt(grid, project, r) {
+  const rows = grid.sy.length;
+  let y = 0;
+  for (let i = 0; i < r; i++) {
+    if (i > 0) y += rowThickness(grid, project, i) / 2;
+    y += grid.sy[i];
+    if (i + 1 < rows) y += rowThickness(grid, project, i + 1) / 2;
+  }
+  return y;
 }
 
 
@@ -44,7 +93,7 @@ export function perpendicularMatesAtPoint(grid, wallKind, pointC, pointR) {
  *  in two — a genuine physical gap, unlike a height difference. The
  *  outer perimeter is always exactly one run per side by construction —
  *  outer segments can never be removed and are always 'outer' group. */
-export function enumerateWallRuns(grid) {
+export function enumerateWallRuns(grid, project) {
   const cols = grid.sx.length;
   const rows = grid.sy.length;
   const runs = [];
@@ -60,7 +109,7 @@ export function enumerateWallRuns(grid) {
       runs.push({
         kind: 'v', c, rStart: r, rEnd, seg,
         aPoint: [c, r], bPoint: [c, rEnd + 1],
-        length: yAt(grid, rEnd + 1) - yAt(grid, r),
+        length: yAt(grid, project, rEnd + 1) - yAt(grid, project, r),
       });
       r = rEnd + 1;
     }
@@ -76,7 +125,7 @@ export function enumerateWallRuns(grid) {
       runs.push({
         kind: 'h', r, cStart: c, cEnd, seg,
         aPoint: [c, r], bPoint: [cEnd + 1, r],
-        length: xAt(grid, cEnd + 1) - xAt(grid, c),
+        length: xAt(grid, project, cEnd + 1) - xAt(grid, project, c),
       });
       c = cEnd + 1;
     }
@@ -91,8 +140,8 @@ export function enumerateWallRuns(grid) {
  *  merged physical piece it's actually part of (a run can span several
  *  cells) — e.g. so the UI can highlight the right preview piece for
  *  whatever grid line is currently selected. */
-export function runAt(grid, kind, c, r) {
-  for (const run of enumerateWallRuns(grid)) {
+export function runAt(grid, project, kind, c, r) {
+  for (const run of enumerateWallRuns(grid, project)) {
     if (run.kind !== kind) continue;
     if (kind === 'v' ? run.c === c && r >= run.rStart && r <= run.rEnd : run.r === r && c >= run.cStart && c <= run.cEnd) return run;
   }

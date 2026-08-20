@@ -47,18 +47,6 @@ export function cloneGrid(grid) {
   return JSON.parse(JSON.stringify(grid));
 }
 
-export function xAt(grid, c) {
-  let x = 0;
-  for (let i = 0; i < c; i++) x += grid.sx[i];
-  return x;
-}
-
-export function yAt(grid, r) {
-  let y = 0;
-  for (let i = 0; i < r; i++) y += grid.sy[i];
-  return y;
-}
-
 export function isOuterSegment(grid, kind, c, r) {
   return kind === 'v' ? c === 0 || c === grid.sx.length : r === 0 || r === grid.sy.length;
 }
@@ -87,14 +75,6 @@ export function setSegmentHeight(grid, kind, c, r, heightMm) {
     const arr = kind === 'v' ? next.vWalls[c] : next.hWalls[c];
     arr[r].heightMm = heightMm;
   }
-  return next;
-}
-
-export function setSegmentThicknessGroup(grid, kind, c, r, thicknessGroup) {
-  const next = cloneGrid(grid);
-  if (isOuterSegment(next, kind, c, r)) return next; // outer segments are always 'outer'
-  const arr = kind === 'v' ? next.vWalls[c] : next.hWalls[c];
-  arr[r].thicknessGroup = thicknessGroup;
   return next;
 }
 
