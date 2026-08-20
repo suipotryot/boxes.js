@@ -6,6 +6,7 @@ import { el, clear } from './dom.js';
 import { renderEditorSvg } from './EditorRenderer.js';
 import { renderInspector } from './SegmentInspector.js';
 import { renderSettingsPanel } from './SettingsPanel.js';
+import { renderExportPanel } from './ExportView.js';
 import { computePieces } from '../geometry/PieceFactory.js';
 import { wallPieceId } from '../geometry/PanelBuilder.js';
 import { runAt } from '../model/GridQuery.js';
@@ -70,7 +71,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store)]),
-      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selected)]),
+      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selected), renderExportPanel(project)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, store)]),
     ]));
   }

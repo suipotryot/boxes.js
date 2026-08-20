@@ -114,5 +114,10 @@ export function renderSettingsPanel(project, store) {
     numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01'),
 
     lidSection(project, store),
+
+    el('h3', { text: 'Découpe laser' }),
+    numberField('Largeur de la zone de travail (mm)', project.laserBed.widthMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, widthMm: n } }))),
+    numberField('Hauteur de la zone de travail (mm)', project.laserBed.heightMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, heightMm: n } }))),
+    numberField('Espacement entre pièces (mm)', project.laserBed.spacingMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, spacingMm: n } }))),
   ]);
 }
