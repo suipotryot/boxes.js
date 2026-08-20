@@ -11,7 +11,10 @@
 //     the *local* height of whichever cell sits at that end;
 //   - the free edge (opposite the base plate) stepped to each covered
 //     cell's own resolved height;
-//   - the bottom combed into the base plate;
+//   - the bottom combed into the base plate, per PORTION between interior
+//     junctions rather than across the run's whole length at once — no
+//     finger ever lands on or straddles a junction point (X or T alike),
+//     see bottomCombSegments();
 //   - a mortise hole wherever a *stem* run's end lands mid-span (a T
 //     junction where THIS run is the through-piece);
 //   - a half-lap notch wherever a perpendicular run passes fully through
@@ -129,6 +132,20 @@ function notchURange(crossing, project) {
   return { uStart: crossing.u - halfWidth, uEnd: crossing.u + halfWidth };
 }
 
+// The u-extent (width) of the "no teeth here" zone at any interior
+// crossing — X or T alike, per the user's own rule: a junction point
+// always gets a plain flush strip, wide enough to clear whatever crosses
+// it, never a finger straddling or landing right against it. 'through'
+// (X) reuses the half-lap notch's own width (the crossing perpendicular
+// piece's thickness); 'stems' (T) uses the thickest of the one or two
+// stems present there (mirrors matingProtrusion's own "widest mate wins"
+// convention elsewhere in this file).
+function crossingExclusionRange(crossing, project) {
+  if (crossing.type === 'through') return notchURange(crossing, project);
+  const halfWidth = maxThickness(crossing.stems, project) / 2;
+  return { uStart: crossing.u - halfWidth, uEnd: crossing.u + halfWidth };
+}
+
 // The perpendicular run's local height at a crossing point — the shorter
 // of its *two* touching cells (crossing.segs), not arbitrarily just one:
 // a height step on the *other* run can land exactly on this same point
@@ -160,74 +177,90 @@ function crossingNotchDepth(crossing, spans, project) {
   return Math.min(ownHeight, otherHeight) / 2;
 }
 
-// Splits `segments` (as from fingerEdgePath) so none of them overlap
-// `excludeRanges` — used to keep the base-plate finger comb out of a
-// bottom-notched X crossing's footprint (the material there has been
-// notched away, so there is nothing left to comb). Ranges are assumed
-// sorted and non-overlapping, same as the segments.
-function clipSegmentsExcluding(segments, excludeRanges) {
-  if (excludeRanges.length === 0) return segments;
-  const out = [];
-  for (const seg of segments) {
-    let start = seg.start;
-    const end = seg.start + seg.length;
-    for (const ex of excludeRanges) {
-      if (ex.uEnd <= start || ex.uStart >= end) continue;
-      if (ex.uStart > start) out.push({ start, length: ex.uStart - start, kind: seg.kind });
-      start = Math.max(start, ex.uEnd);
-    }
-    if (end > start) out.push({ start, length: end - start, kind: seg.kind });
-  }
-  return out;
-}
-
-/** The bottom-edge comb segments for a run, already clipped to exclude any
- *  bottom-notched X-crossing footprint. Exported so BasePlateBuilder can
- *  carve divider finger holes from *this exact* segmentation — the same
- *  single-source-of-truth discipline as fingerEdgePath itself, so a base
- *  plate hole can never drift out of sync with the tabs (or their absence
- *  at a crossing) it's meant to receive. */
-export function bottomCombSegments(run, grid, project, notchesFromBottom) {
+/** The bottom-edge comb segments for a run, reasoned per PORTION rather
+ *  than across the whole run at once: the run's length is split into
+ *  independent stretches at every interior crossing (X or T alike, see
+ *  crossingExclusionRange), each stretch gets its own centered/maximal
+ *  fingerEdgePath tiling, and the crossing's own u-range in between is
+ *  left a plain flush strip — so a junction never has a finger landing on
+ *  or straddling it, and a long run with several junctions reads as
+ *  several short combs rather than one that happens to get interrupted.
+ *  Exported so BasePlateBuilder can carve divider finger holes from
+ *  *this exact* segmentation — the same single-source-of-truth
+ *  discipline as fingerEdgePath itself, so a base plate hole can never
+ *  drift out of sync with the tabs (or their absence at a junction) it's
+ *  meant to receive. */
+export function bottomCombSegments(run, grid, project) {
   const fj = project.fingerJoint;
   const startWithFinger = run.kind === 'v';
-  const raw = fingerEdgePath(run.length, fj, startWithFinger);
-  if (!notchesFromBottom) return raw;
-  const crossings = interiorCrossings(run, grid).filter((c) => c.type === 'through');
-  if (crossings.length === 0) return raw;
-  const excludeRanges = crossings.map((c) => notchURange(c, project));
-  return clipSegmentsExcluding(raw, excludeRanges);
+  const crossings = interiorCrossings(run, grid).filter((c) => c.type !== 'none');
+  if (crossings.length === 0) return fingerEdgePath(run.length, fj, startWithFinger);
+
+  const exclusions = crossings
+    .map((c) => crossingExclusionRange(c, project))
+    .sort((a, b) => a.uStart - b.uStart);
+
+  const segs = [];
+  let cursor = 0;
+  for (const ex of exclusions) {
+    const exStart = Math.max(ex.uStart, cursor);
+    const exEnd = Math.max(ex.uEnd, exStart);
+    if (exStart > cursor) {
+      for (const s of fingerEdgePath(exStart - cursor, fj, startWithFinger)) {
+        segs.push({ start: cursor + s.start, length: s.length, kind: s.kind });
+      }
+    }
+    if (exEnd > exStart) segs.push({ start: exStart, length: exEnd - exStart, kind: 'flush' });
+    cursor = exEnd;
+  }
+  if (run.length > cursor) {
+    for (const s of fingerEdgePath(run.length - cursor, fj, startWithFinger)) {
+      segs.push({ start: cursor + s.start, length: s.length, kind: s.kind });
+    }
+  }
+  return segs;
 }
 
-// Bottom edge (v=0), combed along u (length) into the base plate, with
-// notches removed wherever this run notches from the bottom at an X
-// crossing (see buildWallPanel: 'h' runs notch from the bottom, 'v' runs
-// from the top — never both from the same side, or the two crossing
-// pieces would collide instead of interlocking). Always a true edge
-// notch (open at v=0), same as the free edge (see buildWallPanel) — only
-// the depth changes depending on which of the two crossing pieces is
-// taller.
+// Bottom edge (v=0), combed along u (length) into the base plate — per
+// portion, with a plain flush strip at every interior junction (see
+// bottomCombSegments) — additionally cut down to an absolute depth
+// wherever this run notches from the bottom at an X crossing (see
+// buildWallPanel: 'h' runs notch from the bottom, 'v' runs from the top
+// — never both from the same side, or the two crossing pieces would
+// collide instead of interlocking). The X-crossing depth OVERRIDES
+// whatever the comb says at that same u-range (same override-not-combine
+// pattern as freeEdgePoints, for the same reason: two independently
+// authored events covering the same stretch must not both become
+// separate point-pairs, or the outline doubles back on itself).
 function bottomEdgePoints({ run, grid, project, spans, mateHalfThickness, notchesFromBottom }) {
-  const events = [];
-  if (mateHalfThickness > 0) {
-    for (const s of bottomCombSegments(run, grid, project, notchesFromBottom)) {
-      events.push({ uStart: s.start, uEnd: s.start + s.length, y: s.kind === 'finger' ? -mateHalfThickness : 0 });
-    }
-  } else {
-    events.push({ uStart: 0, uEnd: run.length, y: 0 });
-  }
-  if (notchesFromBottom) {
-    for (const c of interiorCrossings(run, grid)) {
-      if (c.type !== 'through') continue;
-      const { uStart, uEnd } = notchURange(c, project);
-      const depth = crossingNotchDepth(c, spans, project);
-      events.push({ uStart, uEnd, y: depth });
-    }
-    events.sort((a, b) => a.uStart - b.uStart);
-  }
+  const comb = mateHalfThickness > 0
+    ? bottomCombSegments(run, grid, project)
+    : [{ start: 0, length: run.length, kind: 'flush' }];
+  const notches = notchesFromBottom
+    ? interiorCrossings(run, grid).filter((c) => c.type === 'through')
+      .map((c) => ({ ...notchURange(c, project), depth: crossingNotchDepth(c, spans, project) }))
+    : [];
+
+  const boundarySet = new Set([0, run.length]);
+  for (const s of comb) { boundarySet.add(s.start); boundarySet.add(s.start + s.length); }
+  for (const n of notches) { boundarySet.add(n.uStart); boundarySet.add(n.uEnd); }
+  const boundaries = [...boundarySet].sort((a, b) => a - b);
+
   const pts = [];
-  for (const e of events) {
-    pts.push({ x: e.uStart, y: e.y });
-    pts.push({ x: e.uEnd, y: e.y });
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const uStart = boundaries[i];
+    const uEnd = boundaries[i + 1];
+    if (uEnd <= uStart) continue;
+    const mid = (uStart + uEnd) / 2;
+    const notch = notches.find((n) => mid > n.uStart && mid < n.uEnd);
+    let y;
+    if (notch) {
+      y = notch.depth;
+    } else {
+      const seg = comb.find((s) => mid > s.start && mid < s.start + s.length);
+      y = seg && seg.kind === 'finger' ? -mateHalfThickness : 0;
+    }
+    pts.push({ x: uStart, y }, { x: uEnd, y });
   }
   return pts;
 }

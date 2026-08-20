@@ -66,7 +66,7 @@ export function renderSettingsPanel(project, store) {
     el('h3', { text: 'Doigts (finger joint)' }),
     numberField('Largeur doigt (mm)', project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } }))),
     numberField('Largeur espace (mm)', project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } }))),
-    numberField('Marge (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } }))),
+    numberField('Marge min. (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } }))),
     numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01'),
   ]);
 }

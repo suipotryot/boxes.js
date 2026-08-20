@@ -7,7 +7,7 @@
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, toggleWall } from '../model/Grid.js';
 import { enumerateWallRuns } from '../model/GridQuery.js';
-import { buildWallPanel } from '../geometry/PanelBuilder.js';
+import { buildWallPanel, bottomCombSegments } from '../geometry/PanelBuilder.js';
 import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
 import { computePieces } from '../geometry/PieceFactory.js';
 import { createDefaultProject } from '../state/Project.js';
@@ -342,6 +342,62 @@ test('X crossing: an own-axis height step coinciding with the crossing produces 
   assert(vYs.some((y) => Math.abs(y - 20) < 1e-6), 'v\'s free edge should still reach 20 on the shorter side, outside the notch');
   assert(vYs.some((y) => Math.abs(y - 90) < 1e-6), 'v\'s free edge should still reach 90 on the taller side, outside the notch');
   assert(!vYs.some((y) => Math.abs(y - 80) < 1e-6), 'v should not stop at 80 (90 minus a flat depth of 10 taken from its own height) — that was the old, wrong behavior');
+});
+
+// The user's own reframing of the finger-joint request: reason per
+// PORTION of a wall run (the stretches between interior junctions), not
+// across the run's whole length at once — max teeth, centered, within
+// each portion — and never place a tooth on or straddling a junction
+// itself, X or T alike.
+test('bottomCombSegments leaves a plain flush gap at an interior T junction, with independently-tiled teeth on each side', () => {
+  const t = createDefaultProject();
+  t.grid = createGrid([80, 80], [100]); // T junction: divider at c=1 lands mid-span on the top run
+  t.outerThicknessMm = 3;
+  t.innerThicknessMm = 5;
+  const runs = enumerateWallRuns(t.grid);
+  const topRun = runs.find((r) => r.kind === 'h' && r.r === 0);
+  assertClose(topRun.length, 160, 1e-9);
+  const segs = bottomCombSegments(topRun, t.grid, t);
+
+  const total = segs.reduce((s, seg) => s + seg.length, 0);
+  assertClose(total, 160, 1e-6, 'segments must still cover the run\'s full length, gaplessly');
+
+  // The T junction lands at u=80 with the divider's own (inner, 5mm) thickness.
+  const exStart = 80 - 5 / 2;
+  const exEnd = 80 + 5 / 2;
+  for (const seg of segs) {
+    if (seg.kind !== 'finger') continue;
+    const overlapsJunction = seg.start < exEnd && seg.start + seg.length > exStart;
+    assert(!overlapsJunction, `finger [${seg.start}, ${seg.start + seg.length}] should not straddle the T junction [${exStart}, ${exEnd}]`);
+  }
+  assert(segs.some((s) => s.kind === 'finger' && s.start + s.length <= exStart), 'expected at least one finger tiled on the left portion, before the junction');
+  assert(segs.some((s) => s.kind === 'finger' && s.start >= exEnd), 'expected at least one finger tiled on the right portion, after the junction');
+});
+
+test('bottomCombSegments leaves a plain flush gap at an interior X crossing too, sized to the crossing piece\'s own thickness', () => {
+  const x = createDefaultProject();
+  x.grid = createGrid([90, 130], [70, 100]); // 2x2: two dividers cross once
+  x.outerThicknessMm = 3;
+  x.innerThicknessMm = 6;
+  const runs = enumerateWallRuns(x.grid);
+  const hDivider = runs.find((r) => r.kind === 'h' && r.r === 1);
+  assertClose(hDivider.length, 220, 1e-9);
+  const segs = bottomCombSegments(hDivider, x.grid, x);
+
+  const total = segs.reduce((s, seg) => s + seg.length, 0);
+  assertClose(total, 220, 1e-6, 'segments must still cover the run\'s full length, gaplessly');
+
+  // The X crossing lands at u=90 (where the vertical divider crosses),
+  // sized to its own (inner, 6mm) thickness.
+  const exStart = 90 - 6 / 2;
+  const exEnd = 90 + 6 / 2;
+  for (const seg of segs) {
+    if (seg.kind !== 'finger') continue;
+    const overlapsJunction = seg.start < exEnd && seg.start + seg.length > exStart;
+    assert(!overlapsJunction, `finger [${seg.start}, ${seg.start + seg.length}] should not straddle the X crossing [${exStart}, ${exEnd}]`);
+  }
+  assert(segs.some((s) => s.kind === 'finger' && s.start + s.length <= exStart), 'expected at least one finger tiled on the left portion, before the crossing');
+  assert(segs.some((s) => s.kind === 'finger' && s.start >= exEnd), 'expected at least one finger tiled on the right portion, after the crossing');
 });
 
 run();

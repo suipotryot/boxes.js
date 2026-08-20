@@ -45,7 +45,7 @@ function dividerFingerHoles(innerRuns, grid, project) {
   const holes = [];
   for (const run of innerRuns) {
     const half = resolveThickness(run.seg, project) / 2;
-    const segs = bottomCombSegments(run, grid, project, run.kind === 'h');
+    const segs = bottomCombSegments(run, grid, project);
     if (run.kind === 'v') {
       const x = xAt(grid, run.c);
       const y0 = yAt(grid, run.rStart);
@@ -79,7 +79,7 @@ function edgeNotchPoints(run, grid, project, axisPoint, inward, reverse) {
   if (!run) return [];
   const half = matingProtrusion(project.outerThicknessMm);
   const pts = [];
-  for (const s of bottomCombSegments(run, grid, project, run.kind === 'h')) {
+  for (const s of bottomCombSegments(run, grid, project)) {
     const depth = s.kind === 'finger' ? half : 0;
     const p0 = axisPoint(s.start);
     const p1 = axisPoint(s.start + s.length);

@@ -4,10 +4,15 @@
 // widths locally. That discipline is what keeps mixed-thickness junctions
 // and corner joints consistent with each other.
 //
-// Tiles [0, length] into: a flush margin, then an alternating comb of
-// 'finger' / 'space' segments, then a flush margin. Segment widths always
-// sum exactly to `length` (the comb is proportionally scaled to fit, never
-// left with rounding slack at one end).
+// Tiles [0, length] into: a flush margin, a comb of as many 'finger'
+// segments as fit at their *configured* width (fj.fingerMm/spaceMm,
+// never stretched or shrunk to force an exact fit), and a trailing flush
+// margin — the comb is CENTERED on the edge, so any slack left over after
+// fitting the maximum whole number of teeth is split evenly on both
+// sides rather than distorting tooth width to consume it exactly.
+// `fj.marginMm` is a *minimum* margin: on a short edge that can't fit even
+// one tooth without violating it, the margin is relaxed instead of
+// producing zero teeth. Segment widths always sum exactly to `length`.
 
 /**
  * @param {number} length total edge length, mm
@@ -18,29 +23,34 @@
  * @returns {{start:number,length:number,kind:'flush'|'finger'|'space'}[]}
  */
 export function fingerEdgePath(length, fj, startWithFinger) {
+  const play = Math.min(fj.playMm || 0, fj.fingerMm * 0.5);
+  const fingerW = fj.fingerMm - play;
+  const spaceW = fj.spaceMm + play;
+  const cycle = fingerW + spaceW;
+
   const margin = Math.min(fj.marginMm, length / 2);
   const usable = length - 2 * margin;
-  const cycle = fj.fingerMm + fj.spaceMm;
 
-  if (usable <= 0 || cycle <= 0) {
+  if (fingerW <= 0 || usable <= 0 || cycle <= 0) {
     return [{ start: 0, length, kind: 'flush' }];
   }
 
-  const count = Math.max(1, Math.round(usable / cycle));
-  const unit = usable / count;
-  let fingerW = unit * (fj.fingerMm / cycle);
-  let spaceW = unit - fingerW;
+  // As many teeth as fit at their configured width within the usable span
+  // — always at least 1 once anything is usable at all.
+  const count = Math.max(1, Math.floor((usable + spaceW) / cycle));
+  const teethSpan = count * fingerW + (count - 1) * spaceW;
 
-  const play = Math.min(fj.playMm || 0, fingerW * 0.5);
-  fingerW -= play;
-  spaceW += play;
+  // Centered: whatever's left over after the teeth is split evenly as
+  // flush margin on both sides (always >= `margin` when the teeth fit
+  // within `usable`, per the floor above).
+  const flush = length - teethSpan;
+  const lead = flush / 2;
 
   const segs = [];
-  let pos = 0;
-  if (margin > 0) segs.push({ start: 0, length: margin, kind: 'flush' });
-  pos = margin;
+  if (lead > 1e-9) segs.push({ start: 0, length: lead, kind: 'flush' });
+  let pos = lead;
 
-  for (let i = 0; i < count * 2; i++) {
+  for (let i = 0; i < count * 2 - 1; i++) {
     const isFinger = i % 2 === 0 ? startWithFinger : !startWithFinger;
     const w = isFinger ? fingerW : spaceW;
     segs.push({ start: pos, length: w, kind: isFinger ? 'finger' : 'space' });

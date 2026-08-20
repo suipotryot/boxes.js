@@ -13,7 +13,26 @@ test('fingerEdgePath starts and ends with a flush margin', () => {
   const segs = fingerEdgePath(100, fj, true);
   assert(segs[0].kind === 'flush', 'first segment should be flush');
   assert(segs[segs.length - 1].kind === 'flush', 'last segment should be flush');
-  assertClose(segs[0].length, 5, 1e-6, 'leading margin');
+});
+
+test('fingerEdgePath keeps teeth at their configured width regardless of edge length — never stretched to fit exactly', () => {
+  const fingerWidth = (segs) => segs.find((s) => s.kind === 'finger').length;
+  assertClose(fingerWidth(fingerEdgePath(95, fj, true)), 10, 1e-6, 'finger width at 95mm should stay the configured 10mm');
+  assertClose(fingerWidth(fingerEdgePath(400, fj, true)), 10, 1e-6, 'finger width at 400mm should stay the configured 10mm, not be stretched');
+});
+
+test('fingerEdgePath maximizes tooth count for the edge\'s own length — no fixed count, longer edges get more teeth', () => {
+  const countFingers = (segs) => segs.filter((s) => s.kind === 'finger').length;
+  const short = countFingers(fingerEdgePath(40, fj, true));
+  const long = countFingers(fingerEdgePath(400, fj, true));
+  assert(short > 0, 'expected at least one tooth to fit in 40mm');
+  assert(long > short, `expected more teeth on a 400mm edge than a 40mm edge, got ${long} vs ${short}`);
+});
+
+test('fingerEdgePath centers any leftover slack evenly on both sides when the teeth don\'t exactly fill the usable span', () => {
+  const segs = fingerEdgePath(95, fj, true); // usable=85 isn't a multiple of the 20mm cycle
+  assertClose(segs[0].length, segs[segs.length - 1].length, 1e-6, 'leading and trailing flush should match — centered');
+  assert(segs[0].length > fj.marginMm, 'the centering flush should exceed marginMm here, since marginMm is only a minimum');
 });
 
 test('startWithFinger controls the first tooth after the margin', () => {
