@@ -4,7 +4,7 @@
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentThicknessGroup, toggleWall } from '../model/Grid.js';
-import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt } from '../model/GridQuery.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, runAt } from '../model/GridQuery.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
   const grid = createGrid([150], [100]);
@@ -87,6 +87,21 @@ test('crossingAt classifies an X crossing as "through" and a T junction as "stem
   const stems = crossingAt(tGrid, 'h', 1, 0); // top edge, where the divider lands mid-span
   assert(stems.type === 'stems', `expected 'stems' at a T junction, got '${stems.type}'`);
   assert(stems.stems.length === 1, `expected exactly 1 stem, got ${stems.stems.length}`);
+});
+
+test('runAt resolves any cell of a merged run to the SAME run — used to map an editor selection to its physical piece', () => {
+  const grid = createGrid([90, 130], [70, 100]); // 2x2: the top edge is one merged run across both columns
+  const viaFirstCell = runAt(grid, 'h', 0, 0);
+  const viaSecondCell = runAt(grid, 'h', 1, 0);
+  assert(viaFirstCell && viaSecondCell, 'both cells should resolve to a run');
+  assert(viaFirstCell === viaSecondCell || (viaFirstCell.aPoint[0] === viaSecondCell.aPoint[0] && viaFirstCell.aPoint[1] === viaSecondCell.aPoint[1]), 'both cells of the same merged run should resolve to the identical run');
+  assert(viaFirstCell.cStart === 0 && viaFirstCell.cEnd === 1, 'the resolved run should span both columns, not just the selected cell');
+});
+
+test('runAt returns null for an absent (removed) segment — nothing to highlight there', () => {
+  let grid = createGrid([80, 80], [100]);
+  grid = toggleWall(grid, 'v', 1, 0); // remove the interior divider
+  assert(runAt(grid, 'v', 1, 0) === null);
 });
 
 run();

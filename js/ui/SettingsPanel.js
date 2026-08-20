@@ -11,7 +11,7 @@ function parseMmList(text) {
   return text.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
 }
 
-function numberField(labelText, value, onChange, step = '0.1') {
+function numberField(labelText, value, onChange, step = '1') {
   return el('label', { class: 'field' }, [
     el('span', { class: 'field-label', text: labelText }),
     el('input', {
@@ -63,7 +63,7 @@ function lidSection(project, store) {
   const heightField = el('label', { class: 'field' }, [
     el('span', { class: 'field-label', text: 'Hauteur d’insertion (mm)' }),
     el('input', {
-      type: 'number', step: '0.5', min: '0',
+      type: 'number', step: '1', min: '0',
       value: lid.insertHeightMm != null ? String(lid.insertHeightMm) : '',
       onChange: (evt) => {
         const raw = evt.target.value.trim();

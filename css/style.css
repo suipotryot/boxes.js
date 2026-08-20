@@ -149,15 +149,22 @@ h3:first-child { margin-top: 0; }
 
 /* --- live preview strip --- */
 
+/* Scrollbar-on-top trick: flip the scrolling container vertically (which
+   flips its native scrollbar to the top edge too), then flip the actual
+   content back upright in a nested wrapper so it reads normally. */
 .preview-strip {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.75rem;
   overflow-x: auto;
   padding: 0.75rem;
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
+  transform: scaleY(-1);
+}
+.preview-strip-inner {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  transform: scaleY(-1);
 }
 
 .preview-card {
@@ -170,6 +177,12 @@ h3:first-child { margin-top: 0; }
   stroke: var(--accent);
   stroke-width: 0.6;
 }
+.preview-card.highlighted {
+  outline: 2px solid var(--selected);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.preview-card.highlighted .preview-label { color: var(--selected); }
 .preview-label {
   font-size: 0.65rem;
   color: var(--muted);

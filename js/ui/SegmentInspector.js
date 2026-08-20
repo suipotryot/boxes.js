@@ -49,7 +49,7 @@ export function renderInspector(project, selected, store) {
 
   const heightInput = el('input', {
     type: 'number',
-    step: '0.5',
+    step: '1',
     min: '0',
     value: seg.heightMm != null ? String(seg.heightMm) : '',
     placeholder: `hérite: ${resolvedHeight}mm`,

@@ -85,6 +85,20 @@ export function enumerateWallRuns(grid) {
   return runs;
 }
 
+/** The run a given grid CELL (kind,c,r) belongs to, or null if that cell
+ *  is absent (not part of any run — enumerateWallRuns only ever covers
+ *  present segments). Used to map a single-cell editor selection to the
+ *  merged physical piece it's actually part of (a run can span several
+ *  cells) — e.g. so the UI can highlight the right preview piece for
+ *  whatever grid line is currently selected. */
+export function runAt(grid, kind, c, r) {
+  for (const run of enumerateWallRuns(grid)) {
+    if (run.kind !== kind) continue;
+    if (kind === 'v' ? run.c === c && r >= run.rStart && r <= run.rEnd : run.r === r && c >= run.cStart && c <= run.cEnd) return run;
+  }
+  return null;
+}
+
 /** What crosses a run perpendicularly at one of its *interior* grid
  *  points (c,r) — a boundary between two cells that got merged into the
  *  same run. 'through' means a perpendicular run passes fully across

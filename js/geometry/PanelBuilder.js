@@ -39,6 +39,15 @@ export function matingProtrusion(mateThicknessMm) {
   return mateThicknessMm / 2;
 }
 
+/** A wall run's piece id — the one stable place this format is defined,
+ *  so anything that needs to find a run's own piece again later (e.g. the
+ *  editor highlighting the preview piece for whatever grid line is
+ *  currently selected, via GridQuery.runAt) never has to re-derive or
+ *  duplicate the format itself. */
+export function wallPieceId(run) {
+  return `wall-${run.kind}-${run.aPoint[0]}-${run.aPoint[1]}`;
+}
+
 function maxThickness(mates, project) {
   return mates.length ? Math.max(...mates.map((m) => resolveThickness(m, project))) : 0;
 }
@@ -426,7 +435,7 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   ];
 
   return {
-    id: `wall-${kind}-${aPoint[0]}-${aPoint[1]}`,
+    id: wallPieceId(run),
     kind: 'wall',
     thicknessGroup: seg.thicknessGroup,
     thicknessMm: resolveThickness(seg, project),

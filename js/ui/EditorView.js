@@ -7,15 +7,30 @@ import { renderEditorSvg } from './EditorRenderer.js';
 import { renderInspector } from './SegmentInspector.js';
 import { renderSettingsPanel } from './SettingsPanel.js';
 import { computePieces } from '../geometry/PieceFactory.js';
+import { wallPieceId } from '../geometry/PanelBuilder.js';
+import { runAt } from '../model/GridQuery.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
 
-function renderPreviewStrip(project) {
+// Which preview piece (if any) corresponds to the currently-selected grid
+// line — a selection is one CELL, but the physical piece it belongs to
+// may span several merged cells (GridQuery.enumerateWallRuns), so this
+// resolves through the run rather than assuming a 1:1 id match. Null for
+// an absent segment (nothing present there to highlight).
+function selectedPieceId(grid, selected) {
+  if (!selected) return null;
+  const run = runAt(grid, selected.kind, selected.c, selected.r);
+  return run ? wallPieceId(run) : null;
+}
+
+function renderPreviewStrip(project, selected) {
   const pieces = computePieces(project);
+  const highlightId = selectedPieceId(project.grid, selected);
   const cards = pieces.map((piece) => {
     const svg = pieceToStandaloneSvg(piece, { padding: 4, minSize: 40 });
-    return el('div', { class: 'preview-card' }, [svg, el('div', { class: 'preview-label', text: piece.id })]);
+    const highlighted = piece.id === highlightId;
+    return el('div', { class: highlighted ? 'preview-card highlighted' : 'preview-card' }, [svg, el('div', { class: 'preview-label', text: piece.id })]);
   });
-  return el('div', { class: 'preview-strip' }, cards);
+  return el('div', { class: 'preview-strip' }, [el('div', { class: 'preview-strip-inner' }, cards)]);
 }
 
 export function mountEditorView(container, store) {
@@ -39,7 +54,7 @@ export function mountEditorView(container, store) {
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store)]),
-      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project)]),
+      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selected)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, store)]),
     ]));
   }
