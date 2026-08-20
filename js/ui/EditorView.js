@@ -33,7 +33,20 @@ function renderPreviewStrip(project, selected) {
   return el('div', { class: 'preview-strip' }, [el('div', { class: 'preview-strip-inner' }, cards)]);
 }
 
-export function mountEditorView(container, store) {
+/**
+ * @param {HTMLElement} container
+ * @param {object} store a ProjectStore
+ * @param {{onBackToList?: () => void}} [options] `onBackToList`, if given,
+ *   renders a "Mes projets" toolbar button (M6) — omitted entirely when
+ *   there's nowhere to navigate back to.
+ * @returns {{unmount: () => void}} tears down every side effect this
+ *   function registered (the store subscription and the document-level
+ *   keydown listener) — required as of M6, where AppShell mounts/unmounts
+ *   the editor each time the user switches between the project list and
+ *   the editor; without this, a second mount would stack a second global
+ *   keydown listener that never gets cleaned up.
+ */
+export function mountEditorView(container, store, { onBackToList } = {}) {
   let selected = null;
 
   function select(next) {
@@ -46,8 +59,11 @@ export function mountEditorView(container, store) {
     const project = store.project;
 
     const toolbar = el('div', { class: 'toolbar' }, [
-      el('button', { class: 'btn', text: 'Annuler (Ctrl+Z)', disabled: !store.canUndo(), onClick: () => store.undo() }),
-      el('button', { class: 'btn', text: 'Rétablir (Ctrl+Shift+Z)', disabled: !store.canRedo(), onClick: () => store.redo() }),
+      onBackToList ? el('button', { class: 'btn', text: 'Mes projets', onClick: onBackToList }) : null,
+      el('div', { class: 'toolbar-group' }, [
+        el('button', { class: 'btn', text: 'Annuler (Ctrl+Z)', disabled: !store.canUndo(), onClick: () => store.undo() }),
+        el('button', { class: 'btn', text: 'Rétablir (Ctrl+Shift+Z)', disabled: !store.canRedo(), onClick: () => store.redo() }),
+      ]),
     ]);
 
     const editorCanvas = el('div', { class: 'editor-canvas' }, [renderEditorSvg(project, selected, select)]);
@@ -59,7 +75,7 @@ export function mountEditorView(container, store) {
     ]));
   }
 
-  document.addEventListener('keydown', (evt) => {
+  function onKeydown(evt) {
     const isUndo = (evt.ctrlKey || evt.metaKey) && !evt.shiftKey && evt.key.toLowerCase() === 'z';
     const isRedo = (evt.ctrlKey || evt.metaKey) && evt.shiftKey && evt.key.toLowerCase() === 'z';
     if (isUndo) {
@@ -69,8 +85,16 @@ export function mountEditorView(container, store) {
       evt.preventDefault();
       store.redo();
     }
-  });
+  }
 
-  store.subscribe(render);
+  document.addEventListener('keydown', onKeydown);
+  const unsubscribe = store.subscribe(render);
   render();
+
+  return {
+    unmount() {
+      unsubscribe();
+      document.removeEventListener('keydown', onKeydown);
+    },
+  };
 }

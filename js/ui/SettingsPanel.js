@@ -4,24 +4,12 @@
 // interior wall/floor customization that no longer fits), so it's the one
 // field that asks first.
 import { el } from './dom.js';
+import { numberField, textField } from './fields.js';
 import { resizeGrid } from '../model/Grid.js';
 import { validateLid } from '../model/GridQuery.js';
 
 function parseMmList(text) {
   return text.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
-}
-
-function numberField(labelText, value, onChange, step = '1') {
-  return el('label', { class: 'field' }, [
-    el('span', { class: 'field-label', text: labelText }),
-    el('input', {
-      type: 'number', step, min: '0', value: String(value),
-      onChange: (evt) => {
-        const n = Number(evt.target.value);
-        if (Number.isFinite(n) && n > 0) onChange(n);
-      },
-    }),
-  ]);
 }
 
 function gridSizeField(labelText, values, onResize) {
@@ -105,6 +93,9 @@ export function renderSettingsPanel(project, store) {
   };
 
   return el('div', { class: 'settings-panel' }, [
+    el('h3', { text: 'Projet' }),
+    textField('Nom du projet', project.name, (name) => store.apply((p) => ({ ...p, name }))),
+
     el('h3', { text: 'Grille' }),
     gridSizeField('Colonnes (sx, mm)', grid.sx, (parsed) => applyResize('x', parsed)),
     gridSizeField('Rangées (sy, mm)', grid.sy, (parsed) => applyResize('y', parsed)),
