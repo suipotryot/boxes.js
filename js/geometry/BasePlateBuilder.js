@@ -89,7 +89,17 @@ function edgeNotchPoints(run, grid, project, axisPoint, inward, reverse) {
   return reverse ? pts.slice().reverse() : pts;
 }
 
-export function buildBasePlate(grid, project) {
+/** The box's W×D outer-perimeter outline, edge-jointed against the 4 outer
+ *  wall runs — shared by the base plate and the flush-fitting fixed lid,
+ *  since both are geometrically the exact same "flat sheet mating against
+ *  every outer wall" shape (the base plate at the bottom, the lid at the
+ *  top when it sits flush with the perimeter height); only the Z position
+ *  differs, which this app's flat 2D pieces don't encode. `protrude:
+ *  true` flips the notches outward into tabs instead — used by the fixed
+ *  lid's RECESSED case (see LidBuilder), where the lid's tabs poke out to
+ *  meet holes cut mid-height into the walls rather than the walls poking
+ *  into notches cut into the lid's own edge. Exported for LidBuilder. */
+export function buildOuterEdgeOutline(grid, project, { protrude = false } = {}) {
   const cols = grid.sx.length;
   const rows = grid.sy.length;
   const W = grid.sx.reduce((a, b) => a + b, 0);
@@ -97,26 +107,30 @@ export function buildBasePlate(grid, project) {
 
   const runs = enumerateWallRuns(grid);
   const outerRuns = runs.filter((run) => isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
-  const innerRuns = runs.filter((run) => !isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
-
   const topRun = outerRuns.find((run) => run.kind === 'h' && run.r === 0);
   const bottomRun = outerRuns.find((run) => run.kind === 'h' && run.r === rows);
   const leftRun = outerRuns.find((run) => run.kind === 'v' && run.c === 0);
   const rightRun = outerRuns.find((run) => run.kind === 'v' && run.c === cols);
 
-  const top = edgeNotchPoints(topRun, grid, project, (u) => ({ x: u, y: 0 }), { x: 0, y: 1 }, false);
-  const right = edgeNotchPoints(rightRun, grid, project, (u) => ({ x: W, y: u }), { x: -1, y: 0 }, false);
-  const bottom = edgeNotchPoints(bottomRun, grid, project, (u) => ({ x: u, y: D }), { x: 0, y: -1 }, true);
-  const left = edgeNotchPoints(leftRun, grid, project, (u) => ({ x: 0, y: u }), { x: 1, y: 0 }, true);
+  const sign = protrude ? -1 : 1;
+  const top = edgeNotchPoints(topRun, grid, project, (u) => ({ x: u, y: 0 }), { x: 0, y: sign }, false);
+  const right = edgeNotchPoints(rightRun, grid, project, (u) => ({ x: W, y: u }), { x: -sign, y: 0 }, false);
+  const bottom = edgeNotchPoints(bottomRun, grid, project, (u) => ({ x: u, y: D }), { x: 0, y: -sign }, true);
+  const left = edgeNotchPoints(leftRun, grid, project, (u) => ({ x: 0, y: u }), { x: sign, y: 0 }, true);
 
-  const outline = simplifyPolygon([...top, ...right, ...bottom, ...left]);
+  return simplifyPolygon([...top, ...right, ...bottom, ...left]);
+}
+
+export function buildBasePlate(grid, project) {
+  const runs = enumerateWallRuns(grid);
+  const innerRuns = runs.filter((run) => !isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
 
   return {
     id: 'base-plate',
     kind: 'basePlate',
     thicknessGroup: 'outer',
     thicknessMm: project.outerThicknessMm,
-    outline,
+    outline: buildOuterEdgeOutline(grid, project),
     holes: dividerFingerHoles(innerRuns, grid, project),
   };
 }

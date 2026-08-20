@@ -127,6 +127,10 @@ h3:first-child { margin-top: 0; }
   color: var(--ink);
 }
 .hint { font-size: 0.72rem; color: var(--muted); }
+.warning { display: block; font-size: 0.78rem; color: var(--selected); margin-bottom: 0.35rem; }
+
+.field.lid-enabled { flex-direction: row; align-items: center; gap: 0.4rem; }
+.field.lid-enabled input { width: auto; }
 
 .btn {
   font: inherit;

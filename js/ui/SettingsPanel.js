@@ -5,6 +5,7 @@
 // field that asks first.
 import { el } from './dom.js';
 import { resizeGrid } from '../model/Grid.js';
+import { validateLid } from '../model/GridQuery.js';
 
 function parseMmList(text) {
   return text.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
@@ -35,6 +36,58 @@ function gridSizeField(labelText, values, onResize) {
       },
     }),
   ]);
+}
+
+// Fixed lid only (see the plan's 2026-08-20 scope cut — no floating
+// variant): a checkbox plus its insertion height, with the pure
+// GridQuery.validateLid() check surfaced directly rather than silently
+// clamped — an out-of-range height shows why, and offers a one-click fix
+// instead of correcting it behind the user's back.
+function lidSection(project, store) {
+  const { lid, grid } = project;
+
+  const enabledRow = el('label', { class: 'field lid-enabled' }, [
+    el('input', {
+      type: 'checkbox', checked: lid.enabled,
+      onChange: (evt) => store.apply((p) => ({ ...p, lid: { ...p.lid, enabled: evt.target.checked } })),
+    }),
+    el('span', { text: ' Couvercle fixe' }),
+  ]);
+
+  if (!lid.enabled) {
+    return el('div', {}, [el('h3', { text: 'Couvercle' }), enabledRow]);
+  }
+
+  const validation = validateLid(grid, project, lid.insertHeightMm);
+
+  const heightField = el('label', { class: 'field' }, [
+    el('span', { class: 'field-label', text: 'Hauteur d’insertion (mm)' }),
+    el('input', {
+      type: 'number', step: '0.5', min: '0',
+      value: lid.insertHeightMm != null ? String(lid.insertHeightMm) : '',
+      onChange: (evt) => {
+        const raw = evt.target.value.trim();
+        const insertHeightMm = raw === '' ? null : Number(raw);
+        store.apply((p) => ({ ...p, lid: { ...p.lid, insertHeightMm } }));
+      },
+    }),
+    el('span', { class: 'hint', text: `Plage valide : ${validation.min}–${validation.max}mm (au-dessus de toute cloison interne, jusqu’au sommet du périmètre).` }),
+  ]);
+
+  const warning = !validation.ok ? el('div', { class: 'field' }, [
+    el('span', { class: 'warning', text: `Hauteur invalide — doit être entre ${validation.min} et ${validation.max}mm.` }),
+    el('button', {
+      class: 'btn', text: 'Ajuster automatiquement',
+      onClick: () => {
+        const clamped = lid.insertHeightMm == null
+          ? validation.max
+          : Math.min(Math.max(lid.insertHeightMm, validation.min), validation.max);
+        store.apply((p) => ({ ...p, lid: { ...p.lid, insertHeightMm: clamped } }));
+      },
+    }),
+  ]) : null;
+
+  return el('div', {}, [el('h3', { text: 'Couvercle' }), enabledRow, heightField, warning]);
 }
 
 export function renderSettingsPanel(project, store) {
@@ -68,5 +121,7 @@ export function renderSettingsPanel(project, store) {
     numberField('Largeur espace (mm)', project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } }))),
     numberField('Marge min. (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } }))),
     numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01'),
+
+    lidSection(project, store),
   ]);
 }

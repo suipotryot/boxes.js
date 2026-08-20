@@ -136,3 +136,17 @@ export function perimeterHeight(grid, project) {
   for (const col of grid.vWalls) for (const seg of col) if (seg.thicknessGroup === 'outer') return resolveHeight(seg, project);
   return project.outerHeightMm;
 }
+
+/** Pure validation for a fixed lid's insertion height: it must clear every
+ *  interior divider (the lid only joints with the OUTER walls — a stem
+ *  taller than the lid would have nothing to interlock with, see
+ *  LidBuilder) and can never exceed the perimeter's own height (the lid
+ *  can't float above the walls that carry it). Returns the valid range
+ *  alongside `ok` so a caller can render both the warning and a
+ *  ready-to-use "clamp to range" suggestion without recomputing it. */
+export function validateLid(grid, project, insertHeightMm) {
+  const min = tallestInnerHeight(grid, project);
+  const max = perimeterHeight(grid, project);
+  const ok = insertHeightMm != null && insertHeightMm >= min && insertHeightMm <= max;
+  return { ok, min, max };
+}

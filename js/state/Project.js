@@ -18,7 +18,7 @@ export function createDefaultProject(name = 'Nouveau projet') {
       playMm: 0.1,
     },
     laserBed: { widthMm: 600, heightMm: 400, spacingMm: 5 },
-    lid: { style: 'none', insertHeightMm: null, playMm: 0.2 },
+    lid: { enabled: false, insertHeightMm: null },
   };
 }
 

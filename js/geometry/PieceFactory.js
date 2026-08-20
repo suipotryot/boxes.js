@@ -5,6 +5,7 @@
 import { enumerateWallRuns } from '../model/GridQuery.js';
 import { buildWallPanel } from './PanelBuilder.js';
 import { buildBasePlate } from './BasePlateBuilder.js';
+import { buildLid } from './LidBuilder.js';
 import { burnCorrect } from './BurnCorrection.js';
 
 export function computePieces(project) {
@@ -15,6 +16,8 @@ export function computePieces(project) {
   const pieces = [];
   for (const run of wallRuns) pieces.push(buildWallPanel(run, grid, project, hasBasePlate));
   if (hasBasePlate) pieces.push(buildBasePlate(grid, project));
+  const lid = buildLid(grid, project);
+  if (lid) pieces.push(lid);
 
   return pieces.map((p) => burnCorrect(p, project.burnMm));
 }

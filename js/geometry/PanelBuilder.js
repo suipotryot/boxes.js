@@ -32,7 +32,7 @@
 // this file goes through it instead of re-deriving a protrusion depth.
 import { fingerEdgePath } from './FingerJoint.js';
 import { simplifyPolygon } from './Point.js';
-import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt } from '../model/GridQuery.js';
+import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt, perimeterHeight } from '../model/GridQuery.js';
 import { xAt, yAt } from '../model/Grid.js';
 
 export function matingProtrusion(mateThicknessMm) {
@@ -324,6 +324,55 @@ function mortiseHoles(run, grid, project) {
   return holes;
 }
 
+// A fixed lid's own top-edge comb — replaces freeEdgePoints entirely for
+// an OUTER run when the lid sits exactly flush with the perimeter height
+// (see buildWallPanel): the wall's tabs protrude ABOVE its own nominal
+// height at 'finger' positions (mirroring bottomEdgePoints' own tabs
+// protruding BELOW v=0 into the base plate), interlocking with notches
+// cut into the lid's own outline (BasePlateBuilder.buildOuterEdgeOutline
+// — the lid and the base plate share that exact function, since a flush
+// lid is geometrically the base plate's mirror image at the top). Outer
+// runs are always a single uniform height and never have an X-crossing
+// notch on their own free edge (a perimeter run can only ever meet a T
+// junction, never an X — one side of any interior point along it is
+// always out-of-grid), so this never needs to merge with freeEdgePoints'
+// other concerns.
+function lidTopEdgePoints(run, grid, project, height) {
+  const half = matingProtrusion(project.outerThicknessMm);
+  const pts = [];
+  for (const s of bottomCombSegments(run, grid, project)) {
+    const y = s.kind === 'finger' ? height + half : height;
+    pts.push({ x: s.start, y }, { x: s.start + s.length, y });
+  }
+  return pts.reverse(); // match freeEdgePoints' length -> 0 traversal
+}
+
+// A fixed lid's row of mortise holes in an OUTER wall's face, for the
+// RECESSED case (insertHeightMm < perimeter height, so the wall continues
+// above the lid as a rim and its own free edge is left untouched). One
+// hole per 'finger' segment of the *same* bottomCombSegments tiling the
+// lid's own tabs use (BasePlateBuilder.buildOuterEdgeOutline with
+// protrude:true), so a hole can never drift out of sync with the tab
+// meant to sit in it — same single-source-of-truth discipline as every
+// other hole in this file. Hole height (in v) is the lid's own thickness,
+// ending exactly at insertHeightMm — the lid's *top* face, the same
+// top-edge convention every other height field in this app already uses.
+function lidHoles(run, grid, project, insertHeightMm, lidThicknessMm) {
+  const top = insertHeightMm;
+  const bottom = insertHeightMm - lidThicknessMm;
+  const holes = [];
+  for (const s of bottomCombSegments(run, grid, project)) {
+    if (s.kind !== 'finger') continue;
+    holes.push([
+      { x: s.start, y: bottom },
+      { x: s.start + s.length, y: bottom },
+      { x: s.start + s.length, y: top },
+      { x: s.start, y: top },
+    ]);
+  }
+  return holes;
+}
+
 /**
  * @param {object} run one entry from GridQuery.enumerateWallRuns()
  * @param {object} grid
@@ -358,12 +407,23 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   const freeEdgeNotches = notchesFromBottom ? [] : throughCrossings
     .map((c) => ({ ...notchURange(c, project), depth: crossingNotchDepth(c, spans, project) }));
 
+  // A fixed lid only ever joints with OUTER walls (see LidBuilder) — an
+  // interior divider's own geometry is entirely unaffected by it.
+  const lid = project.lid;
+  const lidActive = !!lid && lid.enabled && lid.insertHeightMm != null && seg.thicknessGroup === 'outer';
+  const lidFlush = lidActive && Math.abs(lid.insertHeightMm - perimeterHeight(grid, project)) < 1e-6;
+
   const bottom = bottomEdgePoints({ run, grid, project, spans, mateHalfThickness: baseHalf, notchesFromBottom });
   const right = endEdgePoints({ length, height: heightB, mateHalfThickness: halfB, fj, startWithFinger, atRight: true, reverse: false });
-  const top = freeEdgePoints(run, spans, freeEdgeNotches);
+  const top = lidFlush ? lidTopEdgePoints(run, grid, project, heightA) : freeEdgePoints(run, spans, freeEdgeNotches);
   const left = endEdgePoints({ length, height: heightA, mateHalfThickness: halfA, fj, startWithFinger, atRight: false, reverse: true });
 
   const outline = simplifyPolygon([...bottom, ...right, ...top, ...left]);
+
+  const holes = [
+    ...mortiseHoles(run, grid, project),
+    ...(lidActive && !lidFlush ? lidHoles(run, grid, project, lid.insertHeightMm, project.outerThicknessMm) : []),
+  ];
 
   return {
     id: `wall-${kind}-${aPoint[0]}-${aPoint[1]}`,
@@ -371,6 +431,6 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
     thicknessGroup: seg.thicknessGroup,
     thicknessMm: resolveThickness(seg, project),
     outline,
-    holes: mortiseHoles(run, grid, project),
+    holes,
   };
 }
