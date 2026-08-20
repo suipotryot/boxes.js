@@ -211,12 +211,14 @@ test('a removed segment still splits a divider into two pieces even with heights
   assertClose(dividerRuns[0].length, 50, 1e-9, 'the remaining piece should be just the top cell\'s span');
 });
 
-// X crossing, unequal heights: the shorter (or equal) piece notches half
-// of its own height, same as always. The taller piece notches from its
-// own edge all the way down to the shorter piece's *full* height, not
-// just half of it — confirmed behavior (the user rejected "half of the
-// taller piece's own height" as leaving too little material removed, and
-// also rejected "opens from the base instead of its own edge"). See
+// X crossing notch depth: h = min(x1, x2, y1, y2), the shortest of the
+// four local heights touching the crossing (the h-run's two local
+// heights on either side, and the v-run's two local heights on either
+// side). Both pieces always notch to exactly h/2 — the h-run (x pieces)
+// from the box floor up, the v-run (y pieces) from h/2 up to its own top
+// edge. This is symmetric (never "taller reaches down to shorter's full
+// height") and explains the U shape when y1 != y2: the notch floor is
+// h/2 on both sides, but the open top above it differs per side. See
 // PanelBuilder's crossingNotchDepth() docstring for the derivation.
 function xCrossingGrid(hHeight, vHeight) {
   const t = createDefaultProject();
@@ -231,29 +233,33 @@ function xCrossingGrid(hHeight, vHeight) {
   return { v, h };
 }
 
-test('X crossing: the horizontal piece (shorter) notches half its own height; the vertical piece (taller) notches all the way down to the shorter piece\'s full height', () => {
+test('X crossing: both pieces notch to half of the shorter height, symmetric regardless of which is taller', () => {
   const { v, h } = xCrossingGrid(30, 50); // h shorter than v
   assert(isSimplePolygon(v.outline) && isSimplePolygon(h.outline), 'outlines self-intersect');
   assert(v.holes.length === 0 && h.holes.length === 0, 'a height-mismatched X crossing should never produce an enclosed hole, only edge notches');
+  const depth = Math.min(30, 50) / 2; // 15
 
-  // v (taller, 50) notches from its own top down to 20 (h's full height) —
-  // depth 30, not 25 (half of v's own 50) and not 15 (half of h's 30... wait h is 30 here).
+  // v (taller, 50) notches down to 15 (half of the shorter 30), not 25
+  // (half of its own 50) and not 30 (h's full height).
   const vYs = v.outline.map((p) => p.y);
   assertClose(Math.max(...vYs), 50, 1e-9, 'v\'s own top should still be reached elsewhere along its length');
-  assert(vYs.some((y) => Math.abs(y - 30) < 1e-9), 'v\'s notch should reach exactly down to h\'s full height (30), not just half of it (15)');
+  assert(vYs.some((y) => Math.abs(y - depth) < 1e-9), 'v\'s notch should reach exactly half of the shorter height (15)');
 
-  // h (shorter, 30) is unaffected: still notches half of its own height, as before.
+  // h (shorter, 30) notches to the same 15 — half of its own height, which
+  // here also happens to be the shorter of the two.
   const hYs = h.outline.map((p) => p.y);
-  assert(hYs.some((y) => Math.abs(y - 15) < 1e-9), 'h\'s notch should still be half of its own height (15)');
+  assert(hYs.some((y) => Math.abs(y - depth) < 1e-9), 'h\'s notch should be half of its own height (15)');
 });
 
-test('X crossing: roles reversed (v shorter than h) — h now notches all the way down to v\'s full height', () => {
+test('X crossing: roles reversed (v shorter than h) — same symmetric half-of-shorter rule applies', () => {
   const { v, h } = xCrossingGrid(50, 30); // v shorter than h
   assert(isSimplePolygon(v.outline) && isSimplePolygon(h.outline), 'outlines self-intersect');
   assert(v.holes.length === 0 && h.holes.length === 0);
-  // v (now shorter, 30) still notches half of its own height (15).
+  const depth = Math.min(50, 30) / 2; // 15
   const vYs = v.outline.map((p) => p.y);
-  assert(vYs.some((y) => Math.abs(y - 15) < 1e-9), 'v\'s edge notch should reach exactly half of its own (shorter) height');
+  const hYs = h.outline.map((p) => p.y);
+  assert(vYs.some((y) => Math.abs(y - depth) < 1e-9), 'v (now shorter) should notch to half of its own height (15)');
+  assert(hYs.some((y) => Math.abs(y - depth) < 1e-9), 'h (now taller) should notch down to half of the shorter height (15), not stop at 30');
 });
 
 test('X crossing: equal (but both shortened) heights stay symmetric, each notching half of the shared height', () => {
@@ -293,11 +299,49 @@ test('X crossing coinciding exactly with a height step on the OTHER run: both pi
 
   // The true local height of h right at the crossing is 20 (the shorter,
   // customized side) — not 50 (the unmodified side), regardless of which
-  // side a naive "resolve at this exact boundary" lookup might pick. v
-  // (taller, 50) should notch down to exactly 20, not to 40 (half of 50)
-  // and not to some value derived from the unmodified 50-tall side of h.
+  // side a naive "resolve at this exact boundary" lookup might pick. So
+  // h = min(x1=50, x2=20, y1=50, y2=50) = 20, and v (uniformly 50) should
+  // notch down to h/2 = 10, not to 20 and not to 40 (half of its own 50).
   const vYs = vPiece.outline.map((p) => p.y);
-  assert(vYs.some((y) => Math.abs(y - 20) < 1e-6), 'v\'s notch should reach exactly down to h\'s true local (shorter) height of 20');
+  assert(vYs.some((y) => Math.abs(y - 10) < 1e-6), 'v\'s notch should reach exactly h/2 = 10, using h\'s true local (shorter) height of 20');
+});
+
+// The user's own pseudo-code for this feature: h = min(x1, x2, y1, y2)
+// across all four local heights touching the crossing; the x-run (h kind)
+// gets a bottom notch from the floor up to h/2; the y-run (v kind) gets a
+// notch from h/2 up to its own top edge. When the v-run's own two local
+// heights differ (a height step on its OWN axis lands exactly on the
+// crossing point), the result is a U shape: the notch floor is h/2 on
+// both sides, but the open top above it differs per side, matching each
+// side's own height. This is what the previous "taller piece reaches the
+// shorter piece's full height" rule got wrong — it only ever compared the
+// crossing's two *pieces*, never all four local heights, so a step on the
+// piece's own axis barely notched the taller side instead of cutting it
+// down to the true shared floor.
+test('X crossing: an own-axis height step coinciding with the crossing produces a U-shaped notch, same floor on both sides', () => {
+  const t = createDefaultProject();
+  t.grid = createGrid([90, 130], [70, 100]);
+  t.grid = setSegmentHeight(t.grid, 'v', 1, 0, 20); // top cell of the vertical divider
+  t.grid = setSegmentHeight(t.grid, 'v', 1, 1, 90); // bottom cell, much taller
+  const runs = enumerateWallRuns(t.grid);
+  const vPiece = buildWallPanel(runs.find((r) => r.kind === 'v' && r.c === 1), t.grid, t, true);
+  const hPiece = buildWallPanel(runs.find((r) => r.kind === 'h' && r.r === 1), t.grid, t, true);
+  assert(isSimplePolygon(vPiece.outline) && isSimplePolygon(hPiece.outline), 'outlines self-intersect');
+  assert(vPiece.holes.length === 0 && hPiece.holes.length === 0, 'no enclosed holes, only edge notches');
+
+  // h (both cells default 50, untouched by v's step): h = min(50,50,20,90) = 20, depth = 10.
+  const hYs = hPiece.outline.map((p) => p.y);
+  assertClose(Math.max(...hYs), 50, 1e-9, 'h\'s own height should stay untouched elsewhere');
+  assert(hYs.some((y) => Math.abs(y - 10) < 1e-6), 'h\'s notch floor should be h/2 = 10');
+
+  // v: the notch floor is the SAME h/2 = 10 on both sides of the step —
+  // not 80 on the taller side, which is what the old "subtract a fixed
+  // depth from each side's own height" logic produced.
+  const vYs = vPiece.outline.map((p) => p.y);
+  assert(vYs.some((y) => Math.abs(y - 10) < 1e-6), 'v\'s notch floor should be h/2 = 10 on the shorter (20) side');
+  assert(vYs.some((y) => Math.abs(y - 20) < 1e-6), 'v\'s free edge should still reach 20 on the shorter side, outside the notch');
+  assert(vYs.some((y) => Math.abs(y - 90) < 1e-6), 'v\'s free edge should still reach 90 on the taller side, outside the notch');
+  assert(!vYs.some((y) => Math.abs(y - 80) < 1e-6), 'v should not stop at 80 (90 minus a flat depth of 10 taken from its own height) — that was the old, wrong behavior');
 });
 
 run();

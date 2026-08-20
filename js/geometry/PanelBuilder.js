@@ -15,11 +15,12 @@
 //   - a mortise hole wherever a *stem* run's end lands mid-span (a T
 //     junction where THIS run is the through-piece);
 //   - a half-lap notch wherever a perpendicular run passes fully through
-//     mid-span (an X crossing): the shorter (or equal) of the two pieces
-//     notches half of its own height as usual; the taller one notches
-//     from its own edge all the way down to the shorter piece's full
-//     height (not just half), since above that there is nothing to
-//     interlock with and it should stay solid — see crossingNotchDepth().
+//     mid-span (an X crossing): h = min(x1, x2, y1, y2) across the four
+//     local heights touching the crossing (this run's own two touching
+//     spans and the perpendicular run's own two touching spans); both
+//     pieces always notch to exactly h/2 — the 'h' run from the floor up,
+//     the 'v' run from h/2 up to its own top edge — symmetric regardless
+//     of which piece is taller. See crossingNotchDepth().
 //
 // Central convention (write once, reference everywhere — this exact
 // omission is what causes half-thickness/overshoot bugs): a wall's tab
@@ -138,18 +139,25 @@ function otherHeightAt(crossing, project) {
   return Math.min(...crossing.segs.map((s) => resolveHeight(s, project)));
 }
 
-// A half-lap notch's depth, from this piece's own designated edge (top for
-// 'v' runs, bottom for 'h' runs — see buildWallPanel). The shorter (or
-// equal) piece notches half of its *own* height, same as when both
-// pieces match. The *taller* piece notches all the way down to the
-// shorter piece's full height instead of just half of it — confirmed
-// behavior: above that point there's nothing shorter to interlock with,
-// so the taller piece should stay solid there, not leave an untouched
-// island of material floating past where the notch already opened.
+// A half-lap notch's floor, as an ABSOLUTE height from this piece's own
+// designated edge's baseline (v=0 for 'h' runs, which notch from the
+// floor; the free edge's own coordinate space for 'v' runs, which notch
+// from the top — see buildWallPanel and freeEdgePoints). Per the user's
+// own spec: h = min(x1, x2, y1, y2), the shortest of the four local
+// heights touching the crossing (this run's own two touching spans, and
+// the perpendicular run's own two touching spans) — both pieces always
+// notch to exactly h/2, symmetric, regardless of which piece is taller.
+// `ownHeight`/`otherHeight` here are already each the min of their own
+// pair (heightAt's boundary tie-break, and otherHeightAt), so their min
+// is h across all four. This value is applied as an absolute override,
+// not subtracted from either side's own height — that distinction is
+// what produces a correct U shape when a run's own two touching spans
+// differ (a height step coinciding with the crossing): both sides get
+// the same h/2 floor, only the open top above it differs per side.
 function crossingNotchDepth(crossing, spans, project) {
   const ownHeight = heightAt(spans, crossing.u);
   const otherHeight = otherHeightAt(crossing, project);
-  return ownHeight <= otherHeight ? ownHeight / 2 : ownHeight - otherHeight;
+  return Math.min(ownHeight, otherHeight) / 2;
 }
 
 // Splits `segments` (as from fingerEdgePath) so none of them overlap
@@ -225,11 +233,14 @@ function bottomEdgePoints({ run, grid, project, spans, mateHalfThickness, notche
 }
 
 // The free edge (v=height, opposite the base plate): stepped to each
-// covered cell's own resolved height, additionally notched down wherever
-// this run notches from this side at an X crossing (depth from
-// crossingNotchDepth — half of this run's own height if it's the shorter
-// or equal piece there, or all the way down to the other piece's height
-// if this run is the taller one).
+// covered cell's own resolved height, additionally cut down to an
+// absolute floor of `notch.depth` (crossingNotchDepth — h/2 across all
+// four local heights at the crossing) wherever this run notches from this
+// side at an X crossing. This is an override, not a subtraction from the
+// local height: when this run's own two touching spans differ (a height
+// step coinciding with the crossing), both spans still get the exact same
+// floor, only the open top on either side of the notch differs — the U
+// shape the notch is meant to produce.
 function freeEdgePoints(run, spans, notches) {
   const boundarySet = new Set([0, run.length]);
   for (const s of spans) { boundarySet.add(s.uStart); boundarySet.add(s.uEnd); }
@@ -242,9 +253,8 @@ function freeEdgePoints(run, spans, notches) {
     const uEnd = boundaries[i + 1];
     if (uEnd <= uStart) continue;
     const mid = (uStart + uEnd) / 2;
-    let y = heightAt(spans, mid);
     const notch = notches.find((n) => mid > n.uStart && mid < n.uEnd);
-    if (notch) y -= notch.depth;
+    const y = notch ? notch.depth : heightAt(spans, mid);
     pts.push({ x: uStart, y }, { x: uEnd, y });
   }
   return pts.reverse(); // the free edge traverses length -> 0
