@@ -52,19 +52,49 @@ function maxThickness(mates, project) {
   return mates.length ? Math.max(...mates.map((m) => resolveThickness(m, project))) : 0;
 }
 
+// fingerEdgePath centers its comb, leaving a flush margin on BOTH ends —
+// fine for a joint where the margin sits against more of the same run
+// (T-junction stems, dividers), but at an outer-wall box corner the two
+// meeting walls use opposite startWithFinger phases, so one of them ends
+// its comb on a 'finger' right before that trailing/leading margin (an
+// odd total tooth-slot count always favors one phase by exactly one
+// tooth — see FingerJoint.fingerEdgePath). Leaving that margin as flush
+// means the piece with more teeth still tapers off to a plain, un-toothed
+// edge at its own two extremities — the box's actual outer corners, the
+// most exposed points structurally. Outer walls always share one height
+// (Grid.setSegmentHeight propagates it), so this is purely a phase
+// artifact, not a real size mismatch — extend that adjacent tooth to
+// consume the margin instead, reaching flush to the piece's own end.
+// Never applied to interior dividers (their own ends land on a T/X
+// junction, not a box corner — no such "outer corner" concept applies).
+function extendEndTeethToTips(segs) {
+  const result = segs.slice();
+  if (result.length >= 2 && result[0].kind === 'flush' && result[1].kind === 'finger') {
+    result[1] = { start: 0, length: result[1].length + result[0].length, kind: 'finger' };
+    result.shift();
+  }
+  const n = result.length;
+  if (n >= 2 && result[n - 1].kind === 'flush' && result[n - 2].kind === 'finger') {
+    result[n - 2] = { ...result[n - 2], length: result[n - 2].length + result[n - 1].length };
+    result.pop();
+  }
+  return result;
+}
+
 // One end edge (u=0 or u=length), combed along v (height). `atRight`
 // selects which end; `reverse` flips point order so the caller can compose
 // a non-self-intersecting outline (the left end must run top->bottom while
 // every other edge runs the other way — getting this backwards is exactly
 // the double-reversal bug that produced self-intersecting outlines before).
-function endEdgePoints({ length: L, height: H, mateProtrusion, fj, startWithFinger, atRight, reverse }) {
+function endEdgePoints({ length: L, height: H, mateProtrusion, fj, startWithFinger, atRight, reverse, extendToTips }) {
   const baseU = atRight ? L : 0;
   const dir = atRight ? 1 : -1;
   let pts;
   if (mateProtrusion <= 0) {
     pts = [{ x: baseU, y: 0 }, { x: baseU, y: H }];
   } else {
-    const segs = fingerEdgePath(H, fj, startWithFinger);
+    let segs = fingerEdgePath(H, fj, startWithFinger);
+    if (extendToTips) segs = extendEndTeethToTips(segs);
     pts = [];
     for (const seg of segs) {
       const u = seg.kind === 'finger' ? baseU + dir * mateProtrusion : baseU;
@@ -422,10 +452,17 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   const lidActive = !!lid && lid.enabled && lid.insertHeightMm != null && seg.thicknessGroup === 'outer';
   const lidFlush = lidActive && Math.abs(lid.insertHeightMm - perimeterHeight(grid, project)) < 1e-6;
 
+  // Only outer walls' own corner combs get their end teeth stretched to
+  // the tip (see extendEndTeethToTips) — a divider's own end always lands
+  // on a T/X junction against another run, not a box corner, and outer
+  // walls are the only runs guaranteed to always meet another same-height
+  // outer run at both of their own ends.
+  const extendToTips = seg.thicknessGroup === 'outer';
+
   const bottom = bottomEdgePoints({ run, grid, project, spans, mateProtrusion: baseProtrusion, notchesFromBottom });
-  const right = endEdgePoints({ length, height: heightB, mateProtrusion: protrusionB, fj, startWithFinger, atRight: true, reverse: false });
+  const right = endEdgePoints({ length, height: heightB, mateProtrusion: protrusionB, fj, startWithFinger, atRight: true, reverse: false, extendToTips });
   const top = lidFlush ? lidTopEdgePoints(run, grid, project, heightA) : freeEdgePoints(run, spans, freeEdgeNotches);
-  const left = endEdgePoints({ length, height: heightA, mateProtrusion: protrusionA, fj, startWithFinger, atRight: false, reverse: true });
+  const left = endEdgePoints({ length, height: heightA, mateProtrusion: protrusionA, fj, startWithFinger, atRight: false, reverse: true, extendToTips });
 
   const outline = simplifyPolygon([...bottom, ...right, ...top, ...left]);
 

@@ -482,4 +482,38 @@ test('buildBasePlate end-to-end: the user\'s reported scenario — 2x2 grid of 5
   assert(leftEdgePoints.every((p) => p.x <= 1e-6), `left-edge notch must never cross x=0 into the compartment — found: ${leftEdgePoints.filter((p) => p.x > 1e-6).map((p) => p.x).join(',')}`);
 });
 
+test('an outer wall\'s own corner comb stretches its last tooth to reach both extremities, never a flush margin — the two walls meeting at any corner always share one height, so this is a phase artifact of fingerEdgePath (an odd tooth-slot count favors one startWithFinger phase by exactly one tooth), not a real size mismatch', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([50, 50], [50, 50]);
+  project.grid = setSegmentHeight(project.grid, 'v', 0, 0, 65); // propagates to the whole perimeter -> 3 fingers for startWithFinger=true ('v' runs), 2 for startWithFinger=false ('h' runs)
+  const runs = enumerateWallRuns(project.grid, project);
+  const leftWall = runs.find((r) => r.kind === 'v' && r.c === 0); // startWithFinger=true -> ends on a finger, should extend
+  const topWall = runs.find((r) => r.kind === 'h' && r.r === 0); // startWithFinger=false -> ends on a space, must stay untouched
+
+  const leftPiece = buildWallPanel(leftWall, project.grid, project, true);
+  // The protruding (tooth) x is length+3 (full outerThicknessMm protrusion,
+  // per today's earlier fix); the flush x is length itself.
+  const protrudingX = leftWall.length + 3;
+  const leftHasProtrudingTip = leftPiece.outline.some((p) => Math.abs(p.x - protrudingX) < 1e-6 && Math.abs(p.y - 65) < 1e-6);
+  assert(leftHasProtrudingTip, 'expected the corner comb\'s own last tooth to protrude all the way to the 65mm tip (a point at (length+3, 65))');
+  const leftHasProtrudingBase = leftPiece.outline.some((p) => Math.abs(p.x - protrudingX) < 1e-6 && Math.abs(p.y) < 1e-6);
+  assert(leftHasProtrudingBase, 'expected the corner comb\'s own first tooth to protrude all the way to the base (a point at (length+3, 0))');
+
+  const topPiece = buildWallPanel(topWall, project.grid, project, true);
+  const topProtrudingX = topWall.length + 3;
+  const topHasProtrudingTip = topPiece.outline.some((p) => Math.abs(p.x - topProtrudingX) < 1e-6 && Math.abs(p.y - 65) < 1e-6);
+  assert(!topHasProtrudingTip, 'the space-ending wall must keep its flush margin at the tip, unmodified — found a protruding point there');
+});
+
+test('a divider\'s own T-junction end never gets teeth stretched to its tip, even when the mate is an outer wall', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [100]); // T junction: interior divider at c=1 meets the top/bottom outer edges — the divider's default 50mm height gives 2 fingers, ending on a finger (same startWithFinger=true phase as the corner-comb test above), so this specifically checks the outer-only gate, not just the phase
+  const runs = enumerateWallRuns(project.grid, project);
+  const divider = runs.find((r) => r.kind === 'v' && r.c === 1);
+  const piece = buildWallPanel(divider, project.grid, project, true);
+  const topEndPts = piece.outline.filter((p) => Math.abs(p.x) < 3.5);
+  const topEndMaxY = Math.max(...topEndPts.map((p) => p.y));
+  assert(topEndMaxY < divider.length - 1e-6, `a divider's own end comb must keep its ordinary margin, never stretched to the tip — got a point reaching y=${topEndMaxY} of ${divider.length}`);
+});
+
 run();
