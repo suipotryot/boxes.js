@@ -59,7 +59,7 @@ function lidSection(project, store) {
         store.apply((p) => ({ ...p, lid: { ...p.lid, insertHeightMm } }));
       },
     }),
-    el('span', { class: 'hint', text: `Plage valide : ${validation.min}–${validation.max}mm (au-dessus de toute cloison interne, jusqu’au sommet du périmètre).` }),
+    el('span', { class: 'hint', text: `Hauteur à laquelle le couvercle vient se poser. Plage valide : ${validation.min}–${validation.max}mm (au-dessus de toute cloison interne, en laissant sa propre épaisseur sous le sommet du périmètre).` }),
   ]);
 
   const warning = !validation.ok ? el('div', { class: 'field' }, [

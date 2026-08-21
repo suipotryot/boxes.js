@@ -200,16 +200,31 @@ export function perimeterHeight(grid, project) {
   return project.outerHeightMm;
 }
 
-/** Pure validation for a fixed lid's insertion height: it must clear every
- *  interior divider (the lid only joints with the OUTER walls — a stem
- *  taller than the lid would have nothing to interlock with, see
- *  LidBuilder) and can never exceed the perimeter's own height (the lid
- *  can't float above the walls that carry it). Returns the valid range
+// insertHeightMm is where the lid RESTS — its own bottom face, in the same
+// v-coordinate space as perimeterHeight (v=0 at the base plate's top face).
+// The lid's top face sits exactly one lid-thickness above that; a flush lid
+// (see LidBuilder) is the case where that top face lands exactly on the
+// perimeter's own top edge.
+export function lidTopFace(insertHeightMm, project) {
+  return insertHeightMm + project.outerThicknessMm;
+}
+
+export function isLidFlush(grid, project, insertHeightMm) {
+  return Math.abs(lidTopFace(insertHeightMm, project) - perimeterHeight(grid, project)) < 1e-6;
+}
+
+/** Pure validation for a fixed lid's insertion height (the height its own
+ *  BOTTOM face rests at): it must clear every interior divider directly —
+ *  the lid only joints with the OUTER walls, and a stem taller than the
+ *  lid's underside would collide with it instead of clearing it, see
+ *  LidBuilder — and its top face (one lid-thickness above insertHeightMm,
+ *  see lidTopFace) can never exceed the perimeter's own height, since the
+ *  lid can't float above the walls that carry it. Returns the valid range
  *  alongside `ok` so a caller can render both the warning and a
  *  ready-to-use "clamp to range" suggestion without recomputing it. */
 export function validateLid(grid, project, insertHeightMm) {
   const min = tallestInnerHeight(grid, project);
-  const max = perimeterHeight(grid, project);
+  const max = perimeterHeight(grid, project) - project.outerThicknessMm;
   const ok = insertHeightMm != null && insertHeightMm >= min && insertHeightMm <= max;
   return { ok, min, max };
 }

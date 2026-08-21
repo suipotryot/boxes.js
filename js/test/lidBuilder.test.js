@@ -1,11 +1,17 @@
 // M5 (scope-cut 2026-08-20 to a fixed lid only, no floating variant): a
 // flat W×D sheet jointing only with the 4 outer walls, at a configurable
-// insertion height. Two cases: FLUSH (insertHeightMm === perimeter
-// height) mirrors the base plate — notches cut into the lid, tabs
-// protrude from each outer wall's own top edge. RECESSED (insertHeightMm
-// < perimeter height, walls continue above as a rim) mirrors a T
-// junction — the lid protrudes its own tabs, the walls get enclosed
-// mortise holes mid-height instead.
+// insertion height — insertHeightMm is where the lid's BOTTOM face rests
+// (see GridQuery.lidTopFace/isLidFlush), unlike every other height field
+// in this app (a top-face convention) — a horizontal panel with its own
+// thickness needs "the height it rests at" as the user-facing quantity,
+// not its top face, or 2026-08-21's real-world defect (a lid landing one
+// thickness too low because insertHeightMm silently meant "top face")
+// recurs. Two cases: FLUSH (its top face === perimeter height) mirrors
+// the base plate — notches cut into the lid, tabs protrude from each
+// outer wall's own top edge. RECESSED (top face < perimeter height,
+// walls continue above as a rim) mirrors a T junction — the lid
+// protrudes its own tabs, the walls get enclosed mortise holes mid-height
+// instead.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight } from '../model/Grid.js';
 import { enumerateWallRuns, validateLid } from '../model/GridQuery.js';
@@ -44,17 +50,17 @@ test('validateLid: within range is ok, reports the true min/max', () => {
   assert(validateLid(project.grid, project, 25).ok);
   const r = validateLid(project.grid, project, 25);
   assertClose(r.min, 0, 1e-9);
-  assertClose(r.max, 50, 1e-9, 'max should be the perimeter height (outerHeightMm default)');
+  assertClose(r.max, 47, 1e-9, 'max should be the perimeter height (outerHeightMm default) minus the lid\'s own thickness, so its top face never exceeds the perimeter');
 });
 
-test('validateLid: rejects below the tallest interior divider and above the perimeter height', () => {
+test('validateLid: rejects below the tallest interior divider and above the perimeter height (minus lid thickness)', () => {
   const project = createDefaultProject();
   project.grid = createGrid([80, 80], [100]);
   project.grid = setSegmentHeight(project.grid, 'v', 1, 0, 30); // interior divider, 30mm
   assert(!validateLid(project.grid, project, 20).ok, 'below the 30mm divider should be rejected');
-  assert(validateLid(project.grid, project, 30).ok, 'exactly at the divider height should be accepted');
-  assert(validateLid(project.grid, project, 50).ok, 'exactly at the perimeter height should be accepted');
-  assert(!validateLid(project.grid, project, 55).ok, 'above the perimeter height should be rejected');
+  assert(validateLid(project.grid, project, 30).ok, 'resting exactly at the divider height should be accepted — its bottom face clears the divider with nothing to spare');
+  assert(validateLid(project.grid, project, 47).ok, 'resting at perimeter height (50) minus the 3mm lid thickness should be accepted — its top face lands exactly flush');
+  assert(!validateLid(project.grid, project, 50).ok, 'resting at the perimeter height itself should be rejected — its top face would stick out 3mm above the walls');
   assert(!validateLid(project.grid, project, null).ok, 'null should be rejected, not silently pass');
 });
 
@@ -68,7 +74,7 @@ test('buildLid returns null when disabled', () => {
 test('buildLid, flush case: mirrors the base plate\'s own footprint (notches, not tabs)', () => {
   const project = createDefaultProject();
   project.grid = createGrid([150], [100]);
-  project.lid = { enabled: true, insertHeightMm: 50 }; // === perimeter height (default outerHeightMm)
+  project.lid = { enabled: true, insertHeightMm: 47 }; // top face === perimeter height (default outerHeightMm 50, minus the 3mm default lid thickness)
   const lid = buildLid(project.grid, project);
   assert(lid !== null);
   assert(isSimplePolygon(lid.outline), 'flush lid outline self-intersects');
@@ -93,7 +99,7 @@ test('buildLid, recessed case: protrudes its own tabs past the nominal W x D foo
 test('outer wall, flush lid: its own top edge grows protruding tabs, no enclosed holes', () => {
   const project = createDefaultProject();
   project.grid = createGrid([150], [100]);
-  project.lid = { enabled: true, insertHeightMm: 50 };
+  project.lid = { enabled: true, insertHeightMm: 47 }; // top face === perimeter height (50) once the 3mm lid thickness is added
   const runs = enumerateWallRuns(project.grid, project);
   const topRun = runs.find((r) => r.kind === 'h' && r.r === 0);
   const piece = buildWallPanel(topRun, project.grid, project, true);
@@ -117,8 +123,8 @@ test('outer wall, recessed lid: its own top edge stays flat, gets enclosed holes
   for (const hole of piece.holes) {
     assert(isSimplePolygon(hole), 'lid hole should be a simple rectangle');
     const hys = hole.map((p) => p.y);
-    assertClose(Math.max(...hys), 30, 1e-9, 'hole top should sit exactly at insertHeightMm');
-    assertClose(Math.min(...hys), 30 - project.outerThicknessMm, 1e-9, 'hole bottom should be one lid-thickness below insertHeightMm');
+    assertClose(Math.min(...hys), 30, 1e-9, 'hole bottom should sit exactly at insertHeightMm — the height the lid rests at');
+    assertClose(Math.max(...hys), 30 + project.outerThicknessMm, 1e-9, 'hole top should be one lid-thickness above insertHeightMm');
   }
 });
 
@@ -136,7 +142,7 @@ test('an interior divider is never affected by the lid, recessed or flush', () =
   const withRecessedLid = buildWallPanel(divider, project.grid, project, true);
   assert(withRecessedLid.holes.length === withoutLid.holes.length, 'a recessed lid must not add holes to an interior divider');
 
-  project.lid = { enabled: true, insertHeightMm: 50 };
+  project.lid = { enabled: true, insertHeightMm: 47 }; // top face === perimeter height (50) once the 3mm lid thickness is added
   const withFlushLid = buildWallPanel(divider, project.grid, project, true);
   const ysNoLid = withoutLid.outline.map((p) => p.y);
   const ysFlushLid = withFlushLid.outline.map((p) => p.y);
@@ -162,7 +168,7 @@ test('flush and recessed lid outlines both stay simple after burn correction', (
   const project = createDefaultProject();
   project.grid = createGrid([150], [100]);
 
-  project.lid = { enabled: true, insertHeightMm: 50 };
+  project.lid = { enabled: true, insertHeightMm: 47 }; // top face === perimeter height (50) once the 3mm lid thickness is added
   const flushLid = burnCorrect(buildLid(project.grid, project), project.burnMm);
   assert(isSimplePolygon(flushLid.outline), 'burn-corrected flush lid self-intersects');
 

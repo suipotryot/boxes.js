@@ -37,7 +37,7 @@
 // re-deriving a protrusion depth.
 import { fingerEdgePath } from './FingerJoint.js';
 import { simplifyPolygon } from './Point.js';
-import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt, perimeterHeight, xAt, yAt } from '../model/GridQuery.js';
+import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt, isLidFlush, xAt, yAt } from '../model/GridQuery.js';
 
 /** A wall run's piece id — the one stable place this format is defined,
  *  so anything that needs to find a run's own piece again later (e.g. the
@@ -387,18 +387,19 @@ function lidTopEdgePoints(run, grid, project, height) {
 }
 
 // A fixed lid's row of mortise holes in an OUTER wall's face, for the
-// RECESSED case (insertHeightMm < perimeter height, so the wall continues
-// above the lid as a rim and its own free edge is left untouched). One
-// hole per 'finger' segment of the *same* bottomCombSegments tiling the
-// lid's own tabs use (BasePlateBuilder.buildOuterEdgeOutline with
-// protrude:true), so a hole can never drift out of sync with the tab
-// meant to sit in it — same single-source-of-truth discipline as every
-// other hole in this file. Hole height (in v) is the lid's own thickness,
-// ending exactly at insertHeightMm — the lid's *top* face, the same
-// top-edge convention every other height field in this app already uses.
+// RECESSED case (top face < perimeter height, so the wall continues above
+// the lid as a rim and its own free edge is left untouched). One hole per
+// 'finger' segment of the *same* bottomCombSegments tiling the lid's own
+// tabs use (BasePlateBuilder.buildOuterEdgeOutline with protrude:true), so
+// a hole can never drift out of sync with the tab meant to sit in it —
+// same single-source-of-truth discipline as every other hole in this
+// file. Hole height (in v) is the lid's own thickness, starting exactly at
+// insertHeightMm — the lid's *bottom* face, the height it rests at (see
+// LidBuilder's top-of-file comment for why this one field breaks from
+// every other height field's top-face convention).
 function lidHoles(run, grid, project, insertHeightMm, lidThicknessMm) {
-  const top = insertHeightMm;
-  const bottom = insertHeightMm - lidThicknessMm;
+  const bottom = insertHeightMm;
+  const top = insertHeightMm + lidThicknessMm;
   const holes = [];
   for (const s of bottomCombSegments(run, grid, project)) {
     if (s.kind !== 'finger') continue;
@@ -450,7 +451,7 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   // interior divider's own geometry is entirely unaffected by it.
   const lid = project.lid;
   const lidActive = !!lid && lid.enabled && lid.insertHeightMm != null && seg.thicknessGroup === 'outer';
-  const lidFlush = lidActive && Math.abs(lid.insertHeightMm - perimeterHeight(grid, project)) < 1e-6;
+  const lidFlush = lidActive && isLidFlush(grid, project, lid.insertHeightMm);
 
   // Only outer walls' own corner combs get their end teeth stretched to
   // the tip (see extendEndTeethToTips) — a divider's own end always lands
