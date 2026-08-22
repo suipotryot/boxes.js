@@ -4,7 +4,8 @@
 // interior wall/floor customization that no longer fits), so it's the one
 // field that asks first.
 import { el } from './dom.js';
-import { numberField, textField } from './fields.js';
+import { numberField, textField, infoIcon } from './fields.js';
+import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
 import { validateLid } from '../model/GridQuery.js';
 
@@ -12,9 +13,9 @@ function parseMmList(text) {
   return text.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
 }
 
-function gridSizeField(labelText, values, onResize) {
+function gridSizeField(labelText, values, onResize, tooltip) {
   return el('label', { class: 'field' }, [
-    el('span', { class: 'field-label', text: labelText }),
+    el('span', { class: 'field-label' }, [labelText, infoIcon(tooltip)]),
     el('input', {
       type: 'text', value: values.join(', '),
       onChange: (evt) => {
@@ -40,6 +41,7 @@ function lidSection(project, store) {
       onChange: (evt) => store.apply((p) => ({ ...p, lid: { ...p.lid, enabled: evt.target.checked } })),
     }),
     el('span', { text: ' Couvercle fixe' }),
+    infoIcon('Ajoute un couvercle plat qui s’assemble aux parois extérieures, à une hauteur d’insertion donnée.'),
   ]);
 
   if (!lid.enabled) {
@@ -49,7 +51,7 @@ function lidSection(project, store) {
   const validation = validateLid(grid, project, lid.insertHeightMm);
 
   const heightField = el('label', { class: 'field' }, [
-    el('span', { class: 'field-label', text: 'Hauteur d’insertion (mm)' }),
+    el('span', { class: 'field-label' }, ['Hauteur d’insertion (mm)', infoIcon('Hauteur à laquelle repose le dessous du couvercle, mesurée depuis le fond de la boîte.')]),
     el('input', {
       type: 'number', step: '1', min: '0',
       value: lid.insertHeightMm != null ? String(lid.insertHeightMm) : '',
@@ -59,7 +61,7 @@ function lidSection(project, store) {
         store.apply((p) => ({ ...p, lid: { ...p.lid, insertHeightMm } }));
       },
     }),
-    el('span', { class: 'hint', text: `Hauteur à laquelle le couvercle vient se poser. Plage valide : ${validation.min}–${validation.max}mm (au-dessus de toute cloison interne, en laissant sa propre épaisseur sous le sommet du périmètre).` }),
+    el('span', { class: 'hint', text: `Plage valide : ${validation.min}–${validation.max}mm.` }),
   ]);
 
   const warning = !validation.ok ? el('div', { class: 'field' }, [
@@ -94,32 +96,32 @@ export function renderSettingsPanel(project, store, fingerJointOpen, onToggleFin
 
   return el('div', { class: 'settings-panel' }, [
     el('h3', { text: 'Projet' }),
-    textField('Nom du projet', project.name, (name) => store.apply((p) => ({ ...p, name }))),
+    textField('Nom du projet', project.name, (name) => store.apply((p) => ({ ...p, name })), 'Nom affiché dans « Mes projets » et utilisé pour le nom du fichier à l’export JSON.'),
 
     el('h3', { text: 'Grille' }),
-    gridSizeField('Colonnes (sx, mm)', grid.sx, (parsed) => applyResize('x', parsed)),
-    gridSizeField('Rangées (sy, mm)', grid.sy, (parsed) => applyResize('y', parsed)),
+    gridSizeField('Colonnes (sx, mm)', grid.sx, (parsed) => applyResize('x', parsed), 'Largeurs des colonnes de la grille, en mm, séparées par des virgules — définit le nombre de colonnes et leur taille.'),
+    gridSizeField('Rangées (sy, mm)', grid.sy, (parsed) => applyResize('y', parsed), 'Hauteurs des rangées de la grille, en mm, séparées par des virgules — définit le nombre de rangées et leur taille.'),
 
     el('h3', { text: 'Épaisseurs & hauteurs' }),
-    numberField('Épaisseur extérieure (mm)', project.outerThicknessMm, (n) => store.apply((p) => ({ ...p, outerThicknessMm: n }))),
-    numberField('Épaisseur intérieure (mm)', project.innerThicknessMm, (n) => store.apply((p) => ({ ...p, innerThicknessMm: n }))),
-    numberField('Hauteur extérieure (mm)', project.outerHeightMm, (n) => store.apply((p) => ({ ...p, outerHeightMm: n }))),
-    numberField('Hauteur intérieure par défaut (mm)', project.innerHeightMm, (n) => store.apply((p) => ({ ...p, innerHeightMm: n }))),
-    numberField('Jeu de coupe / burn (mm)', project.burnMm, (n) => store.apply((p) => ({ ...p, burnMm: n })), '0.01'),
+    numberField('Épaisseur extérieure (mm)', project.outerThicknessMm, (n) => store.apply((p) => ({ ...p, outerThicknessMm: n })), '1', 'Épaisseur du matériau utilisé pour le fond et les parois extérieures.'),
+    numberField('Épaisseur intérieure (mm)', project.innerThicknessMm, (n) => store.apply((p) => ({ ...p, innerThicknessMm: n })), '1', 'Épaisseur du matériau utilisé pour les cloisons internes.'),
+    numberField('Hauteur extérieure (mm)', project.outerHeightMm, (n) => store.apply((p) => ({ ...p, outerHeightMm: n })), '1', 'Hauteur des parois extérieures (le pourtour de la boîte).'),
+    numberField('Hauteur intérieure par défaut (mm)', project.innerHeightMm, (n) => store.apply((p) => ({ ...p, innerHeightMm: n })), '1', 'Hauteur par défaut des cloisons internes — modifiable individuellement par cloison dans l’inspecteur.'),
+    numberField('Jeu de coupe / burn (mm)', project.burnMm, (n) => store.apply((p) => ({ ...p, burnMm: n })), '0.01', BURN_MM_HELP),
 
     el('details', { open: fingerJointOpen, ontoggle: (evt) => onToggleFingerJointOpen(evt.target.open) }, [
       el('summary', { text: 'Doigts (finger joint)' }),
-      numberField('Largeur doigt (mm)', project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } }))),
-      numberField('Largeur espace (mm)', project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } }))),
-      numberField('Marge min. (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } }))),
-      numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01'),
+      numberField('Largeur doigt (mm)', project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } })), '1', FINGER_MM_HELP),
+      numberField('Largeur espace (mm)', project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } })), '1', SPACE_MM_HELP),
+      numberField('Marge min. (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } })), '1', MARGIN_MM_HELP),
+      numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01', PLAY_MM_HELP),
     ]),
 
     lidSection(project, store),
 
     el('h3', { text: 'Découpe laser' }),
-    numberField('Largeur de la zone de travail (mm)', project.laserBed.widthMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, widthMm: n } }))),
-    numberField('Hauteur de la zone de travail (mm)', project.laserBed.heightMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, heightMm: n } }))),
-    numberField('Espacement entre pièces (mm)', project.laserBed.spacingMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, spacingMm: n } }))),
+    numberField('Largeur de la zone de travail (mm)', project.laserBed.widthMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, widthMm: n } })), '1', LASER_WIDTH_HELP),
+    numberField('Hauteur de la zone de travail (mm)', project.laserBed.heightMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, heightMm: n } })), '1', LASER_HEIGHT_HELP),
+    numberField('Espacement entre pièces (mm)', project.laserBed.spacingMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, spacingMm: n } })), '1', LASER_SPACING_HELP),
   ]);
 }
