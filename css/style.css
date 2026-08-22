@@ -232,6 +232,19 @@ h3:first-child { margin-top: 0; }
   margin: 1.5rem auto;
   padding: 0 1rem;
 }
+
+/* --- standalone settings screens ("Ma machine", "Préférences") --- */
+
+/* Same centered-container recipe as .project-list, narrower — these are
+   flat forms of a handful of fields, not project rows, and displayed
+   full-page rather than in the editor's own narrow sidebar column (where
+   .settings-panel's fields are meant to stretch to fill 260px). Without
+   this, those same fields stretch edge-to-edge across the whole page. */
+.settings-screen {
+  max-width: 480px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
 .project-list h2 { margin: 0 0 1rem; }
 .project-list .toolbar { margin-bottom: 1rem; }
 

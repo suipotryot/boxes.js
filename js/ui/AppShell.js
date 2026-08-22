@@ -1,9 +1,30 @@
-// Top-level screen switcher (M6): "Mes projets" <-> the editor, both
-// mounted into the same container main.js already hands off. Owns the
-// ProjectRepository and the debounced-autosave wiring — ProjectStore
-// itself stays persistence-agnostic (see its own header comment), so
-// autosave is layered on entirely from here via store.subscribe(), one
-// fresh debounce() instance per opened project.
+// Top-level screen router: "Mes projets" <-> "Ma machine" <-> "Préférences"
+// <-> the editor, all mounted into the same container main.js hands off.
+// Owns the ProjectRepository and the debounced-autosave wiring —
+// ProjectStore itself stays persistence-agnostic (see its own header
+// comment), so autosave is layered on entirely from here via
+// store.subscribe(), one fresh debounce() instance per opened project.
+//
+// Routed with Backbone.Router (yes, just the Router/History piece — no
+// Model/View/Collection anywhere in this app), hash-based (Backbone's own
+// default when `pushState` isn't explicitly requested): this is a local
+// tool that might be opened from any bare static file server, not just
+// `vite preview` — a `#machine` URL always resolves to index.html
+// regardless of hosting, with zero server-side SPA fallback config needed
+// anywhere. This also fixes the real bug that prompted the switch: the
+// browser's own back/forward buttons previously did nothing between our
+// screens, because nothing ever pushed a history entry.
+//
+// A different router (navigo) was tried first and dropped after a real,
+// reproducible bug: it sets an internal "freeze" flag after every
+// navigate() call (meant to work around a scroll-restoration quirk in
+// pushState mode) that also suppresses its popstate handling for a brief
+// window even in hash mode — click a button, then hit the browser's back
+// button quickly enough, and the URL changes but the screen silently
+// doesn't. Backbone.History listens to `hashchange` directly in this
+// configuration (not popstate), with no such timing-dependent internal
+// state — confirmed by reading its source, not just its docs, the same
+// way the navigo bug was actually found in the first place.
 import { clear } from './dom.js';
 import { createProjectRepository } from '../state/ProjectRepository.js';
 import { createProjectStore } from '../state/ProjectStore.js';
@@ -11,29 +32,35 @@ import { createDefaultProject } from '../state/Project.js';
 import { debounce } from '../state/debounce.js';
 import { mountEditorView } from './EditorView.js';
 import { mountProjectListView } from './ProjectListView.js';
+import { mountMachineSettingsView } from './MachineSettingsView.js';
+import { mountPreferencesView } from './PreferencesView.js';
+import Backbone from 'backbone';
 
 export function mountAppShell(container) {
   const repo = createProjectRepository();
   let current = null; // whichever screen's { unmount(), flush? } is live
 
-  function showList() {
+  // A brand-new project is only assigned an id in memory when created —
+  // it isn't written to storage until the first real edit reaches the
+  // debounced autosave below (creating a project and closing the tab
+  // without touching it leaves nothing behind, which is correct — nothing
+  // meaningful happened yet). That means the editor route can't always
+  // resolve a fresh project via repo.load() alone; this holds the
+  // just-minted project in memory for exactly the one navigation that
+  // follows createAndOpenProject(), so its URL still works like any
+  // other's despite not existing in storage yet.
+  let pendingNewProject = null;
+
+  function mountScreen(mountFn, opts) {
     if (current) current.unmount();
-    current = mountProjectListView(container, {
-      repo,
-      onOpen: openProject,
-      onCreate: createAndOpenProject,
-    });
+    current = mountFn(container, opts);
   }
 
   // The project's id must be resolved BEFORE the store/autosave loop ever
   // starts — if it stayed null, every single autosave tick would mint a
   // fresh crypto.randomUUID() and write a brand-new orphaned localStorage
-  // entry instead of updating the same one. A brand-new project is only
-  // assigned an id here, in memory; it isn't written to storage until the
-  // first real edit reaches the debounced autosave below (creating a
-  // project and closing the tab without touching it leaves nothing
-  // behind, which is correct — nothing meaningful happened yet).
-  function mountEditor(project) {
+  // entry instead of updating the same one.
+  function mountEditorScreen(project) {
     if (current) current.unmount();
     repo.setLastActiveId(project.id);
 
@@ -44,7 +71,7 @@ export function mountAppShell(container) {
     const editor = mountEditorView(container, store, {
       onBackToList: () => {
         autosave.flush();
-        showList();
+        router.navigate('', { trigger: true });
       },
     });
 
@@ -58,26 +85,84 @@ export function mountAppShell(container) {
     };
   }
 
-  function openProject(id) {
-    const project = repo.load(id);
-    if (project) mountEditor(project);
+  // Pre-fills a brand-new project from the user's own saved "Ma machine"/
+  // "Préférences" settings instead of createDefaultProject()'s hardcoded
+  // literals — the merge happens here, at the one place a project is
+  // actually minted, rather than inside createDefaultProject() itself,
+  // which stays a pure function with no storage access (existing tests
+  // rely on its exact hardcoded values). Never affects an
+  // already-created project — this only runs once, at creation.
+  function createAndOpenProject() {
+    const base = createDefaultProject();
+    const machine = repo.getMachineSettings();
+    const prefs = repo.getPreferences();
+    pendingNewProject = {
+      ...base,
+      laserBed: { ...base.laserBed, ...machine.laserBed },
+      burnMm: machine.burnMm,
+      fingerJoint: { ...base.fingerJoint, ...prefs.fingerJoint },
+      id: crypto.randomUUID(),
+    };
+    router.navigate(`editor/${pendingNewProject.id}`, { trigger: true });
   }
 
-  function createAndOpenProject() {
-    mountEditor({ ...createDefaultProject(), id: crypto.randomUUID() });
+  function openEditorRoute(id) {
+    const project = repo.load(id)
+      || (pendingNewProject && pendingNewProject.id === id ? pendingNewProject : null);
+    pendingNewProject = null;
+    if (project) mountEditorScreen(project);
+    else router.navigate('', { trigger: true, replace: true });
   }
+
+  const router = new Backbone.Router({
+    routes: {
+      '': () => mountScreen(mountProjectListView, {
+        repo,
+        onOpen: (id) => router.navigate(`editor/${id}`, { trigger: true }),
+        onCreate: createAndOpenProject,
+        onOpenMachine: () => router.navigate('machine', { trigger: true }),
+        onOpenPreferences: () => router.navigate('preferences', { trigger: true }),
+      }),
+      // "Ma machine"/"Préférences" are only reachable from "Mes projets"
+      // (see ProjectListView's own toolbar) — never from the editor. No
+      // in-screen "back" button either: with real routing in place, the
+      // browser's own back button already does that job.
+      machine: () => mountScreen(mountMachineSettingsView, { repo }),
+      preferences: () => mountScreen(mountPreferencesView, { repo }),
+      'editor/:id': openEditorRoute,
+    },
+  });
+
+  Backbone.history.on('notfound', () => router.navigate('', { trigger: true, replace: true }));
 
   // Flushes whatever autosave is currently pending right before the tab
   // closes — without this, an edit made less than one debounce delay
-  // before closing the tab would be silently lost. A no-op on the list
-  // screen (current.flush is only defined while an editor is mounted).
+  // before closing the tab would be silently lost. A no-op on any
+  // non-editor screen (current.flush is only defined while one is
+  // mounted).
   window.addEventListener('beforeunload', () => {
     if (current && current.flush) current.flush();
   });
 
   clear(container);
+
+  // silent: true — start() would otherwise immediately resolve whatever
+  // the current URL fragment is, before we get a chance to redirect to
+  // the last-active project below. navigate() is a no-op until history
+  // has started, so start() must always come first regardless of which
+  // branch runs next.
+  Backbone.history.start({ silent: true });
+
+  // Resumes the last-active project directly on a fresh app load only —
+  // not a rule of the '' route itself, which must stay the plain,
+  // unconditional project list, or clicking "Mes projets" while a project
+  // is open would immediately redirect right back into it. replace: true
+  // so this doesn't leave "just opened the app" as a separate back-button
+  // stop before the editor.
   const lastId = repo.getLastActiveId();
-  const resumed = lastId ? repo.load(lastId) : null;
-  if (resumed) mountEditor(resumed);
-  else showList();
+  if (lastId && repo.load(lastId)) {
+    router.navigate(`editor/${lastId}`, { trigger: true, replace: true });
+  } else {
+    Backbone.history.loadUrl();
+  }
 }

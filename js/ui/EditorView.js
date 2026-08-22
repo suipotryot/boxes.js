@@ -50,6 +50,7 @@ function renderPreviewStrip(project, selected, showLabels) {
 export function mountEditorView(container, store, { onBackToList } = {}) {
   let selected = null;
   let showLabels = true;
+  let fingerJointOpen = false;
 
   function select(next) {
     selected = next;
@@ -58,6 +59,11 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
 
   function toggleLabels(next) {
     showLabels = next;
+    render();
+  }
+
+  function toggleFingerJointOpen(next) {
+    fingerJointOpen = next;
     render();
   }
 
@@ -76,7 +82,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     const editorCanvas = el('div', { class: 'editor-canvas' }, [renderEditorSvg(project, selected, select)]);
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
-      el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store)]),
+      el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, fingerJointOpen, toggleFingerJointOpen)]),
       el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selected, showLabels), renderExportPanel(project, showLabels, toggleLabels)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, store)]),
     ]));

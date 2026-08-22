@@ -31,7 +31,7 @@ function exportProject(project) {
   URL.revokeObjectURL(url);
 }
 
-export function mountProjectListView(container, { repo, onOpen, onCreate }) {
+export function mountProjectListView(container, { repo, onOpen, onCreate, onOpenMachine, onOpenPreferences }) {
   // { error: string } | { collision: { merged, existing } } | null
   let importState = null;
 
@@ -118,6 +118,10 @@ export function mountProjectListView(container, { repo, onOpen, onCreate }) {
         el('button', { class: 'btn', text: 'Nouveau projet', onClick: onCreate }),
         el('button', { class: 'btn', text: 'Importer un fichier JSON…', onClick: () => fileInput.click() }),
         fileInput,
+      ]),
+      el('div', { class: 'toolbar-group' }, [
+        el('button', { class: 'btn', text: 'Ma machine', onClick: onOpenMachine }),
+        el('button', { class: 'btn', text: 'Préférences', onClick: onOpenPreferences }),
       ]),
       numberField('Délai de sauvegarde automatique (s)', repo.getAutosaveDelayMs() / 1000, (s) => repo.setAutosaveDelayMs(s * 1000)),
     ]);

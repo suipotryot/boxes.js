@@ -122,4 +122,44 @@ test('setAutosaveDelayMs()/getAutosaveDelayMs() round-trip', () => {
   assertClose(repo.getAutosaveDelayMs(), 1500, 1e-9);
 });
 
+test('getMachineSettings() returns createDefaultProject()\'s own values when never set', () => {
+  const repo = createProjectRepository(createFakeStorage());
+  const machine = repo.getMachineSettings();
+  const defaults = createDefaultProject();
+  assert(machine.laserBed.widthMm === defaults.laserBed.widthMm);
+  assert(machine.laserBed.heightMm === defaults.laserBed.heightMm);
+  assert(machine.laserBed.spacingMm === defaults.laserBed.spacingMm);
+  assertClose(machine.burnMm, defaults.burnMm, 1e-9);
+});
+
+test('setMachineSettings()/getMachineSettings() round-trip', () => {
+  const repo = createProjectRepository(createFakeStorage());
+  repo.setMachineSettings({ laserBed: { widthMm: 900, heightMm: 600, spacingMm: 3 }, burnMm: 0.15 });
+  const machine = repo.getMachineSettings();
+  assert(machine.laserBed.widthMm === 900);
+  assert(machine.laserBed.heightMm === 600);
+  assert(machine.laserBed.spacingMm === 3);
+  assertClose(machine.burnMm, 0.15, 1e-9);
+});
+
+test('getPreferences() returns createDefaultProject()\'s own fingerJoint values when never set', () => {
+  const repo = createProjectRepository(createFakeStorage());
+  const prefs = repo.getPreferences();
+  const defaults = createDefaultProject();
+  assert(prefs.fingerJoint.fingerMm === defaults.fingerJoint.fingerMm);
+  assert(prefs.fingerJoint.spaceMm === defaults.fingerJoint.spaceMm);
+  assert(prefs.fingerJoint.marginMm === defaults.fingerJoint.marginMm);
+  assertClose(prefs.fingerJoint.playMm, defaults.fingerJoint.playMm, 1e-9);
+});
+
+test('setPreferences()/getPreferences() round-trip', () => {
+  const repo = createProjectRepository(createFakeStorage());
+  repo.setPreferences({ fingerJoint: { fingerMm: 8, spaceMm: 8, marginMm: 4, playMm: 0.2 } });
+  const prefs = repo.getPreferences();
+  assert(prefs.fingerJoint.fingerMm === 8);
+  assert(prefs.fingerJoint.spaceMm === 8);
+  assert(prefs.fingerJoint.marginMm === 4);
+  assertClose(prefs.fingerJoint.playMm, 0.2, 1e-9);
+});
+
 run();

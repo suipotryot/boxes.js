@@ -37,6 +37,18 @@ export function svgEl(tag, attrs = {}, children = []) {
   return node;
 }
 
+// Native replaceChildren() (with no args, so it only removes) rather than
+// a hand-rolled `while (firstChild) removeChild` loop — that loop re-reads
+// `node.firstChild` on every iteration, which is exactly what makes it
+// vulnerable to re-entrant mutation of the SAME node: removing a focused
+// descendant fires 'blur' synchronously, and if a blur/change handler
+// elsewhere triggers ANOTHER render() on this same container (e.g.
+// clicking a button placed right after a still-focused field, without
+// tabbing away first — an entirely ordinary interaction), the nested
+// clear()+rebuild races the outer loop and "node to be removed is no
+// longer a child of this node" is thrown. replaceChildren() removes from
+// a list captured up front instead of re-querying live state, so it isn't
+// exposed to that race.
 export function clear(node) {
-  while (node.firstChild) node.removeChild(node.firstChild);
+  node.replaceChildren();
 }

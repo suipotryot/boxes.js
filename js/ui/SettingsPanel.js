@@ -78,7 +78,7 @@ function lidSection(project, store) {
   return el('div', {}, [el('h3', { text: 'Couvercle' }), enabledRow, heightField, warning]);
 }
 
-export function renderSettingsPanel(project, store) {
+export function renderSettingsPanel(project, store, fingerJointOpen, onToggleFingerJointOpen) {
   const grid = project.grid;
 
   const applyResize = (axis, parsed) => {
@@ -107,11 +107,13 @@ export function renderSettingsPanel(project, store) {
     numberField('Hauteur intérieure par défaut (mm)', project.innerHeightMm, (n) => store.apply((p) => ({ ...p, innerHeightMm: n }))),
     numberField('Jeu de coupe / burn (mm)', project.burnMm, (n) => store.apply((p) => ({ ...p, burnMm: n })), '0.01'),
 
-    el('h3', { text: 'Doigts (finger joint)' }),
-    numberField('Largeur doigt (mm)', project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } }))),
-    numberField('Largeur espace (mm)', project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } }))),
-    numberField('Marge min. (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } }))),
-    numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01'),
+    el('details', { open: fingerJointOpen, ontoggle: (evt) => onToggleFingerJointOpen(evt.target.open) }, [
+      el('summary', { text: 'Doigts (finger joint)' }),
+      numberField('Largeur doigt (mm)', project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } }))),
+      numberField('Largeur espace (mm)', project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } }))),
+      numberField('Marge min. (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } }))),
+      numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01'),
+    ]),
 
     lidSection(project, store),
 

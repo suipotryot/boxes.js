@@ -12,6 +12,23 @@ const INDEX_KEY = 'boxes.js:index';
 const LAST_ACTIVE_KEY = 'boxes.js:last-active-id';
 const AUTOSAVE_DELAY_KEY = 'boxes.js:autosave-delay-ms';
 const DEFAULT_AUTOSAVE_DELAY_MS = 5000;
+const MACHINE_SETTINGS_KEY = 'boxes.js:machine-settings';
+const PREFERENCES_KEY = 'boxes.js:preferences';
+
+// Matches createDefaultProject()'s own hardcoded values (js/state/Project.js)
+// — a first-ever launch, before the user has touched "Ma machine" or
+// "Préférences", behaves exactly as it did before those screens existed.
+const DEFAULT_MACHINE_SETTINGS = { laserBed: { widthMm: 600, heightMm: 400, spacingMm: 5 }, burnMm: 0.1 };
+const DEFAULT_PREFERENCES = { fingerJoint: { fingerMm: 10, spaceMm: 10, marginMm: 5, playMm: 0.1 } };
+
+function readJson(storage, key, fallback) {
+  try {
+    const raw = storage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function readIndex(storage) {
   try {
@@ -99,6 +116,30 @@ export function createProjectRepository(storage = window.localStorage) {
 
     setAutosaveDelayMs(ms) {
       storage.setItem(AUTOSAVE_DELAY_KEY, String(ms));
+    },
+
+    /** The user's one laser cutter — bed dimensions, spacing between
+     *  pieces, and kerf/burn — pre-filled onto every NEW project so it
+     *  never needs re-entering (AppShell.createAndOpenProject). Editing
+     *  this afterward never touches already-created projects; each keeps
+     *  its own copy. */
+    getMachineSettings() {
+      return readJson(storage, MACHINE_SETTINGS_KEY, DEFAULT_MACHINE_SETTINGS);
+    },
+
+    setMachineSettings(settings) {
+      storage.setItem(MACHINE_SETTINGS_KEY, JSON.stringify(settings));
+    },
+
+    /** User-level defaults (currently just finger-joint dimensions)
+     *  pre-filled onto every NEW project, same one-way prefill semantics
+     *  as getMachineSettings above. */
+    getPreferences() {
+      return readJson(storage, PREFERENCES_KEY, DEFAULT_PREFERENCES);
+    },
+
+    setPreferences(prefs) {
+      storage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
     },
   };
 }

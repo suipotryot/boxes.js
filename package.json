@@ -6,6 +6,15 @@
   "type": "module",
   "scripts": {
     "test": "node js/test/run-all.js",
-    "serve": "node js/dev/serve.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.2.2"
+  },
+  "dependencies": {
+    "backbone": "^1.6.1",
+    "underscore": "^1.13.8"
   }
 }
