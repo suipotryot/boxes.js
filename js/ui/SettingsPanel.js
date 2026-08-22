@@ -27,12 +27,28 @@ function gridSizeField(labelText, values, onResize, tooltip) {
   ]);
 }
 
+// A collapsible section, open/closed state owned by EditorView.js
+// (openSections/onToggleSection — same idiom as `selected`/`showLabels`)
+// so it survives this panel's own frequent full rebuilds. `key` indexes
+// into `openSections`; onToggleSection deliberately does NOT trigger a
+// re-render on its own (see EditorView.js's own comment on that) — the
+// native <details> already handles its expand/collapse visually, and
+// re-rendering an already-open one from scratch on every toggle is what
+// caused a real infinite loop (rebuilding + re-attaching an open
+// <details> fires its own 'toggle' event again in Chromium).
+function collapsibleSection(openSections, onToggleSection, key, title, children) {
+  return el('details', {
+    open: openSections[key],
+    ontoggle: (evt) => onToggleSection(key, evt.target.open),
+  }, [el('summary', { text: title }), ...children]);
+}
+
 // Fixed lid only (see the plan's 2026-08-20 scope cut — no floating
 // variant): a checkbox plus its insertion height, with the pure
 // GridQuery.validateLid() check surfaced directly rather than silently
 // clamped — an out-of-range height shows why, and offers a one-click fix
 // instead of correcting it behind the user's back.
-function lidSection(project, store) {
+function lidSection(project, store, openSections, onToggleSection) {
   const { lid, grid } = project;
 
   const enabledRow = el('label', { class: 'field lid-enabled' }, [
@@ -45,7 +61,7 @@ function lidSection(project, store) {
   ]);
 
   if (!lid.enabled) {
-    return el('div', {}, [el('h3', { text: 'Couvercle' }), enabledRow]);
+    return collapsibleSection(openSections, onToggleSection, 'lid', 'Couvercle', [enabledRow]);
   }
 
   const validation = validateLid(grid, project, lid.insertHeightMm);
@@ -77,10 +93,10 @@ function lidSection(project, store) {
     }),
   ]) : null;
 
-  return el('div', {}, [el('h3', { text: 'Couvercle' }), enabledRow, heightField, warning]);
+  return collapsibleSection(openSections, onToggleSection, 'lid', 'Couvercle', [enabledRow, heightField, warning]);
 }
 
-export function renderSettingsPanel(project, store, fingerJointOpen, onToggleFingerJointOpen) {
+export function renderSettingsPanel(project, store, openSections, onToggleSection) {
   const grid = project.grid;
 
   const applyResize = (axis, parsed) => {
@@ -102,26 +118,27 @@ export function renderSettingsPanel(project, store, fingerJointOpen, onToggleFin
     gridSizeField('Colonnes (sx, mm)', grid.sx, (parsed) => applyResize('x', parsed), 'Largeurs des colonnes de la grille, en mm, séparées par des virgules — définit le nombre de colonnes et leur taille.'),
     gridSizeField('Rangées (sy, mm)', grid.sy, (parsed) => applyResize('y', parsed), 'Hauteurs des rangées de la grille, en mm, séparées par des virgules — définit le nombre de rangées et leur taille.'),
 
-    el('h3', { text: 'Épaisseurs & hauteurs' }),
-    numberField('Épaisseur extérieure (mm)', project.outerThicknessMm, (n) => store.apply((p) => ({ ...p, outerThicknessMm: n })), '1', 'Épaisseur du matériau utilisé pour le fond et les parois extérieures.'),
-    numberField('Épaisseur intérieure (mm)', project.innerThicknessMm, (n) => store.apply((p) => ({ ...p, innerThicknessMm: n })), '1', 'Épaisseur du matériau utilisé pour les cloisons internes.'),
-    numberField('Hauteur extérieure (mm)', project.outerHeightMm, (n) => store.apply((p) => ({ ...p, outerHeightMm: n })), '1', 'Hauteur des parois extérieures (le pourtour de la boîte).'),
-    numberField('Hauteur intérieure par défaut (mm)', project.innerHeightMm, (n) => store.apply((p) => ({ ...p, innerHeightMm: n })), '1', 'Hauteur par défaut des cloisons internes — modifiable individuellement par cloison dans l’inspecteur.'),
-    numberField('Jeu de coupe / burn (mm)', project.burnMm, (n) => store.apply((p) => ({ ...p, burnMm: n })), '0.01', BURN_MM_HELP),
+    collapsibleSection(openSections, onToggleSection, 'thickness', 'Épaisseurs & hauteurs', [
+      numberField('Épaisseur extérieure (mm)', project.outerThicknessMm, (n) => store.apply((p) => ({ ...p, outerThicknessMm: n })), '1', 'Épaisseur du matériau utilisé pour le fond et les parois extérieures.'),
+      numberField('Épaisseur intérieure (mm)', project.innerThicknessMm, (n) => store.apply((p) => ({ ...p, innerThicknessMm: n })), '1', 'Épaisseur du matériau utilisé pour les cloisons internes.'),
+      numberField('Hauteur extérieure (mm)', project.outerHeightMm, (n) => store.apply((p) => ({ ...p, outerHeightMm: n })), '1', 'Hauteur des parois extérieures (le pourtour de la boîte).'),
+      numberField('Hauteur intérieure par défaut (mm)', project.innerHeightMm, (n) => store.apply((p) => ({ ...p, innerHeightMm: n })), '1', 'Hauteur par défaut des cloisons internes — modifiable individuellement par cloison dans l’inspecteur.'),
+      numberField('Jeu de coupe / burn (mm)', project.burnMm, (n) => store.apply((p) => ({ ...p, burnMm: n })), '0.01', BURN_MM_HELP),
+    ]),
 
-    el('details', { open: fingerJointOpen, ontoggle: (evt) => onToggleFingerJointOpen(evt.target.open) }, [
-      el('summary', { text: 'Doigts (finger joint)' }),
+    lidSection(project, store, openSections, onToggleSection),
+
+    collapsibleSection(openSections, onToggleSection, 'fingerJoint', 'Doigts (finger joint)', [
       numberField('Largeur doigt (mm)', project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } })), '1', FINGER_MM_HELP),
       numberField('Largeur espace (mm)', project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } })), '1', SPACE_MM_HELP),
       numberField('Marge min. (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } })), '1', MARGIN_MM_HELP),
       numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01', PLAY_MM_HELP),
     ]),
 
-    lidSection(project, store),
-
-    el('h3', { text: 'Découpe laser' }),
-    numberField('Largeur de la zone de travail (mm)', project.laserBed.widthMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, widthMm: n } })), '1', LASER_WIDTH_HELP),
-    numberField('Hauteur de la zone de travail (mm)', project.laserBed.heightMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, heightMm: n } })), '1', LASER_HEIGHT_HELP),
-    numberField('Espacement entre pièces (mm)', project.laserBed.spacingMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, spacingMm: n } })), '1', LASER_SPACING_HELP),
+    collapsibleSection(openSections, onToggleSection, 'laserBed', 'Découpe laser', [
+      numberField('Largeur de la zone de travail (mm)', project.laserBed.widthMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, widthMm: n } })), '1', LASER_WIDTH_HELP),
+      numberField('Hauteur de la zone de travail (mm)', project.laserBed.heightMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, heightMm: n } })), '1', LASER_HEIGHT_HELP),
+      numberField('Espacement entre pièces (mm)', project.laserBed.spacingMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, spacingMm: n } })), '1', LASER_SPACING_HELP),
+    ]),
   ]);
 }

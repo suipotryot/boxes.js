@@ -50,7 +50,9 @@ function renderPreviewStrip(project, selected, showLabels) {
 export function mountEditorView(container, store, { onBackToList } = {}) {
   let selected = null;
   let showLabels = true;
-  let fingerJointOpen = false;
+  // Épaisseurs & hauteurs starts open (the fields a new box always needs);
+  // the other three are lower-frequency settings, closed by default.
+  let openSections = { thickness: true, fingerJoint: false, lid: false, laserBed: false };
 
   function select(next) {
     selected = next;
@@ -62,9 +64,19 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     render();
   }
 
-  function toggleFingerJointOpen(next) {
-    fingerJointOpen = next;
-    render();
+  // Deliberately does NOT call render(): the native <details> element
+  // already updates its own expand/collapse visually the instant the user
+  // clicks — no rebuild needed for that. This only remembers the state so
+  // a LATER render(), triggered by something unrelated (e.g. editing a
+  // different field), recreates each <details> already open/closed to
+  // match. Calling render() here was a real, reproducible infinite loop:
+  // rebuilding an ALREADY-OPEN <details> from scratch and re-attaching it
+  // fires its own 'toggle' event again in Chromium (observed directly —
+  // even a detached, freshly-created element with open already set fires
+  // 'toggle' once it's inserted into the document), which re-ran this
+  // same handler, which rendered again, forever.
+  function toggleSection(key, next) {
+    openSections = { ...openSections, [key]: next };
   }
 
   function render() {
@@ -82,7 +94,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     const editorCanvas = el('div', { class: 'editor-canvas' }, [renderEditorSvg(project, selected, select)]);
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
-      el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, fingerJointOpen, toggleFingerJointOpen)]),
+      el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection)]),
       el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selected, showLabels), renderExportPanel(project, showLabels, toggleLabels)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, store)]),
     ]));
