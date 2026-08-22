@@ -71,7 +71,7 @@ export function mountAppShell(container) {
     const editor = mountEditorView(container, store, {
       onBackToList: () => {
         autosave.flush();
-        router.navigate('', { trigger: true });
+        router.navigate('list', { trigger: true });
       },
     });
 
@@ -111,12 +111,24 @@ export function mountAppShell(container) {
       || (pendingNewProject && pendingNewProject.id === id ? pendingNewProject : null);
     pendingNewProject = null;
     if (project) mountEditorScreen(project);
-    else router.navigate('', { trigger: true, replace: true });
+    else router.navigate('list', { trigger: true, replace: true });
   }
 
   const router = new Backbone.Router({
     routes: {
-      '': () => mountScreen(mountProjectListView, {
+      // The empty fragment is deliberately its OWN route, distinct from
+      // 'list' — kept as a one-way redirect rather than the list's own
+      // URL, precisely so an empty fragment can only ever mean "this page
+      // was just loaded with no hash at all," never "the user is
+      // deliberately looking at the list." Hash-mode Backbone can't tell
+      // "no # in the URL" and "a # with nothing after it" apart — both
+      // read back as fragment '' — so if 'list' itself used '', reloading
+      // (or hitting back to) the list's own URL would look IDENTICAL to a
+      // fresh app load and re-trigger the resume-last-active redirect
+      // below, sending the user right back into whatever project they'd
+      // just left. This is exactly the bug the user found.
+      '': () => router.navigate('list', { trigger: true, replace: true }),
+      list: () => mountScreen(mountProjectListView, {
         repo,
         onOpen: (id) => router.navigate(`editor/${id}`, { trigger: true }),
         onCreate: createAndOpenProject,
@@ -133,7 +145,7 @@ export function mountAppShell(container) {
     },
   });
 
-  Backbone.history.on('notfound', () => router.navigate('', { trigger: true, replace: true }));
+  Backbone.history.on('notfound', () => router.navigate('list', { trigger: true, replace: true }));
 
   // Flushes whatever autosave is currently pending right before the tab
   // closes — without this, an edit made less than one debounce delay
@@ -153,14 +165,20 @@ export function mountAppShell(container) {
   // branch runs next.
   Backbone.history.start({ silent: true });
 
-  // Resumes the last-active project directly on a fresh app load only —
-  // not a rule of the '' route itself, which must stay the plain,
-  // unconditional project list, or clicking "Mes projets" while a project
-  // is open would immediately redirect right back into it. replace: true
-  // so this doesn't leave "just opened the app" as a separate back-button
-  // stop before the editor.
+  // Resumes the last-active project only when the fragment is truly empty
+  // — which, now that 'list' is its own route distinct from '' (see the
+  // routes table above), can only mean a genuinely fresh app load, never
+  // "the user is deliberately looking at the list" or reloading/
+  // bookmarking/sharing a link to any OTHER screen (the editor's own
+  // current project included). Both of those used to get silently
+  // overridden by a redirect back to whatever project was last active —
+  // reloading mid-edit even landed on a blank page at one point, because
+  // Backbone.history.navigate() silently no-ops when the target fragment
+  // already equals the current one, so the route handler never ran at
+  // all. replace: true below so this doesn't leave "just opened the app"
+  // as a separate back-button stop before the editor.
   const lastId = repo.getLastActiveId();
-  if (lastId && repo.load(lastId)) {
+  if (!Backbone.history.fragment && lastId && repo.load(lastId)) {
     router.navigate(`editor/${lastId}`, { trigger: true, replace: true });
   } else {
     Backbone.history.loadUrl();
