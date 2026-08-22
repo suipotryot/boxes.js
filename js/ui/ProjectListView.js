@@ -4,7 +4,6 @@
 // same convention as every other view in this app; reads repo.list() on
 // each render rather than caching it, since nothing here is reactive.
 import { el, clear } from './dom.js';
-import { numberField } from './fields.js';
 import { createDefaultProject } from '../state/Project.js';
 
 function formatDate(updatedAt) {
@@ -123,7 +122,6 @@ export function mountProjectListView(container, { repo, onOpen, onCreate, onOpen
         el('button', { class: 'btn', text: 'Ma machine', onClick: onOpenMachine }),
         el('button', { class: 'btn', text: 'Préférences', onClick: onOpenPreferences }),
       ]),
-      numberField('Délai de sauvegarde automatique (s)', repo.getAutosaveDelayMs() / 1000, (s) => repo.setAutosaveDelayMs(s * 1000)),
     ]);
 
     const body = projects.length === 0

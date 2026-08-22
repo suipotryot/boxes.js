@@ -1,7 +1,11 @@
-// "Préférences" — user-level finger-joint defaults, configured once
-// instead of re-entered on every new project (ProjectRepository.
-// getPreferences/setPreferences). Pre-fills AppShell.createAndOpenProject;
-// never touches an already-created project's own copy of these fields.
+// "Préférences" — user-level finger-joint defaults (configured once
+// instead of re-entered on every new project — ProjectRepository.
+// getPreferences/setPreferences, pre-fills AppShell.createAndOpenProject,
+// never touches an already-created project's own copy of these fields)
+// alongside the autosave delay, an app-wide behavior setting rather than
+// a per-project prefill (ProjectRepository.getAutosaveDelayMs, moved here
+// from ProjectListView.js's own toolbar — same repository method either
+// way, just relocated to sit with the rest of this app's preferences).
 //
 // Built once, not re-rendered reactively on every change — see
 // MachineSettingsView.js's identical header comment for why: nothing here
@@ -23,13 +27,16 @@ export function mountPreferencesView(container, { repo }) {
   clear(container);
   container.appendChild(el('div', { class: 'settings-screen' }, [
     el('h2', { text: 'Préférences' }),
-    el('p', { class: 'hint', text: 'Valeurs par défaut pré-remplies sur chaque nouveau projet — modifier ces valeurs n’affecte pas les projets déjà créés.' }),
 
     el('h3', { text: 'Doigts (finger joint)' }),
+    el('p', { class: 'hint', text: 'Valeurs par défaut pré-remplies sur chaque nouveau projet — modifier ces valeurs n’affecte pas les projets déjà créés.' }),
     numberField('Largeur doigt (mm)', prefs.fingerJoint.fingerMm, (n) => updateFingerJoint({ fingerMm: n })),
     numberField('Largeur espace (mm)', prefs.fingerJoint.spaceMm, (n) => updateFingerJoint({ spaceMm: n })),
     numberField('Marge min. (mm)', prefs.fingerJoint.marginMm, (n) => updateFingerJoint({ marginMm: n })),
     numberField('Jeu (play, mm)', prefs.fingerJoint.playMm, (n) => updateFingerJoint({ playMm: n }), '0.01'),
+
+    el('h3', { text: 'Sauvegarde' }),
+    numberField('Délai de sauvegarde automatique (s)', repo.getAutosaveDelayMs() / 1000, (s) => repo.setAutosaveDelayMs(s * 1000)),
   ]));
 
   return { unmount() {} };
