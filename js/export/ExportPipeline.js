@@ -36,14 +36,14 @@ export function planExport(project) {
  *  the same synchronous call stack, so this can't just loop and click
  *  every link back to back. Returns the plan (thickness groups + their
  *  page item lists) so a caller can show a summary afterward. */
-export async function exportProjectSvg(project, { delayMs = 300 } = {}) {
+export async function exportProjectSvg(project, { delayMs = 300, labels = false } = {}) {
   const plan = planExport(project);
   const { widthMm, heightMm } = project.laserBed;
 
   for (const { thicknessMm, pages } of plan) {
     for (let i = 0; i < pages.length; i++) {
       const label = `${project.name} — ${thicknessMm}mm — page ${i + 1}/${pages.length}`;
-      const svg = renderSvgPage({ items: pages[i], pageWidthMm: widthMm, pageHeightMm: heightMm, label });
+      const svg = renderSvgPage({ items: pages[i], pageWidthMm: widthMm, pageHeightMm: heightMm, label, showLabels: labels });
       const filename = `${sanitizeFilename(project.name)}-${thicknessMm}mm-p${i + 1}sur${pages.length}.svg`;
       downloadText(filename, svgElementToFileText(svg));
       await sleep(delayMs);

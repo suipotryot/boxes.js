@@ -138,6 +138,31 @@ test('T junction: the through-wall stays one piece and gets a mortise hole sized
   }
 });
 
+test('labelU: with no interior junctions, sits a fixed 2mm in from the run\'s own right end', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([150], [100]);
+  const runs = enumerateWallRuns(project.grid, project);
+  const topRun = findRun(runs, 'h', (r) => r.r === 0);
+  const piece = buildWallPanel(topRun, project.grid, project, true);
+  assertClose(piece.labelU, topRun.length - 2, 1e-9);
+});
+
+test('labelU: clamps leftward against a nearby T-junction\'s mortise hole instead of overlapping it', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([160, 1], [100]); // divider sits close to the run's own right end
+  const runs = enumerateWallRuns(project.grid, project);
+  const topRun = findRun(runs, 'h', (r) => r.r === 0);
+  const piece = buildWallPanel(topRun, project.grid, project, true);
+  assert(piece.holes.length > 0, 'expected a mortise hole from the divider landing near the right end');
+  const holeMaxX = Math.max(...piece.holes.flat().map((p) => p.x));
+  // the naive "2mm from the right end" position (topRun.length - 2) falls
+  // INSIDE the hole here (the hole sits right up against the run's own
+  // right end) — the clamp must push labelU rightward, past the hole's
+  // own right edge, not leave it at the naive (overlapping) position.
+  assert(topRun.length - 2 < holeMaxX, 'test setup sanity check: the naive position should indeed fall inside the hole here');
+  assertClose(piece.labelU, holeMaxX, 1e-9, 'labelU should clamp exactly to the mortise hole\'s own right edge');
+});
+
 test('X crossing: both dividers stay one piece each, with a half-lap notch and no holes', () => {
   const x = createDefaultProject();
   x.grid = createGrid([90, 130], [70, 100]); // 2x2: two interior dividers cross once

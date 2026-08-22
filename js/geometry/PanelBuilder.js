@@ -216,6 +216,18 @@ function crossingNotchDepth(crossing, spans, project) {
   return Math.min(ownHeight, otherHeight) / 2;
 }
 
+// Every interior crossing's own exclusion range along u, sorted ascending
+// — the set of "no teeth/no label here" zones a run's length gets split
+// around. Shared by bottomCombSegments (teeth) and labelAnchorU (the
+// bottom-edge label's own safe placement), so both always agree on
+// exactly where a mortise hole or X-crossing notch actually is.
+function junctionExclusionRanges(run, grid, project) {
+  return interiorCrossings(run, grid, project)
+    .filter((c) => c.type !== 'none')
+    .map((c) => crossingExclusionRange(c, project))
+    .sort((a, b) => a.uStart - b.uStart);
+}
+
 /** The bottom-edge comb segments for a run, reasoned per PORTION rather
  *  than across the whole run at once: the run's length is split into
  *  independent stretches at every interior crossing (X or T alike, see
@@ -232,12 +244,8 @@ function crossingNotchDepth(crossing, spans, project) {
 export function bottomCombSegments(run, grid, project) {
   const fj = project.fingerJoint;
   const startWithFinger = run.kind === 'v';
-  const crossings = interiorCrossings(run, grid, project).filter((c) => c.type !== 'none');
-  if (crossings.length === 0) return fingerEdgePath(run.length, fj, startWithFinger);
-
-  const exclusions = crossings
-    .map((c) => crossingExclusionRange(c, project))
-    .sort((a, b) => a.uStart - b.uStart);
+  const exclusions = junctionExclusionRanges(run, grid, project);
+  if (exclusions.length === 0) return fingerEdgePath(run.length, fj, startWithFinger);
 
   const segs = [];
   let cursor = 0;
@@ -413,6 +421,26 @@ function lidHoles(run, grid, project, insertHeightMm, lidThicknessMm) {
   return holes;
 }
 
+// 2mm — matches SvgPath.js's own vertical clearance from v=0 by
+// convention (not shared code: one measures from a run's right end along
+// u, the other from v=0, independently tunable).
+const LABEL_END_MARGIN_MM = 2;
+
+// Where the piece's own bottom-edge label (SvgPath.pieceLabelElement)
+// sits along u, as the label's own RIGHT edge (paired with
+// text-anchor:'end' there): normally LABEL_END_MARGIN_MM in from the
+// run's own right end, so every piece's label reads consistently near the
+// same edge — but clamped leftward against whichever junction-exclusion
+// zone (mortise hole or X-crossing notch — junctionExclusionRanges again,
+// so this can never drift out of sync with where those actually are) sits
+// closest to that end, so a junction landing near the right end never
+// pushes the label to overlap it.
+function labelAnchorU(run, grid, project) {
+  const exclusions = junctionExclusionRanges(run, grid, project);
+  const safeStart = exclusions.length ? exclusions[exclusions.length - 1].uEnd : 0;
+  return Math.max(safeStart, run.length - LABEL_END_MARGIN_MM);
+}
+
 /**
  * @param {object} run one entry from GridQuery.enumerateWallRuns()
  * @param {object} grid
@@ -479,5 +507,6 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
     thicknessMm: resolveThickness(seg, project),
     outline,
     holes,
+    labelU: labelAnchorU(run, grid, project),
   };
 }

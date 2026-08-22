@@ -23,11 +23,11 @@ function selectedPieceId(project, selected) {
   return run ? wallPieceId(run) : null;
 }
 
-function renderPreviewStrip(project, selected) {
+function renderPreviewStrip(project, selected, showLabels) {
   const pieces = computePieces(project);
   const highlightId = selectedPieceId(project, selected);
   const cards = pieces.map((piece) => {
-    const svg = pieceToStandaloneSvg(piece, { padding: 4, minSize: 40 });
+    const svg = pieceToStandaloneSvg(piece, { padding: 4, minSize: 40, showLabels });
     const highlighted = piece.id === highlightId;
     return el('div', { class: highlighted ? 'preview-card highlighted' : 'preview-card' }, [svg, el('div', { class: 'preview-label', text: piece.id })]);
   });
@@ -49,9 +49,15 @@ function renderPreviewStrip(project, selected) {
  */
 export function mountEditorView(container, store, { onBackToList } = {}) {
   let selected = null;
+  let showLabels = true;
 
   function select(next) {
     selected = next;
+    render();
+  }
+
+  function toggleLabels(next) {
+    showLabels = next;
     render();
   }
 
@@ -71,7 +77,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store)]),
-      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selected), renderExportPanel(project)]),
+      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selected, showLabels), renderExportPanel(project, showLabels, toggleLabels)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, store)]),
     ]));
   }
