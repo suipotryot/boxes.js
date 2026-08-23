@@ -8,8 +8,13 @@
 import { heightProfile, junctionExclusionRanges } from './PanelBuilder.js';
 import { maxRadiusMm } from './GripNotch.js';
 
-export function validateGripNotch(run, grid, project, notch) {
-  if (!notch || !notch.enabled) return { ok: true, problems: [] };
+/** @param {object[]} [siblings] the piece's OTHER grip notches (not this
+ *  one), for the pairwise-overlap check below — a piece can now have
+ *  several (GripNotch.notchListFor), and two overlapping ranges would
+ *  otherwise silently pick an arbitrary winner in PanelBuilder's
+ *  boundarySet+override lookup rather than erroring. */
+export function validateGripNotch(run, grid, project, notch, siblings = []) {
+  if (!notch) return { ok: true, problems: [] };
 
   const problems = [];
   const { widthMm, offsetMm, depthMm } = notch;
@@ -41,6 +46,10 @@ export function validateGripNotch(run, grid, project, notch) {
   const exclusions = junctionExclusionRanges(run, grid, project);
   if (exclusions.some((ex) => offsetMm < ex.uEnd && uEnd > ex.uStart)) {
     problems.push('L\'encoche chevauche une jonction (entaille en croix ou mortaise) sur ce pan — repositionnez-la.');
+  }
+
+  if (siblings.some((s) => offsetMm < s.offsetMm + s.widthMm && uEnd > s.offsetMm)) {
+    problems.push('Cette encoche chevauche une autre encoche du même pan — repositionnez-la ou repositionnez l\'autre.');
   }
 
   return {

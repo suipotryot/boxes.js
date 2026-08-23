@@ -38,7 +38,7 @@
 import { fingerEdgePath } from './FingerJoint.js';
 import { simplifyPolygon } from './Point.js';
 import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt, isLidFlush, xAt, yAt } from '../model/GridQuery.js';
-import { gripNotchOverride } from './GripNotch.js';
+import { gripNotchOverride, notchListFor } from './GripNotch.js';
 
 /** A wall run's piece id — the one stable place this format is defined,
  *  so anything that needs to find a run's own piece again later (e.g. the
@@ -510,19 +510,22 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   const crossingNotches = notchesFromBottom ? [] : throughCrossings
     .map((c) => ({ ...notchURange(c, project), depth: crossingNotchDepth(c, spans, project) }));
 
-  // A grip notch (see GripNotch.js) always targets THIS run's own free
+  // Grip notches (see GripNotch.js) always target THIS run's own free
   // edge, regardless of 'v'/'h' — unlike the X-crossing notches above,
-  // it's never axis-gated, since it isn't about which side a crossing
-  // notches from, just where the user asked to cut. localHeight is read
-  // at the notch's own center so a stepped-height run still resolves a
-  // single reference height for it (GripNotchValidation forbids a notch
+  // they're never axis-gated, since it isn't about which side a crossing
+  // notches from, just where the user asked to cut. A piece can have
+  // several (GripNotch.notchListFor), each independently overlap-checked
+  // against the others by GripNotchValidation — buildWallPanel itself
+  // doesn't care how many there are, it just folds every one of them into
+  // the same notches array the single-notch case already used. localHeight
+  // is read at each notch's own center so a stepped-height run still
+  // resolves a single reference height for it (validation forbids a notch
   // from straddling a height step in the first place).
   const pieceId = wallPieceId(run);
-  const storedGripNotch = project.pieceNotches && project.pieceNotches[pieceId];
-  const gripOverride = storedGripNotch && storedGripNotch.enabled
-    ? gripNotchOverride(storedGripNotch, heightAt(spans, storedGripNotch.offsetMm + storedGripNotch.widthMm / 2))
-    : null;
-  const freeEdgeNotches = gripOverride ? [...crossingNotches, gripOverride] : crossingNotches;
+  const gripOverrides = notchListFor(project.pieceNotches, pieceId)
+    .map((notch) => gripNotchOverride(notch, heightAt(spans, notch.offsetMm + notch.widthMm / 2)))
+    .filter(Boolean);
+  const freeEdgeNotches = [...crossingNotches, ...gripOverrides];
 
   // A fixed lid only ever joints with OUTER walls (see LidBuilder) — an
   // interior divider's own geometry is entirely unaffected by it.
@@ -540,7 +543,7 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   const bottom = bottomEdgePoints({ run, grid, project, spans, mateProtrusion: baseProtrusion, notchesFromBottom });
   const right = endEdgePoints({ length, height: heightB, mateProtrusion: protrusionB, fj, startWithFinger, atRight: true, reverse: false, extendToTips });
   const top = lidFlush
-    ? lidTopEdgePoints(run, grid, project, heightA, gripOverride ? [gripOverride] : [])
+    ? lidTopEdgePoints(run, grid, project, heightA, gripOverrides)
     : freeEdgePoints(run, spans, freeEdgeNotches);
   const left = endEdgePoints({ length, height: heightA, mateProtrusion: protrusionA, fj, startWithFinger, atRight: false, reverse: true, extendToTips });
 

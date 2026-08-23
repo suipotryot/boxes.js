@@ -220,6 +220,14 @@ h3:first-child { margin-top: 0; }
   border-top: 1px solid var(--border);
 }
 .grip-notch-visual { cursor: default; margin-top: 0.5rem; }
+.grip-notch-item {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.grip-notch-item .field-label:first-child { margin-bottom: 0.3rem; }
+.field input.invalid-input { border-color: var(--selected); }
 
 /* --- live preview strip --- */
 

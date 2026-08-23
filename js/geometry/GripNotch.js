@@ -6,12 +6,61 @@
 // and radius === min(width/2, depth) gives the most rounded shape possible
 // for that width/depth — a full semicircle specifically when depth also
 // equals width/2. One continuous parameterization, not a shape toggle.
+//
+// A piece can have several — project.pieceNotches[pieceId] is a LIST, not
+// a single notch (a wall selected via different grid segments of the same
+// merged run always resolves to the same piece id, so one notch per piece
+// wasn't enough). There's deliberately no per-notch `enabled` flag: an
+// unwanted notch is removed from the list outright, rather than kept
+// around disabled — presence in the list IS "active".
 const ARC_SEGMENTS_PER_CORNER = 8; // 9 points per fully-rounded corner; 16 total when both corners meet a shared point
 
-export const DEFAULT_GRIP_NOTCH = { enabled: false, widthMm: 30, depthMm: 15, offsetMm: 10, radiusMm: 0 };
+export const DEFAULT_GRIP_NOTCH = { widthMm: 30, depthMm: 15, offsetMm: 10, radiusMm: 0 };
 
 export function maxRadiusMm(notch) {
   return Math.max(0, Math.min(notch.widthMm / 2, notch.depthMm));
+}
+
+/** The list of grip notches configured for one piece — normalizing away
+ *  two other shapes a stored value can legitimately have: absent (no
+ *  entry yet) and the OLD single-object-with-`enabled` shape this feature
+ *  shipped with before multiple notches per piece existed (kept readable
+ *  rather than silently discarded, since real projects were already saved
+ *  under that shape). A legacy object with `enabled:true` becomes a
+ *  1-element list (its `enabled` field just rides along, unused); disabled
+ *  or missing becomes an empty list. Always returns a real array, so every
+ *  caller (geometry, validation, UI) can just .map()/.filter() it. */
+export function notchListFor(pieceNotches, pieceId) {
+  const stored = pieceNotches && pieceNotches[pieceId];
+  if (Array.isArray(stored)) return stored;
+  if (stored && stored.enabled) return [stored];
+  return [];
+}
+
+// A single notch, edited as one "largeur, profondeur, rayon, position"
+// line — compact (one field, not four) and directly copy/paste-able to
+// duplicate a notch, rather than four separate inputs each needing their
+// own copy. The comma is the separator between the 4 values; the decimal
+// point stays `.` (never `,`) within a value, exactly like every other
+// numeric field in this app already does under the hood — sidesteps the
+// ambiguity a French decimal comma would otherwise create against the
+// same character used to separate the 4 values.
+export function formatNotchLine(notch) {
+  return [notch.widthMm, notch.depthMm, notch.radiusMm, notch.offsetMm].join(', ');
+}
+
+/** null if the text isn't exactly 4 numbers — never a silent correction,
+ *  never a half-parsed value applied. The caller (GripNotchEditor.js)
+ *  keeps whatever the user typed on-screen without touching the stored
+ *  notch when this returns null, rather than losing their input or
+ *  applying garbage. */
+export function parseNotchLine(text) {
+  const parts = text.split(',').map((s) => s.trim());
+  if (parts.length !== 4 || parts.some((p) => p === '')) return null;
+  const nums = parts.map(Number);
+  if (nums.some((n) => !Number.isFinite(n))) return null;
+  const [widthMm, depthMm, radiusMm, offsetMm] = nums;
+  return { widthMm, depthMm, radiusMm, offsetMm };
 }
 
 /** {uStart, uEnd, points:[{u,y}...]} in the run's own local space, for
@@ -29,7 +78,7 @@ export function maxRadiusMm(notch) {
  *  (radius = width/2 = depth) is what makes this degenerate into a full
  *  semicircle — a limit of this one formula, not a separate branch. */
 export function gripNotchOverride(notch, localHeight) {
-  if (!notch || !notch.enabled) return null;
+  if (!notch) return null;
   const { widthMm, offsetMm, depthMm } = notch;
   const uStart = offsetMm, uEnd = offsetMm + widthMm;
   const floor = localHeight - depthMm;

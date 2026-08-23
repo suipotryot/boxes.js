@@ -3,11 +3,12 @@
 // (sharp) up to its own geometric max, always cut into the run's own free
 // edge (never a separate holes[] entry — see BurnCorrection.js's own
 // header comment on why a "touching hole" can drift under burn
-// correction).
+// correction). A piece can have SEVERAL — project.pieceNotches[pieceId]
+// is a list, not a single notch.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { gripNotchOverride, maxRadiusMm, DEFAULT_GRIP_NOTCH } from '../geometry/GripNotch.js';
+import { gripNotchOverride, maxRadiusMm, notchListFor, formatNotchLine, parseNotchLine } from '../geometry/GripNotch.js';
 import { validateGripNotch } from '../geometry/GripNotchValidation.js';
 import { buildWallPanel, bottomCombSegments } from '../geometry/PanelBuilder.js';
 import { enumerateWallRuns } from '../model/GridQuery.js';
@@ -48,7 +49,7 @@ function baseProject() {
 // --- gripNotchOverride: pure shape math ---
 
 test('gripNotchOverride: radius 0 gives exactly 2 flat points', () => {
-  const notch = { enabled: true, widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 0 };
+  const notch = { widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 0 };
   const localHeight = 50;
   const ov = gripNotchOverride(notch, localHeight);
   assert(ov.points.length === 2);
@@ -59,7 +60,7 @@ test('gripNotchOverride: radius 0 gives exactly 2 flat points', () => {
 });
 
 test('gripNotchOverride: intermediate radius keeps a flat floor stretch and matches the analytic circle', () => {
-  const notch = { enabled: true, widthMm: 30, depthMm: 20, offsetMm: 20, radiusMm: 8 };
+  const notch = { widthMm: 30, depthMm: 20, offsetMm: 20, radiusMm: 8 };
   const localHeight = 50;
   const floor = localHeight - notch.depthMm; // 30
   const ov = gripNotchOverride(notch, localHeight);
@@ -67,7 +68,6 @@ test('gripNotchOverride: intermediate radius keeps a flat floor stretch and matc
   const flatXs = new Set(flatFloorPoints.map((p) => Math.round(p.u * 1000)));
   assert(flatXs.size >= 2, 'expected at least 2 distinct u positions at the flat floor');
 
-  // Every arc point must lie exactly on its own corner's circle.
   const leftCenter = { u: notch.offsetMm + notch.radiusMm, y: floor + notch.radiusMm };
   const rightCenter = { u: notch.offsetMm + notch.widthMm - notch.radiusMm, y: floor + notch.radiusMm };
   for (const p of ov.points) {
@@ -81,23 +81,20 @@ test('gripNotchOverride: intermediate radius keeps a flat floor stretch and matc
 });
 
 test('gripNotchOverride: radius pushed to its max with depth=width/2 degenerates to a full semicircle (no flat floor, no residual vertical wall)', () => {
-  const notch = { enabled: true, widthMm: 30, depthMm: 15, offsetMm: 20, radiusMm: 15 };
+  const notch = { widthMm: 30, depthMm: 15, offsetMm: 20, radiusMm: 15 };
   const localHeight = 50;
   const ov = gripNotchOverride(notch, localHeight);
-  // The two fillets meet exactly at the center — no flat-floor point pushed.
   const floor = localHeight - notch.depthMm;
   const distinctFloorXs = new Set(ov.points.filter((p) => Math.abs(p.y - floor) < 1e-6).map((p) => Math.round(p.u * 1000)));
   assert(distinctFloorXs.size === 1, 'a full semicircle should touch the floor at exactly one point (the center), not a flat stretch');
-  // Both extremities land exactly at localHeight (zero-length vertical wall).
   assertClose(ov.points[0].y, localHeight, 1e-6);
   assertClose(ov.points[ov.points.length - 1].y, localHeight, 1e-6);
-  // Every point lies on the one circle of radius = widthMm/2 centered at mid-width, floor+radius.
   const center = { u: notch.offsetMm + notch.widthMm / 2, y: floor + notch.radiusMm };
   for (const p of ov.points) assertClose(Math.hypot(p.u - center.u, p.y - center.y), notch.radiusMm, 1e-6);
 });
 
 test('gripNotchOverride: a radius beyond its own geometric max is clamped defensively, u stays monotonic (no crossing arcs)', () => {
-  const notch = { enabled: true, widthMm: 20, depthMm: 5, offsetMm: 10, radiusMm: 1000 };
+  const notch = { widthMm: 20, depthMm: 5, offsetMm: 10, radiusMm: 1000 };
   const ov = gripNotchOverride(notch, 50);
   for (let i = 1; i < ov.points.length; i++) {
     assert(ov.points[i].u >= ov.points[i - 1].u - 1e-6, 'u should never decrease along the notch outline — a crossing would double back on itself');
@@ -106,11 +103,58 @@ test('gripNotchOverride: a radius beyond its own geometric max is clamped defens
   assert(Math.min(...us) >= notch.offsetMm - 1e-6 && Math.max(...us) <= notch.offsetMm + notch.widthMm + 1e-6);
 });
 
+// --- notchListFor: normalizing what's actually stored ---
+
+test('notchListFor: a real array passes through unchanged', () => {
+  const list = [{ widthMm: 10, depthMm: 5, offsetMm: 0, radiusMm: 0 }];
+  assert(notchListFor({ id1: list }, 'id1') === list);
+});
+
+test('notchListFor: a legacy single-object shape with enabled:true becomes a 1-element list', () => {
+  const legacy = { enabled: true, widthMm: 10, depthMm: 5, offsetMm: 0, radiusMm: 0 };
+  const result = notchListFor({ id1: legacy }, 'id1');
+  assert(Array.isArray(result) && result.length === 1 && result[0] === legacy);
+});
+
+test('notchListFor: a legacy object with enabled:false, or a missing entry, becomes an empty list', () => {
+  assert(notchListFor({ id1: { enabled: false, widthMm: 10, depthMm: 5, offsetMm: 0, radiusMm: 0 } }, 'id1').length === 0);
+  assert(notchListFor({}, 'id1').length === 0);
+  assert(notchListFor(undefined, 'id1').length === 0);
+});
+
+// --- formatNotchLine / parseNotchLine: the single copy/paste-able text field ---
+
+test('formatNotchLine/parseNotchLine round-trip a well-formed notch', () => {
+  const notch = { widthMm: 20.5, depthMm: 8, radiusMm: 0, offsetMm: 10 };
+  const line = formatNotchLine(notch);
+  assert(line === '20.5, 8, 0, 10', `unexpected format: "${line}"`);
+  const parsed = parseNotchLine(line);
+  assertClose(parsed.widthMm, notch.widthMm, 1e-9);
+  assertClose(parsed.depthMm, notch.depthMm, 1e-9);
+  assertClose(parsed.radiusMm, notch.radiusMm, 1e-9);
+  assertClose(parsed.offsetMm, notch.offsetMm, 1e-9);
+});
+
+test('parseNotchLine rejects malformed input rather than guessing', () => {
+  assert(parseNotchLine('20, 8, 0') === null, 'only 3 values should be rejected');
+  assert(parseNotchLine('20, 8, 0, 10, 5') === null, '5 values should be rejected');
+  assert(parseNotchLine('20, huit, 0, 10') === null, 'a non-numeric token should be rejected');
+  assert(parseNotchLine('20,5, 8, 0, 10') === null, 'a French decimal comma ("20,5" meant as one number) must NOT silently become width=20 — the whole line has 5 tokens and should be rejected, not misparsed');
+  assert(parseNotchLine('20, , 0, 10') === null, 'an empty token between commas should be rejected, not silently become 0');
+});
+
+test('parseNotchLine accepts a period as the decimal separator and trims whitespace', () => {
+  const parsed = parseNotchLine(' 20.5 ,8,0.0, 10 ');
+  assert(parsed !== null);
+  assertClose(parsed.widthMm, 20.5, 1e-9);
+  assertClose(parsed.depthMm, 8, 1e-9);
+});
+
 // --- integration: an ordinary (non-drawer) outer wall ---
 
 test('a square (radius 0) grip notch on an ordinary outer wall cuts the free edge, contour stays simple', () => {
   const project = baseProject();
-  project.pieceNotches = { 'wall-h-0-0': { enabled: true, widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 0 } };
+  project.pieceNotches = { 'wall-h-0-0': [{ widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 0 }] };
   const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
   const piece = buildWallPanel(run, project.grid, project, true);
   assert(isSimplePolygon(piece.outline), 'notched outline self-intersects');
@@ -120,7 +164,7 @@ test('a square (radius 0) grip notch on an ordinary outer wall cuts the free edg
 
 test('a rounded grip notch stays simple before and after burn correction, and the deepest point grows deeper (not shallower)', () => {
   const project = baseProject();
-  project.pieceNotches = { 'wall-h-0-0': { enabled: true, widthMm: 30, depthMm: 15, offsetMm: 20, radiusMm: 15 } };
+  project.pieceNotches = { 'wall-h-0-0': [{ widthMm: 30, depthMm: 15, offsetMm: 20, radiusMm: 15 }] };
   const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
   const raw = buildWallPanel(run, project.grid, project, true);
   assert(isSimplePolygon(raw.outline), 'raw notched outline self-intersects');
@@ -132,14 +176,33 @@ test('a rounded grip notch stays simple before and after burn correction, and th
   assert(correctedMinY < rawMinY, `burn correction should dig the notch slightly deeper (${correctedMinY} should be < ${rawMinY}), not shallower — sign-flip regression check`);
 });
 
-test('no pieceNotches entry (or enabled:false) leaves every piece exactly as before', () => {
+test('two grip notches on the same wall (square + rounded, disjoint) both cut, contour stays simple', () => {
+  const project = baseProject();
+  project.pieceNotches = {
+    'wall-h-0-0': [
+      { widthMm: 20, depthMm: 8, offsetMm: 10, radiusMm: 0 },
+      { widthMm: 20, depthMm: 10, offsetMm: 100, radiusMm: 10 },
+    ],
+  };
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+  const piece = buildWallPanel(run, project.grid, project, true);
+  assert(isSimplePolygon(piece.outline), 'contour with 2 notches self-intersects');
+
+  const firstFloor = piece.outline.filter((p) => p.x >= 10 - 1e-6 && p.x <= 30 + 1e-6 && Math.abs(p.y - 42) < 1e-6);
+  assert(firstFloor.length === 2, 'expected the first (square) notch\'s flat floor to be present');
+  const secondFloorY = 40; // 50 - 10
+  const secondNear = piece.outline.filter((p) => p.x >= 100 - 1e-6 && p.x <= 120 + 1e-6 && Math.abs(p.y - secondFloorY) < 1e-6);
+  assert(secondNear.length >= 1, 'expected the second (rounded) notch to reach its own floor depth');
+});
+
+test('no pieceNotches entry (or an empty list) leaves every piece exactly as before', () => {
   const project = baseProject();
   const before = computePieces(project);
-  project.pieceNotches = { 'wall-h-0-0': { ...DEFAULT_GRIP_NOTCH, enabled: false } };
+  project.pieceNotches = { 'wall-h-0-0': [] };
   const after = computePieces(project);
   assert(before.length === after.length);
   for (let i = 0; i < before.length; i++) {
-    assert(JSON.stringify(before[i].outline) === JSON.stringify(after[i].outline), `piece ${before[i].id} changed despite a disabled notch`);
+    assert(JSON.stringify(before[i].outline) === JSON.stringify(after[i].outline), `piece ${before[i].id} changed despite an empty notch list`);
   }
 });
 
@@ -156,24 +219,52 @@ test('a grip notch on a drawer wall removes a real finger tab (lidTopEdgePoints 
 
   const drawerPieceId = `${DRAWER_PREFIX}wall-h-0-0`;
 
-  function tabPresentInRange(pieces) {
+  function tabPresentInRange(pieces, seg) {
     const wall = pieces.find((p) => p.id === drawerPieceId);
     // Strictly ABOVE the un-notched height, not just >= it — a plain
     // boundary point at exactly outerHeightMm (the neighboring un-notched
     // segments' own edges) sits right at this range's endpoints too and
     // must not be mistaken for a genuinely protruding tab.
-    return wall.outline.some((p) => p.x >= fingerSeg.start - 1e-6 && p.x <= fingerSeg.start + fingerSeg.length + 1e-6 && p.y > ctxBefore.sleeveProject.outerHeightMm + 1e-6);
+    return wall.outline.some((p) => p.x >= seg.start - 1e-6 && p.x <= seg.start + seg.length + 1e-6 && p.y > ctxBefore.sleeveProject.outerHeightMm + 1e-6);
   }
 
   const withoutNotch = buildDrawerBox(project.grid, project);
-  assert(tabPresentInRange(withoutNotch), 'sanity check: the finger tab should be present without any notch');
+  assert(tabPresentInRange(withoutNotch, fingerSeg), 'sanity check: the finger tab should be present without any notch');
 
   project.pieceNotches = {
-    [drawerPieceId]: { enabled: true, widthMm: fingerSeg.length, depthMm: 5, offsetMm: fingerSeg.start, radiusMm: 0 },
+    [drawerPieceId]: [{ widthMm: fingerSeg.length, depthMm: 5, offsetMm: fingerSeg.start, radiusMm: 0 }],
   };
   const withNotch = buildDrawerBox(project.grid, project);
-  assert(!tabPresentInRange(withNotch), 'the grip notch should have removed the finger tab in its own range');
+  assert(!tabPresentInRange(withNotch, fingerSeg), 'the grip notch should have removed the finger tab in its own range');
   assert(isSimplePolygon(withNotch.find((p) => p.id === drawerPieceId).outline), 'notched drawer wall outline self-intersects');
+});
+
+test('two grip notches on a drawer wall each remove their own, independent finger tab', () => {
+  const project = baseProject();
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+
+  const ctxBefore = buildSleeveContext(project.grid, project);
+  const wallRun = enumerateWallRuns(ctxBefore.sleeveGrid, ctxBefore.sleeveProject).find((r) => r.kind === 'h' && r.r === 0);
+  const fingerSegs = bottomCombSegments(wallRun, ctxBefore.sleeveGrid, ctxBefore.sleeveProject).filter((s) => s.kind === 'finger');
+  assert(fingerSegs.length >= 2, 'expected at least 2 finger segments on this drawer wall to target independently');
+  const [segA, segB] = fingerSegs;
+
+  const drawerPieceId = `${DRAWER_PREFIX}wall-h-0-0`;
+  function tabPresentInRange(pieces, seg) {
+    const wall = pieces.find((p) => p.id === drawerPieceId);
+    return wall.outline.some((p) => p.x >= seg.start - 1e-6 && p.x <= seg.start + seg.length + 1e-6 && p.y > ctxBefore.sleeveProject.outerHeightMm + 1e-6);
+  }
+
+  project.pieceNotches = {
+    [drawerPieceId]: [
+      { widthMm: segA.length, depthMm: 5, offsetMm: segA.start, radiusMm: 0 },
+      { widthMm: segB.length, depthMm: 4, offsetMm: segB.start, radiusMm: 2 },
+    ],
+  };
+  const pieces = buildDrawerBox(project.grid, project);
+  assert(!tabPresentInRange(pieces, segA), 'the first notch should have removed its own tab');
+  assert(!tabPresentInRange(pieces, segB), 'the second notch should have independently removed its own tab');
+  assert(isSimplePolygon(pieces.find((p) => p.id === drawerPieceId).outline), 'doubly-notched drawer wall outline self-intersects');
 });
 
 // --- validation ---
@@ -182,13 +273,13 @@ test('validateGripNotch: rejects the expected cases, accepts a well-formed one',
   const project = baseProject();
   const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
 
-  assert(!validateGripNotch(run, project.grid, project, { enabled: true, widthMm: 30, depthMm: 10, offsetMm: -5, radiusMm: 0 }).ok, 'negative offset should be rejected');
-  assert(!validateGripNotch(run, project.grid, project, { enabled: true, widthMm: 0, depthMm: 10, offsetMm: 10, radiusMm: 0 }).ok, 'zero width should be rejected');
-  assert(!validateGripNotch(run, project.grid, project, { enabled: true, widthMm: 30, depthMm: 10, offsetMm: 10, radiusMm: 20 }).ok, 'radius beyond its own max should be rejected');
-  assert(!validateGripNotch(run, project.grid, project, { enabled: true, widthMm: 30, depthMm: 10, offsetMm: 140, radiusMm: 0 }).ok, 'a notch extending past the run\'s own length should be rejected');
-  assert(!validateGripNotch(run, project.grid, project, { enabled: true, widthMm: 30, depthMm: 55, offsetMm: 10, radiusMm: 0 }).ok, 'depth >= local height should be rejected');
+  assert(!validateGripNotch(run, project.grid, project, { widthMm: 30, depthMm: 10, offsetMm: -5, radiusMm: 0 }).ok, 'negative offset should be rejected');
+  assert(!validateGripNotch(run, project.grid, project, { widthMm: 0, depthMm: 10, offsetMm: 10, radiusMm: 0 }).ok, 'zero width should be rejected');
+  assert(!validateGripNotch(run, project.grid, project, { widthMm: 30, depthMm: 10, offsetMm: 10, radiusMm: 20 }).ok, 'radius beyond its own max should be rejected');
+  assert(!validateGripNotch(run, project.grid, project, { widthMm: 30, depthMm: 10, offsetMm: 140, radiusMm: 0 }).ok, 'a notch extending past the run\'s own length should be rejected');
+  assert(!validateGripNotch(run, project.grid, project, { widthMm: 30, depthMm: 55, offsetMm: 10, radiusMm: 0 }).ok, 'depth >= local height should be rejected');
 
-  const ok = validateGripNotch(run, project.grid, project, { enabled: true, widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 5 });
+  const ok = validateGripNotch(run, project.grid, project, { widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 5 });
   assert(ok.ok, `expected a well-formed notch to validate, got problems: ${ok.problems.join('; ')}`);
 });
 
@@ -196,9 +287,23 @@ test('validateGripNotch: rejects a notch overlapping a T-junction mortise', () =
   const project = createDefaultProject();
   project.grid = createGrid([80, 80], [100]); // T junction: interior divider at c=1
   const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
-  // The divider lands near the run's own midpoint (~83mm in) — place a wide notch straddling it.
-  const overlapping = validateGripNotch(run, project.grid, project, { enabled: true, widthMm: 20, depthMm: 5, offsetMm: 75, radiusMm: 0 });
+  const overlapping = validateGripNotch(run, project.grid, project, { widthMm: 20, depthMm: 5, offsetMm: 75, radiusMm: 0 });
   assert(!overlapping.ok, 'a notch straddling the T-junction mortise should be rejected');
+});
+
+test('validateGripNotch: rejects two sibling notches on the same wall that overlap, accepts disjoint ones', () => {
+  const project = baseProject();
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+  const a = { widthMm: 20, depthMm: 5, offsetMm: 10, radiusMm: 0 };
+
+  const overlappingSibling = { widthMm: 20, depthMm: 5, offsetMm: 25, radiusMm: 0 }; // [25,45) overlaps [10,30)
+  const overlapResult = validateGripNotch(run, project.grid, project, a, [overlappingSibling]);
+  assert(!overlapResult.ok, 'overlapping sibling notches should be rejected');
+  assert(overlapResult.problems.some((p) => p.includes('chevauche une autre encoche')));
+
+  const disjointSibling = { widthMm: 20, depthMm: 5, offsetMm: 40, radiusMm: 0 }; // [40,60) does not overlap [10,30)
+  const disjointResult = validateGripNotch(run, project.grid, project, a, [disjointSibling]);
+  assert(disjointResult.ok, `expected disjoint sibling notches to validate, got: ${disjointResult.problems.join('; ')}`);
 });
 
 // --- PieceContext round-trip ---
@@ -206,7 +311,7 @@ test('validateGripNotch: rejects a notch overlapping a T-junction mortise', () =
 test('resolveWallRunContext for a drawer piece resolves a run that rebuilds identically to buildDrawerBox\'s own output', () => {
   const project = baseProject();
   project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
-  project.pieceNotches = { [`${DRAWER_PREFIX}wall-h-0-0`]: { enabled: true, widthMm: 20, depthMm: 5, offsetMm: 10, radiusMm: 2 } };
+  project.pieceNotches = { [`${DRAWER_PREFIX}wall-h-0-0`]: [{ widthMm: 20, depthMm: 5, offsetMm: 10, radiusMm: 2 }] };
 
   const pieceId = `${DRAWER_PREFIX}wall-h-0-0`;
   const ctx = resolveWallRunContext(project, pieceId);
