@@ -220,6 +220,24 @@ export function isLidFlush(grid, project, insertHeightMm) {
   return Math.abs(lidTopFace(insertHeightMm, project) - perimeterHeight(grid, project)) < 1e-6;
 }
 
+/** Total assembled outer height of the box, base plate to topmost point —
+ *  unlike perimeterHeight (walls only; v=0 sits at the base plate's own
+ *  TOP face), this adds the base plate's own material below v=0, and a
+ *  flush lid's own material above the walls' top edge. A recessed lid
+ *  sits below the walls' own top edge (the walls form a rim above it) so
+ *  it never adds height beyond perimeterHeight, and a disabled lid leaves
+ *  the box open at the walls' top edge — both cases collapse to the same
+ *  "no lid contribution" branch. Needed wherever something has to clear
+ *  the box's real physical envelope rather than just its wall height —
+ *  e.g. DrawerBuilder sizing an enclosing sleeve tall enough to actually
+ *  contain it (its own `innerH` used to be perimeterHeight alone, which
+ *  always undersized the sleeve by at least the base plate's thickness). */
+export function outerBoxHeight(grid, project) {
+  const { lid } = project;
+  const flush = lid && lid.enabled && lid.insertHeightMm != null && isLidFlush(grid, project, lid.insertHeightMm);
+  return project.outerThicknessMm + perimeterHeight(grid, project) + (flush ? project.outerThicknessMm : 0);
+}
+
 /** Pure validation for a fixed lid's insertion height (the height its own
  *  BOTTOM face rests at): it must clear every interior divider directly —
  *  the lid only joints with the OUTER walls, and a stem taller than the

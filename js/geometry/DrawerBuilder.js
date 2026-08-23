@@ -28,7 +28,7 @@
 // the open side too, instead of overhanging by the sleeve's own wall
 // thickness with nothing there to justify it.
 import { createGrid, setSegmentPresent } from '../model/Grid.js';
-import { enumerateWallRuns, xAt, yAt, perimeterHeight } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, outerBoxHeight } from '../model/GridQuery.js';
 import { buildWallPanel } from './PanelBuilder.js';
 import { buildBasePlate } from './BasePlateBuilder.js';
 import { buildLid } from './LidBuilder.js';
@@ -83,7 +83,12 @@ export function buildSleeveContext(grid, project) {
 
   const innerW = xAt(grid, project, grid.sx.length) + 2 * project.outerThicknessMm;
   const innerD = yAt(grid, project, grid.sy.length) + 2 * project.outerThicknessMm;
-  const innerH = perimeterHeight(grid, project);
+  // The main box's REAL outer height (base plate + walls + a flush lid),
+  // not just its wall height — perimeterHeight alone used to leave the
+  // base plate's (and any flush lid's) own thickness unaccounted for,
+  // undersizing the sleeve by that much on this axis. See
+  // GridQuery.outerBoxHeight.
+  const innerH = outerBoxHeight(grid, project);
 
   const { kind, c, r, axis } = OPEN_SIDE[drawer.openSide];
   const sleeveW = innerW + (axis === 'x' ? 1 : 2) * drawer.playMm;

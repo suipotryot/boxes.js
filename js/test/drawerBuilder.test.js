@@ -6,7 +6,7 @@
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { buildDrawerBox } from '../geometry/DrawerBuilder.js';
+import { buildDrawerBox, buildSleeveContext } from '../geometry/DrawerBuilder.js';
 import { buildBasePlate, buildOuterEdgeOutline } from '../geometry/BasePlateBuilder.js';
 import { computePieces } from '../geometry/PieceFactory.js';
 import { pieceBounds, pieceLabel } from '../geometry/SvgPath.js';
@@ -116,6 +116,29 @@ test('the closed/perpendicular axis still gets full clearance (2×playMm) and th
   // any ordinary fully-enclosed box corner.
   assertClose(Math.min(...ys), -drawerThicknessMm, 1e-9);
   assertClose(Math.max(...ys), expectedD + drawerThicknessMm, 1e-9);
+});
+
+test('sleeve height clears the main box\'s REAL outer height (base plate + walls), not just wall height', () => {
+  const project = baseProject(); // outerThicknessMm 3, outerHeightMm 50, lid disabled
+  const playMm = 1;
+  project.drawer = { enabled: true, playMm, thicknessMm: 3, openSide: 'right' };
+  const { sleeveProject } = buildSleeveContext(project.grid, project);
+  // true height = base plate (3) + walls (50), no lid contribution (disabled)
+  assertClose(sleeveProject.outerHeightMm, (3 + 50) + 2 * playMm, 1e-9, 'sleeve interior height must clear base + walls, not walls alone');
+});
+
+test('sleeve height also clears a flush lid\'s own thickness (but not a recessed one, which adds no extra height)', () => {
+  const project = baseProject();
+  const playMm = 1;
+  project.drawer = { enabled: true, playMm, thicknessMm: 3, openSide: 'right' };
+
+  project.lid = { enabled: true, insertHeightMm: 47 }; // flush: lidTopFace (insertHeightMm + outerThicknessMm) === perimeterHeight
+  const flush = buildSleeveContext(project.grid, project);
+  assertClose(flush.sleeveProject.outerHeightMm, (3 + 50 + 3) + 2 * playMm, 1e-9, 'a flush lid adds its own thickness on top of the walls');
+
+  project.lid = { enabled: true, insertHeightMm: 40 }; // recessed: walls extend above the lid as a rim
+  const recessed = buildSleeveContext(project.grid, project);
+  assertClose(recessed.sleeveProject.outerHeightMm, (3 + 50) + 2 * playMm, 1e-9, 'a recessed lid sits below the walls\' own top edge, so it adds nothing beyond perimeterHeight');
 });
 
 test('enabling the drawer does not change any of the main box\'s own pieces', () => {
