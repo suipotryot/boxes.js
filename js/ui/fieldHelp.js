@@ -17,3 +17,5 @@ export const BURN_MM_HELP = 'Largeur de matière retirée par le laser à la dé
 export const LASER_WIDTH_HELP = 'Largeur de la zone de découpe de la machine — détermine comment les pièces sont réparties sur plusieurs pages à l’export.';
 export const LASER_HEIGHT_HELP = 'Hauteur de la zone de découpe de la machine — détermine comment les pièces sont réparties sur plusieurs pages à l’export.';
 export const LASER_SPACING_HELP = 'Espace minimal laissé entre deux pièces voisines sur une même page d’export.';
+export const DRAWER_PLAY_HELP = 'Jeu de glissement entre la boîte actuelle et la boîte englobante — appliqué du côté fermé de l’axe d’ouverture, et des deux côtés sur l’autre axe. Le côté ouvert reste toujours à fleur, sans jeu ni marge supplémentaire.';
+export const DRAWER_THICKNESS_HELP = 'Épaisseur du matériau utilisé pour la boîte englobante — indépendante de l’épaisseur extérieure de la boîte principale.';

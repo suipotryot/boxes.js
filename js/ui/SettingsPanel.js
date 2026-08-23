@@ -5,7 +5,7 @@
 // field that asks first.
 import { el } from './dom.js';
 import { numberField, textField, infoIcon } from './fields.js';
-import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP } from './fieldHelp.js';
+import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP, DRAWER_PLAY_HELP, DRAWER_THICKNESS_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
 import { validateLid } from '../model/GridQuery.js';
 
@@ -96,6 +96,48 @@ function lidSection(project, store, openSections, onToggleSection) {
   return collapsibleSection(openSections, onToggleSection, 'lid', 'Couvercle', [enabledRow, heightField, warning]);
 }
 
+const OPEN_SIDE_LABELS = { top: 'Haut', bottom: 'Bas', right: 'Droite', left: 'Gauche' };
+
+// The "boîte en tiroir" feature: an independent enclosing sleeve box (own
+// grid, own thickness, see DrawerBuilder.js) built around the current
+// box's own outer footprint, open on one side. Always 5 pieces (base +
+// lid + 3 walls) regardless of which side is open — see DrawerBuilder.js's
+// own header comment for why base/lid are never the open side.
+function drawerSection(project, store, openSections, onToggleSection) {
+  const { drawer } = project;
+
+  const enabledRow = el('label', { class: 'field lid-enabled' }, [
+    el('input', {
+      type: 'checkbox', checked: drawer.enabled,
+      onChange: (evt) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, enabled: evt.target.checked } })),
+    }),
+    el('span', { text: ' Boîte en tiroir' }),
+    infoIcon('Ajoute une boîte englobante autour de la boîte actuelle, ouverte sur un côté, pour en faire un tiroir coulissant.'),
+  ]);
+
+  if (!drawer.enabled) {
+    return collapsibleSection(openSections, onToggleSection, 'drawer', 'Boîte en tiroir', [enabledRow]);
+  }
+
+  const sideField = el('div', { class: 'field' }, [
+    el('span', { class: 'field-label' }, ['Côté ouvert', infoIcon('Face de la boîte englobante laissée ouverte, pour insérer/retirer la boîte actuelle comme un tiroir.')]),
+    el('div', { class: 'radio-group' }, Object.entries(OPEN_SIDE_LABELS).map(([value, label]) => el('label', { class: 'radio-option' }, [
+      el('input', {
+        type: 'radio', name: 'drawer-open-side', value, checked: drawer.openSide === value,
+        onChange: () => store.apply((p) => ({ ...p, drawer: { ...p.drawer, openSide: value } })),
+      }),
+      el('span', { text: ` ${label}` }),
+    ]))),
+  ]);
+
+  return collapsibleSection(openSections, onToggleSection, 'drawer', 'Boîte en tiroir', [
+    enabledRow,
+    numberField('Jeu / marge (mm)', drawer.playMm, (n) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, playMm: n } })), '0.1', DRAWER_PLAY_HELP),
+    numberField('Épaisseur bois (mm)', drawer.thicknessMm, (n) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, thicknessMm: n } })), '1', DRAWER_THICKNESS_HELP),
+    sideField,
+  ]);
+}
+
 export function renderSettingsPanel(project, store, openSections, onToggleSection) {
   const grid = project.grid;
 
@@ -127,6 +169,7 @@ export function renderSettingsPanel(project, store, openSections, onToggleSectio
     ]),
 
     lidSection(project, store, openSections, onToggleSection),
+    drawerSection(project, store, openSections, onToggleSection),
 
     collapsibleSection(openSections, onToggleSection, 'fingerJoint', 'Doigts (finger joint)', [
       numberField('Largeur doigt (mm)', project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } })), '1', FINGER_MM_HELP),

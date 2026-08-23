@@ -151,11 +151,25 @@ export function buildOuterEdgeOutline(grid, project, { protrude = false } = {}) 
   // simplified together). `protrude:true` never extends past the nominal
   // rectangle at an end (fingers/tabs never land exactly at a corner
   // given a non-zero margin), so margin is 0 there.
+  //
+  // Margin is applied PER SIDE, not as one blanket value: a side with no
+  // run at all (an open side — see Grid.setSegmentPresent, e.g. a drawer
+  // sleeve box's omitted wall) has no wall material to extend outward
+  // for, so it gets 0 margin — the plate/lid stops exactly at the nominal
+  // W/D boundary there (flush with whatever sits just inside it), rather
+  // than overhanging by outerThicknessMm the way a real wall's own
+  // corner would. For the main box every side always has a run, so this
+  // is identical to the old single blanket-margin behavior there — this
+  // only ever differs when a side is genuinely open.
   const margin = protrude ? 0 : project.outerThicknessMm;
-  const topLeft = { x: -margin, y: -margin };
-  const topRight = { x: W + margin, y: -margin };
-  const bottomRight = { x: W + margin, y: D + margin };
-  const bottomLeft = { x: -margin, y: D + margin };
+  const mLeft = leftRun ? margin : 0;
+  const mRight = rightRun ? margin : 0;
+  const mTop = topRun ? margin : 0;
+  const mBottom = bottomRun ? margin : 0;
+  const topLeft = { x: -mLeft, y: -mTop };
+  const topRight = { x: W + mRight, y: -mTop };
+  const bottomRight = { x: W + mRight, y: D + mBottom };
+  const bottomLeft = { x: -mLeft, y: D + mBottom };
   if (top.length) { top[0] = topLeft; top[top.length - 1] = topRight; }
   if (right.length) { right[0] = topRight; right[right.length - 1] = bottomRight; }
   if (bottom.length) { bottom[0] = bottomRight; bottom[bottom.length - 1] = bottomLeft; }

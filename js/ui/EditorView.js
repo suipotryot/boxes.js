@@ -52,7 +52,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   let showLabels = true;
   // Épaisseurs & hauteurs starts open (the fields a new box always needs);
   // the other three are lower-frequency settings, closed by default.
-  let openSections = { thickness: true, fingerJoint: false, lid: false, laserBed: false };
+  let openSections = { thickness: true, fingerJoint: false, lid: false, drawer: false, laserBed: false };
 
   function select(next) {
     selected = next;

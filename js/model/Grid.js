@@ -51,15 +51,26 @@ export function isOuterSegment(grid, kind, c, r) {
   return kind === 'v' ? c === 0 || c === grid.sx.length : r === 0 || r === grid.sy.length;
 }
 
+/** Sets a segment's presence directly, regardless of whether it's on the
+ *  outer perimeter — unlike toggleWall (used by the main editor's UI,
+ *  which refuses to remove a perimeter segment, since the main box always
+ *  needs its own outer shell), this is the general primitive for a caller
+ *  that legitimately needs an open side, e.g. the drawer sleeve box built
+ *  as an independent single-cell grid with one wall omitted for the
+ *  opening. */
+export function setSegmentPresent(grid, kind, c, r, present) {
+  const next = cloneGrid(grid);
+  const arr = kind === 'v' ? next.vWalls[c] : next.hWalls[c];
+  arr[r].present = present;
+  return next;
+}
+
 /** Toggles a segment's presence. Outer-perimeter segments can't be removed
  *  (they define the box's footprint) — the toggle is a no-op for those. */
 export function toggleWall(grid, kind, c, r) {
-  const next = cloneGrid(grid);
-  const arr = kind === 'v' ? next.vWalls[c] : next.hWalls[c];
-  const seg = arr[r];
-  if (isOuterSegment(next, kind, c, r)) return next;
-  seg.present = !seg.present;
-  return next;
+  if (isOuterSegment(grid, kind, c, r)) return cloneGrid(grid);
+  const arr = kind === 'v' ? grid.vWalls[c] : grid.hWalls[c];
+  return setSegmentPresent(grid, kind, c, r, !arr[r].present);
 }
 
 /** Sets one segment's height override. If the segment is on the outer

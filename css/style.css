@@ -184,6 +184,10 @@ h3:first-child { margin-top: 0; }
 .field.lid-enabled { flex-direction: row; align-items: center; gap: 0.4rem; }
 .field.lid-enabled input { width: auto; }
 
+.radio-group { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.radio-option { flex-direction: row; align-items: center; gap: 0.3rem; margin-bottom: 0; font-size: 0.85rem; }
+.radio-option input { width: auto; }
+
 .btn {
   font: inherit;
   padding: 0.35rem 0.7rem;

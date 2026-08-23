@@ -91,8 +91,15 @@ export function perpendicularMatesAtPoint(grid, wallKind, pointC, pointR) {
  *  profile from each covered cell's own resolved height). Removing a
  *  segment (present:false) is the only thing that actually breaks a run
  *  in two — a genuine physical gap, unlike a height difference. The
- *  outer perimeter is always exactly one run per side by construction —
- *  outer segments can never be removed and are always 'outer' group. */
+ *  outer perimeter is always exactly one run per side by construction for
+ *  the main box (its editor UI never removes a perimeter segment — see
+ *  Grid.toggleWall) — but a caller using the more general
+ *  Grid.setSegmentPresent (e.g. DrawerBuilder, opening one side of an
+ *  enclosing sleeve box) can legitimately produce 0 runs on one side;
+ *  every run-consuming function downstream (this one included) already
+ *  tolerates that correctly since it was never relying on "always 4"
+ *  anywhere, just filtering on `.present`. Every outer segment is always
+ *  'outer' group regardless of presence. */
 export function enumerateWallRuns(grid, project) {
   const cols = grid.sx.length;
   const rows = grid.sy.length;

@@ -7,6 +7,8 @@
 // index (`boxes.js:index`, an array of known ids) so list() never has to
 // rely on Storage.key(i)/.length enumeration — a fake test storage only
 // ever needs to implement the 3 methods above, nothing more.
+import { createDefaultProject } from './Project.js';
+
 const PROJECT_PREFIX = 'boxes.js:project:';
 const INDEX_KEY = 'boxes.js:index';
 const LAST_ACTIVE_KEY = 'boxes.js:last-active-id';
@@ -45,10 +47,19 @@ function writeIndex(storage, ids) {
 }
 
 export function createProjectRepository(storage = window.localStorage) {
+  // Backfills any top-level field missing from an older saved blob (e.g. a
+  // project saved before `drawer` existed) with createDefaultProject()'s
+  // own value for it — the loaded project's own fields always win where
+  // present, this only fills genuine gaps. Without this, a field added to
+  // createDefaultProject() after a project was already saved comes back
+  // `undefined` forever (this storage layer has no other migration path),
+  // crashing anything downstream that reads it unconditionally, e.g.
+  // SettingsPanel.js's drawerSection reading `project.drawer.enabled`.
   function load(id) {
     try {
       const raw = storage.getItem(PROJECT_PREFIX + id);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      return { ...createDefaultProject(), ...JSON.parse(raw) };
     } catch {
       return null;
     }

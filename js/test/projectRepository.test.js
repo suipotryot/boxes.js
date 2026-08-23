@@ -52,6 +52,19 @@ test('load() returns null, not a throw, for a corrupted stored blob', () => {
   assert(repo.load('bad-id') === null);
 });
 
+test('load() backfills a field missing from an older saved blob (created before that field existed)', () => {
+  const storage = createFakeStorage();
+  const project = createDefaultProject('ancien projet');
+  project.id = 'old-id';
+  delete project.drawer; // simulates a project saved before `drawer` was added
+  storage.setItem('boxes.js:project:old-id', JSON.stringify(project));
+  const repo = createProjectRepository(storage);
+  const loaded = repo.load('old-id');
+  assert(loaded.drawer && typeof loaded.drawer === 'object', 'a missing field should be backfilled from createDefaultProject(), not left undefined');
+  assert(loaded.drawer.enabled === false, 'the backfilled value should match createDefaultProject()\'s own default');
+  assert(loaded.name === 'ancien projet', 'fields actually present in the saved blob must not be overwritten by the defaults');
+});
+
 test('list() returns metadata for every saved project, most-recently-updated first', () => {
   const storage = createFakeStorage();
   const repo = createProjectRepository(storage);
