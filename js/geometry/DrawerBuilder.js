@@ -72,6 +72,17 @@ function drawerPieceNotches(pieceNotches) {
   return result;
 }
 
+// Same remap as drawerPieceNotches above, for project.pieceHoles — a hole
+// stored under e.g. "drawer:base-plate" is found by buildBasePlate's own
+// unprefixed 'base-plate' lookup via sleeveProject.
+function drawerPieceHoles(pieceHoles) {
+  const result = {};
+  for (const [id, holes] of Object.entries(pieceHoles || {})) {
+    if (id.startsWith(DRAWER_PREFIX)) result[id.slice(DRAWER_PREFIX.length)] = holes;
+  }
+  return result;
+}
+
 // The sleeve's own synthetic grid + sub-project, split out of
 // buildDrawerBox so PieceContext.js can resolve a single drawer wall's own
 // run/height context (for the grip-notch UI) without duplicating this
@@ -103,6 +114,7 @@ export function buildSleeveContext(grid, project) {
     outerHeightMm: sleeveH,
     lid: { enabled: true, insertHeightMm: sleeveH - drawer.thicknessMm }, // always flush
     pieceNotches: drawerPieceNotches(project.pieceNotches),
+    pieceHoles: drawerPieceHoles(project.pieceHoles),
   };
 
   return { sleeveGrid, sleeveProject };

@@ -235,6 +235,22 @@ h3:first-child { margin-top: 0; }
 }
 .grip-notch-header .field-label { margin-bottom: 0; }
 
+.hole-visual { cursor: default; margin-top: 0.5rem; }
+.hole-item {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.hole-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+.hole-header .field-label { margin-bottom: 0; }
+
 /* Small square icon-only button (currently just the per-notch trash
    button) — same footprint/border language as .btn, but sized to hug a
    single glyph rather than text, with the danger color only appearing on

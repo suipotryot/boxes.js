@@ -15,6 +15,7 @@ import { simplifyPolygon } from './Point.js';
 import { bottomCombSegments } from './PanelBuilder.js';
 import { resolveThickness, enumerateWallRuns, xAt, yAt } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
+import { holeListFor, holePolygon } from './Hole.js';
 
 // Finger holes for interior dividers. Unlike the outer notches above,
 // these never touch the plate's boundary, so — unlike the "touching hole"
@@ -188,6 +189,9 @@ export function buildBasePlate(grid, project) {
     thicknessGroup: 'outer',
     thicknessMm: project.outerThicknessMm,
     outline: buildOuterEdgeOutline(grid, project),
-    holes: dividerFingerHoles(innerRuns, grid, project),
+    holes: [
+      ...dividerFingerHoles(innerRuns, grid, project),
+      ...holeListFor(project.pieceHoles, 'base-plate').map(holePolygon),
+    ],
   };
 }

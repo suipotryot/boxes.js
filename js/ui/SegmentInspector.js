@@ -10,8 +10,9 @@
 import { el } from './dom.js';
 import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
-import { resolveWallRunContext } from '../geometry/PieceContext.js';
+import { resolveWallRunContext, resolvePieceHoleContext } from '../geometry/PieceContext.js';
 import { renderGripNotchSection } from './GripNotchEditor.js';
+import { renderHoleSection } from './HoleEditor.js';
 
 const KIND_LABEL = { v: 'vertical', h: 'horizontal' };
 
@@ -74,6 +75,9 @@ export function renderInspector(project, selected, selectedWallId, store) {
 
   const wallContext = selectedWallId ? resolveWallRunContext(project, selectedWallId) : null;
   if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store));
+
+  const holeContext = selectedWallId ? resolvePieceHoleContext(project, selectedWallId) : null;
+  if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store));
 
   if (!sections.length) {
     return el('div', { class: 'inspector empty' }, [

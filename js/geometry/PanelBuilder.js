@@ -39,6 +39,7 @@ import { fingerEdgePath } from './FingerJoint.js';
 import { simplifyPolygon } from './Point.js';
 import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt, isLidFlush, xAt, yAt } from '../model/GridQuery.js';
 import { gripNotchOverride, notchListFor } from './GripNotch.js';
+import { holeListFor, holePolygon } from './Hole.js';
 
 /** A wall run's piece id — the one stable place this format is defined,
  *  so anything that needs to find a run's own piece again later (e.g. the
@@ -552,6 +553,7 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   const holes = [
     ...mortiseHoles(run, grid, project),
     ...(lidActive && !lidFlush ? lidHoles(run, grid, project, lid.insertHeightMm, project.outerThicknessMm) : []),
+    ...holeListFor(project.pieceHoles, pieceId).map(holePolygon),
   ];
 
   return {

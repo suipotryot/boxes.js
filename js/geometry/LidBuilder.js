@@ -30,6 +30,7 @@
 //     into each wall (PanelBuilder.lidHoles).
 import { buildOuterEdgeOutline } from './BasePlateBuilder.js';
 import { isLidFlush } from '../model/GridQuery.js';
+import { holeListFor, holePolygon } from './Hole.js';
 
 export function buildLid(grid, project) {
   const { lid } = project;
@@ -43,6 +44,6 @@ export function buildLid(grid, project) {
     thicknessGroup: 'outer',
     thicknessMm: project.outerThicknessMm,
     outline: buildOuterEdgeOutline(grid, project, { protrude: !flush }),
-    holes: [],
+    holes: holeListFor(project.pieceHoles, 'lid').map(holePolygon),
   };
 }

@@ -21,6 +21,7 @@ export function createDefaultProject(name = 'Nouveau projet') {
     lid: { enabled: false, insertHeightMm: null },
     drawer: { enabled: false, playMm: 1, thicknessMm: 3, openSide: 'top' },
     pieceNotches: {}, // { [pieceId]: GripNotch } — see js/geometry/GripNotch.js
+    pieceHoles: {}, // { [pieceId]: Hole[] } — see js/geometry/Hole.js
   };
 }
 
