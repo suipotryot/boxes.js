@@ -226,7 +226,43 @@ h3:first-child { margin-top: 0; }
   padding: 0.5rem 0.6rem;
   margin-bottom: 0.6rem;
 }
-.grip-notch-item .field-label:first-child { margin-bottom: 0.3rem; }
+.grip-notch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+.grip-notch-header .field-label { margin-bottom: 0; }
+
+/* Small square icon-only button (currently just the per-notch trash
+   button) — same footprint/border language as .btn, but sized to hug a
+   single glyph rather than text, with the danger color only appearing on
+   hover so it doesn't shout at rest. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fbfaf7;
+  color: var(--muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.icon-btn:hover { border-color: var(--selected); color: var(--selected); }
+.icon-btn-svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .field input.invalid-input { border-color: var(--selected); }
 
 /* --- live preview strip --- */

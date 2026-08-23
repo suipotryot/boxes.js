@@ -6,13 +6,13 @@
 // own to click). A piece can have SEVERAL grip notches — selecting
 // different grid segments of the same merged run always resolves to the
 // same piece id, so a single notch per piece wasn't enough — stored as a
-// list (GripNotch.notchListFor), each entry with its own "supprimer"
+// list (GripNotch.notchListFor), each entry with its own trash-icon
 // button; there's no per-notch enable toggle, removing it from the list IS
 // disabling it. Each notch's 4 numbers (width/depth/radius/offset) are
 // edited as ONE comma-separated text field rather than 4 separate inputs —
 // deliberately compact, and directly copy/paste-able to duplicate a notch
 // (copy the line, paste it into a new one, just change the position).
-import { el } from './dom.js';
+import { el, svgEl } from './dom.js';
 import { infoIcon } from './fields.js';
 import { DEFAULT_GRIP_NOTCH, maxRadiusMm, notchListFor, formatNotchLine, parseNotchLine } from '../geometry/GripNotch.js';
 import { validateGripNotch } from '../geometry/GripNotchValidation.js';
@@ -20,11 +20,35 @@ import { buildWallPanel } from '../geometry/PanelBuilder.js';
 import { burnCorrect } from '../geometry/BurnCorrection.js';
 import { pieceToStandaloneSvg, pieceLabel } from '../geometry/SvgPath.js';
 
+// A minimal stroke-only trash pictogram (matches infoIcon's philosophy of
+// a plain small glyph, no icon font/library) — deliberately the only icon
+// button in the app so far, kept local rather than promoted to fields.js
+// until a second caller actually needs it.
+function trashIcon() {
+  return svgEl('svg', { viewBox: '0 0 24 24', class: 'icon-btn-svg', 'aria-hidden': 'true' }, [
+    svgEl('polyline', { points: '3 6 5 6 21 6' }),
+    svgEl('path', { d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }),
+    svgEl('line', { x1: '10', y1: '11', x2: '10', y2: '17' }),
+    svgEl('line', { x1: '14', y1: '11', x2: '14', y2: '17' }),
+  ]);
+}
+
 function renderOneNotch(index, notch, siblings, context, onUpdate, onRemove) {
-  const lineField = el('label', { class: 'field' }, [
-    el('span', { class: 'field-label' }, ['Largeur, profondeur, rayon, position (mm)', infoIcon(
-      'Les 4 valeurs de cette encoche, séparées par des virgules, dans cet ordre. Le point (pas la virgule) sépare les décimales — ex. « 20.5, 8, 0, 10 ». Pratique pour dupliquer une encoche : copier ce champ, le coller dans une nouvelle encoche, changer juste la position.',
+  // The field's own info icon (what each of the 4 comma-separated numbers
+  // means) sits right in the header, next to "Encoche N" — rather than on
+  // its own line above the input — so a notch item is 3 lines tall
+  // (header, input, warning) instead of 4.
+  const header = el('div', { class: 'grip-notch-header' }, [
+    el('span', { class: 'field-label' }, [`Encoche ${index + 1}`, infoIcon(
+      'Largeur, profondeur, rayon, position (mm) : les 4 valeurs de cette encoche, séparées par des virgules, dans cet ordre. Le point (pas la virgule) sépare les décimales — ex. « 20.5, 8, 0, 10 ».',
     )]),
+    el('button', {
+      class: 'icon-btn', title: 'Supprimer cette encoche', 'aria-label': 'Supprimer cette encoche',
+      onClick: onRemove,
+    }, [trashIcon()]),
+  ]);
+
+  const lineField = el('label', { class: 'field' }, [
     el('input', {
       type: 'text', value: formatNotchLine(notch),
       onChange: (evt) => {
@@ -51,11 +75,7 @@ function renderOneNotch(index, notch, siblings, context, onUpdate, onRemove) {
     }),
   ]) : null;
 
-  return el('div', { class: 'grip-notch-item' }, [
-    el('div', { class: 'field-label', text: `Encoche ${index + 1}` }),
-    lineField, warning,
-    el('button', { class: 'btn', text: 'Supprimer cette encoche', onClick: onRemove }),
-  ]);
+  return el('div', { class: 'grip-notch-item' }, [header, lineField, warning]);
 }
 
 export function renderGripNotchSection(project, pieceId, context, store) {
