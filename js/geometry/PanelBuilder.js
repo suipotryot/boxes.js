@@ -38,6 +38,7 @@
 import { fingerEdgePath } from './FingerJoint.js';
 import { simplifyPolygon } from './Point.js';
 import { resolveThickness, resolveHeight, perpendicularMatesAtPoint, crossingAt, isLidFlush, xAt, yAt } from '../model/GridQuery.js';
+import { gripNotchOverride } from './GripNotch.js';
 
 /** A wall run's piece id — the one stable place this format is defined,
  *  so anything that needs to find a run's own piece again later (e.g. the
@@ -108,7 +109,8 @@ function endEdgePoints({ length: L, height: H, mateProtrusion, fj, startWithFing
 // Per-cell resolved height along the run's own u axis, ascending. Even a
 // perfectly uniform run gets exactly one span here — the general edge
 // builders below degrade to the old flat/simple behavior for free.
-function heightProfile(run, grid, project) {
+// Exported for GripNotchValidation.js and PieceContext.js.
+export function heightProfile(run, grid, project) {
   const spans = [];
   if (run.kind === 'v') {
     for (let r = run.rStart; r <= run.rEnd; r++) {
@@ -137,7 +139,8 @@ function heightProfile(run, grid, project) {
 // physically sound if it's always working from the more conservative
 // (shorter) height on offer at that exact point, same as splitHeight()
 // does for the other axis.
-function heightAt(spans, u, epsilon = 1e-9) {
+// Exported for GripNotchValidation.js and buildWallPanel's own grip-notch wiring.
+export function heightAt(spans, u, epsilon = 1e-9) {
   let min = Infinity;
   for (const s of spans) if (u >= s.uStart - epsilon && u <= s.uEnd + epsilon) min = Math.min(min, s.height);
   return min === Infinity ? spans[spans.length - 1].height : min;
@@ -221,7 +224,8 @@ function crossingNotchDepth(crossing, spans, project) {
 // around. Shared by bottomCombSegments (teeth) and labelAnchorU (the
 // bottom-edge label's own safe placement), so both always agree on
 // exactly where a mortise hole or X-crossing notch actually is.
-function junctionExclusionRanges(run, grid, project) {
+// Exported for GripNotchValidation.js (a grip notch must not overlap one).
+export function junctionExclusionRanges(run, grid, project) {
   return interiorCrossings(run, grid, project)
     .filter((c) => c.type !== 'none')
     .map((c) => crossingExclusionRange(c, project))
@@ -321,6 +325,16 @@ function bottomEdgePoints({ run, grid, project, spans, mateProtrusion, notchesFr
 // step coinciding with the crossing), both spans still get the exact same
 // floor, only the open top on either side of the notch differs — the U
 // shape the notch is meant to produce.
+//
+// A notch entry is either the original flat-override shape
+// ({uStart,uEnd,depth} — two points at one absolute y, used by the
+// X-crossing half-lap notch above) or a full polyline
+// ({uStart,uEnd,points:[{u,y}...]} — used by GripNotch.js's grip-notch
+// override, which needs more than 2 points to trace a rounded corner).
+// Both share one lookup: whichever notch's own range contains this
+// sub-range's midpoint wins, exactly the same override-not-combine
+// pattern this file uses everywhere two independently-authored edge
+// events could otherwise double back on the same stretch.
 function freeEdgePoints(run, spans, notches) {
   const boundarySet = new Set([0, run.length]);
   for (const s of spans) { boundarySet.add(s.uStart); boundarySet.add(s.uEnd); }
@@ -334,6 +348,7 @@ function freeEdgePoints(run, spans, notches) {
     if (uEnd <= uStart) continue;
     const mid = (uStart + uEnd) / 2;
     const notch = notches.find((n) => mid > n.uStart && mid < n.uEnd);
+    if (notch && notch.points) { for (const p of notch.points) pts.push({ x: p.u, y: p.y }); continue; }
     const y = notch ? notch.depth : heightAt(spans, mid);
     pts.push({ x: uStart, y }, { x: uEnd, y });
   }
@@ -383,13 +398,33 @@ function mortiseHoles(run, grid, project) {
 // notch on their own free edge (a perimeter run can only ever meet a T
 // junction, never an X — one side of any interior point along it is
 // always out-of-grid), so this never needs to merge with freeEdgePoints'
-// other concerns.
-function lidTopEdgePoints(run, grid, project, height) {
+// other concerns EXCEPT a grip notch (see `notches`, GripNotch.js):
+// cutting a grip notch out of a 'finger' position here simply removes
+// that tab — the lid (BasePlateBuilder.buildOuterEdgeOutline) still cuts
+// its own matching notch there via the same bottomCombSegments tiling,
+// unaware of pieceNotches, so the result is a strictly LARGER combined
+// opening (wall notch + lid's own untouched notch) than the wall alone —
+// exactly what a finger-pull needs, with zero change to the lid itself.
+function lidTopEdgePoints(run, grid, project, height, notches = []) {
   const protrusion = project.outerThicknessMm;
+  const segs = bottomCombSegments(run, grid, project);
+  const boundarySet = new Set([0, run.length]);
+  for (const s of segs) { boundarySet.add(s.start); boundarySet.add(s.start + s.length); }
+  for (const n of notches) { boundarySet.add(n.uStart); boundarySet.add(n.uEnd); }
+  const boundaries = [...boundarySet].sort((a, b) => a - b);
+
   const pts = [];
-  for (const s of bottomCombSegments(run, grid, project)) {
-    const y = s.kind === 'finger' ? height + protrusion : height;
-    pts.push({ x: s.start, y }, { x: s.start + s.length, y });
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const uStart = boundaries[i];
+    const uEnd = boundaries[i + 1];
+    if (uEnd <= uStart) continue;
+    const mid = (uStart + uEnd) / 2;
+    const notch = notches.find((n) => mid > n.uStart && mid < n.uEnd);
+    if (notch && notch.points) { for (const p of notch.points) pts.push({ x: p.u, y: p.y }); continue; }
+    if (notch) { pts.push({ x: uStart, y: notch.depth }, { x: uEnd, y: notch.depth }); continue; }
+    const seg = segs.find((s) => mid > s.start && mid < s.start + s.length);
+    const y = seg && seg.kind === 'finger' ? height + protrusion : height;
+    pts.push({ x: uStart, y }, { x: uEnd, y });
   }
   return pts.reverse(); // match freeEdgePoints' length -> 0 traversal
 }
@@ -472,8 +507,22 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   const baseProtrusion = hasBasePlate ? project.outerThicknessMm : 0;
 
   const throughCrossings = interiorCrossings(run, grid, project).filter((c) => c.type === 'through');
-  const freeEdgeNotches = notchesFromBottom ? [] : throughCrossings
+  const crossingNotches = notchesFromBottom ? [] : throughCrossings
     .map((c) => ({ ...notchURange(c, project), depth: crossingNotchDepth(c, spans, project) }));
+
+  // A grip notch (see GripNotch.js) always targets THIS run's own free
+  // edge, regardless of 'v'/'h' — unlike the X-crossing notches above,
+  // it's never axis-gated, since it isn't about which side a crossing
+  // notches from, just where the user asked to cut. localHeight is read
+  // at the notch's own center so a stepped-height run still resolves a
+  // single reference height for it (GripNotchValidation forbids a notch
+  // from straddling a height step in the first place).
+  const pieceId = wallPieceId(run);
+  const storedGripNotch = project.pieceNotches && project.pieceNotches[pieceId];
+  const gripOverride = storedGripNotch && storedGripNotch.enabled
+    ? gripNotchOverride(storedGripNotch, heightAt(spans, storedGripNotch.offsetMm + storedGripNotch.widthMm / 2))
+    : null;
+  const freeEdgeNotches = gripOverride ? [...crossingNotches, gripOverride] : crossingNotches;
 
   // A fixed lid only ever joints with OUTER walls (see LidBuilder) — an
   // interior divider's own geometry is entirely unaffected by it.
@@ -490,7 +539,9 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
 
   const bottom = bottomEdgePoints({ run, grid, project, spans, mateProtrusion: baseProtrusion, notchesFromBottom });
   const right = endEdgePoints({ length, height: heightB, mateProtrusion: protrusionB, fj, startWithFinger, atRight: true, reverse: false, extendToTips });
-  const top = lidFlush ? lidTopEdgePoints(run, grid, project, heightA) : freeEdgePoints(run, spans, freeEdgeNotches);
+  const top = lidFlush
+    ? lidTopEdgePoints(run, grid, project, heightA, gripOverride ? [gripOverride] : [])
+    : freeEdgePoints(run, spans, freeEdgeNotches);
   const left = endEdgePoints({ length, height: heightA, mateProtrusion: protrusionA, fj, startWithFinger, atRight: false, reverse: true, extendToTips });
 
   const outline = simplifyPolygon([...bottom, ...right, ...top, ...left]);
@@ -501,7 +552,7 @@ export function buildWallPanel(run, grid, project, hasBasePlate) {
   ];
 
   return {
-    id: wallPieceId(run),
+    id: pieceId,
     kind: 'wall',
     thicknessGroup: seg.thicknessGroup,
     thicknessMm: resolveThickness(seg, project),

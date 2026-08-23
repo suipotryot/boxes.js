@@ -20,6 +20,7 @@ export function createDefaultProject(name = 'Nouveau projet') {
     laserBed: { widthMm: 600, heightMm: 400, spacingMm: 5 },
     lid: { enabled: false, insertHeightMm: null },
     drawer: { enabled: false, playMm: 1, thicknessMm: 3, openSide: 'top' },
+    pieceNotches: {}, // { [pieceId]: GripNotch } — see js/geometry/GripNotch.js
   };
 }
 

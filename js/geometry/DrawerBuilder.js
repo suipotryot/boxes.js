@@ -47,7 +47,37 @@ const OPEN_SIDE = {
   left: { kind: 'v', c: 0, r: 0, axis: 'x' },
 };
 
-export function buildDrawerBox(grid, project) {
+// ':' rather than '-' as the prefix separator: SvgPath.pieceLabel parses a
+// wall piece's id with a positional `id.split('-')` (matching
+// PanelBuilder.wallPieceId's own `wall-${kind}-${c}-${r}` format) — an
+// extra '-'-delimited token in front of that would shift every index and
+// corrupt the label (confirmed live: "Paroi WALLv,0" instead of "Paroi
+// V0,0"). ':' keeps the id unique across the two boxes' pieces without
+// perturbing that split.
+export const DRAWER_PREFIX = 'drawer:';
+
+// project.pieceNotches is keyed by each piece's own FINAL id (so a main-box
+// wall and a sleeve wall that happen to land on the same unprefixed
+// wall-${kind}-${c}-${r} never collide) — but PanelBuilder.buildWallPanel
+// always looks a notch up by the run's own unprefixed wallPieceId(), since
+// it has no idea it might be building a drawer wall. Remap down to
+// unprefixed keys before handing pieceNotches to buildWallPanel via
+// sleeveProject, so a notch stored under e.g. "drawer:wall-h-0-0" is found
+// by the run whose own id is "wall-h-0-0".
+function drawerPieceNotches(pieceNotches) {
+  const result = {};
+  for (const [id, notch] of Object.entries(pieceNotches || {})) {
+    if (id.startsWith(DRAWER_PREFIX)) result[id.slice(DRAWER_PREFIX.length)] = notch;
+  }
+  return result;
+}
+
+// The sleeve's own synthetic grid + sub-project, split out of
+// buildDrawerBox so PieceContext.js can resolve a single drawer wall's own
+// run/height context (for the grip-notch UI) without duplicating this
+// sizing math. Returns null when the drawer is disabled, same as
+// buildDrawerBox itself.
+export function buildSleeveContext(grid, project) {
   const { drawer } = project;
   if (!drawer || !drawer.enabled) return null;
 
@@ -67,19 +97,21 @@ export function buildDrawerBox(grid, project) {
     outerThicknessMm: drawer.thicknessMm,
     outerHeightMm: sleeveH,
     lid: { enabled: true, insertHeightMm: sleeveH - drawer.thicknessMm }, // always flush
+    pieceNotches: drawerPieceNotches(project.pieceNotches),
   };
+
+  return { sleeveGrid, sleeveProject };
+}
+
+export function buildDrawerBox(grid, project) {
+  const ctx = buildSleeveContext(grid, project);
+  if (!ctx) return null;
+  const { sleeveGrid, sleeveProject } = ctx;
 
   const pieces = enumerateWallRuns(sleeveGrid, sleeveProject)
     .map((run) => buildWallPanel(run, sleeveGrid, sleeveProject, true));
   pieces.push(buildBasePlate(sleeveGrid, sleeveProject));
   pieces.push(buildLid(sleeveGrid, sleeveProject));
 
-  // ':' rather than '-' as the prefix separator: SvgPath.pieceLabel parses
-  // a wall piece's id with a positional `id.split('-')` (matching
-  // PanelBuilder.wallPieceId's own `wall-${kind}-${c}-${r}` format) — an
-  // extra '-'-delimited token in front of that would shift every index
-  // and corrupt the label (confirmed live: "Paroi WALLv,0" instead of
-  // "Paroi V0,0"). ':' keeps the id unique across the two boxes' pieces
-  // without perturbing that split.
-  return pieces.map((p) => ({ ...p, id: `drawer:${p.id}` }));
+  return pieces.map((p) => ({ ...p, id: `${DRAWER_PREFIX}${p.id}` }));
 }

@@ -214,6 +214,12 @@ h3:first-child { margin-top: 0; }
 
 .inspector.empty { color: var(--muted); font-size: 0.85rem; }
 .inspector h3 { margin-top: 0; }
+.inspector-section + .inspector-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.grip-notch-visual { cursor: default; margin-top: 0.5rem; }
 
 /* --- live preview strip --- */
 
@@ -238,6 +244,7 @@ h3:first-child { margin-top: 0; }
 .preview-card {
   flex: 0 0 auto;
   text-align: center;
+  cursor: pointer;
 }
 .preview-card svg { display: block; }
 .preview-card path {

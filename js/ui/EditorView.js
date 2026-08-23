@@ -23,13 +23,15 @@ function selectedPieceId(project, selected) {
   return run ? wallPieceId(run) : null;
 }
 
-function renderPreviewStrip(project, selected, showLabels) {
+function renderPreviewStrip(project, selectedWallId, showLabels, onSelectWall) {
   const pieces = computePieces(project);
-  const highlightId = selectedPieceId(project, selected);
   const cards = pieces.map((piece) => {
     const svg = pieceToStandaloneSvg(piece, { padding: 4, minSize: 40, showLabels });
-    const highlighted = piece.id === highlightId;
-    return el('div', { class: highlighted ? 'preview-card highlighted' : 'preview-card' }, [svg, el('div', { class: 'preview-label', text: piece.id })]);
+    const highlighted = piece.id === selectedWallId;
+    return el('div', {
+      class: highlighted ? 'preview-card highlighted' : 'preview-card',
+      onClick: () => onSelectWall(piece.id),
+    }, [svg, el('div', { class: 'preview-label', text: piece.id })]);
   });
   return el('div', { class: 'preview-strip' }, [el('div', { class: 'preview-strip-inner' }, cards)]);
 }
@@ -49,6 +51,14 @@ function renderPreviewStrip(project, selected, showLabels) {
  */
 export function mountEditorView(container, store, { onBackToList } = {}) {
   let selected = null;
+  // A piece id, independent of `selected` — the only way to reach a
+  // drawer sleeve's own wall (no grid cell of its own to click, see
+  // DrawerBuilder.js's synthetic grid), and also what drives the grip-
+  // notch editor in SegmentInspector.js. Clicking a grid segment keeps
+  // populating this too (via the existing selectedPieceId bridge), so the
+  // notch editor shows up for an ordinary wall click as well, not just a
+  // preview-card click.
+  let selectedWallId = null;
   let showLabels = true;
   // Épaisseurs & hauteurs starts open (the fields a new box always needs);
   // the other three are lower-frequency settings, closed by default.
@@ -56,6 +66,17 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
 
   function select(next) {
     selected = next;
+    selectedWallId = selectedPieceId(store.project, next);
+    render();
+  }
+
+  function selectWall(pieceId) {
+    // Clicking a preview card supersedes the grid-segment selection —
+    // showing both a segment's fields AND an unrelated piece's notch
+    // editor at once would be confusing, and a base-plate/lid/drawer
+    // piece has no grid segment to show fields for anyway.
+    selectedWallId = pieceId;
+    selected = null;
     render();
   }
 
@@ -95,8 +116,8 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection)]),
-      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selected, showLabels), renderExportPanel(project, showLabels, toggleLabels)]),
-      el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, store)]),
+      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall), renderExportPanel(project, showLabels, toggleLabels)]),
+      el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store)]),
     ]));
   }
 

@@ -1,20 +1,21 @@
-// The only place that mutates a segment's present/height/group. A click on
-// the editor selects a segment (see EditorView) but never mutates it
-// directly — that split keeps "select" and "toggle" from being the same
-// ambiguous click, and gives every mutation one clear origin to look for.
+// Hosts two independent sections in the same sidebar panel: the grid
+// SEGMENT fields (present/height/thickness — a click on the editor grid
+// selects a segment, see EditorView, but never mutates it directly, so
+// "select" and "toggle" are never the same ambiguous click), and the grip-
+// notch editor (GripNotchEditor.js) for whichever WALL PIECE is selected.
+// These two selections are independent (EditorView.js's `selected` vs
+// `selectedWallId`) because a drawer sleeve's own walls have no grid
+// segment to click at all — the only way to reach one is a preview-strip
+// card click, which sets `selectedWallId` alone.
 import { el } from './dom.js';
 import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
+import { resolveWallRunContext } from '../geometry/PieceContext.js';
+import { renderGripNotchSection } from './GripNotchEditor.js';
 
 const KIND_LABEL = { v: 'vertical', h: 'horizontal' };
 
-export function renderInspector(project, selected, store) {
-  if (!selected) {
-    return el('div', { class: 'inspector empty' }, [
-      el('p', { text: 'Cliquez sur un segment de la grille pour l’inspecter.' }),
-    ]);
-  }
-
+function renderSegmentFields(project, selected, store) {
   const { kind, c, r } = selected;
   const grid = project.grid;
   const seg = kind === 'v' ? grid.vWalls[c][r] : grid.hWalls[c][r];
@@ -59,10 +60,26 @@ export function renderInspector(project, selected, store) {
     outer ? el('span', { class: 'hint', text: 'S’applique à tout le pourtour extérieur.' }) : null,
   ]);
 
-  return el('div', { class: 'inspector' }, [
+  return el('div', { class: 'inspector-section' }, [
     el('h3', { text: `Mur ${KIND_LABEL[kind]} — c=${c}, r=${r}` }),
     presenceRow,
     groupRow,
     heightRow,
   ]);
+}
+
+export function renderInspector(project, selected, selectedWallId, store) {
+  const sections = [];
+  if (selected) sections.push(renderSegmentFields(project, selected, store));
+
+  const wallContext = selectedWallId ? resolveWallRunContext(project, selectedWallId) : null;
+  if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store));
+
+  if (!sections.length) {
+    return el('div', { class: 'inspector empty' }, [
+      el('p', { text: 'Cliquez sur un segment de la grille, ou sur une pièce dans l’aperçu, pour l’inspecter.' }),
+    ]);
+  }
+
+  return el('div', { class: 'inspector' }, sections);
 }
