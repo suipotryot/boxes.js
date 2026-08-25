@@ -9,7 +9,7 @@ import { groupByThickness } from './ThicknessGrouper.js';
 import { packPieces } from './RectPacker.js';
 import { renderSvgPage, svgElementToFileText } from './SvgPageRenderer.js';
 
-function sanitizeFilename(name) {
+export function sanitizeFilename(name) {
   return (name || 'projet').replace(/[^\w-]+/g, '_');
 }
 

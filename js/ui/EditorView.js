@@ -6,7 +6,7 @@ import { el, clear } from './dom.js';
 import { renderEditorSvg } from './EditorRenderer.js';
 import { renderInspector } from './SegmentInspector.js';
 import { renderSettingsPanel } from './SettingsPanel.js';
-import { renderExportButton, renderExportHint } from './ExportView.js';
+import { renderExportButton, renderExportHint, renderExportJsonButton } from './ExportView.js';
 import { homeIcon } from './fields.js';
 import { computePieces } from '../geometry/PieceFactory.js';
 import { wallPieceId } from '../geometry/PanelBuilder.js';
@@ -107,14 +107,13 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     clear(container);
     const project = store.project;
 
+    // Undo/redo has no toolbar buttons — Ctrl+Z / Ctrl+Shift+Z (onKeydown
+    // below) are the conventional, sufficient way to reach them.
     const toolbar = el('div', { class: 'toolbar' }, [
       el('div', { class: 'toolbar-group' }, [
         onBackToList ? el('button', { class: 'btn', onClick: onBackToList }, [homeIcon(), 'Mes projets']) : null,
+        renderExportJsonButton(project),
         renderExportButton(project, showLabels),
-      ]),
-      el('div', { class: 'toolbar-group' }, [
-        el('button', { class: 'btn', text: 'Annuler (Ctrl+Z)', disabled: !store.canUndo(), onClick: () => store.undo() }),
-        el('button', { class: 'btn', text: 'Rétablir (Ctrl+Shift+Z)', disabled: !store.canRedo(), onClick: () => store.redo() }),
       ]),
     ]);
 
