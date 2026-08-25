@@ -1,4 +1,4 @@
-// planExport is pure (computePieces/groupByThickness/packShelves are all
+// planExport is pure (computePieces/groupByThickness/packPieces are all
 // pure) — fully Node-testable without a browser, unlike exportProjectSvg
 // itself (downloads, DOM serialization), which is verified live instead.
 import { test, assert, run } from './testHarness.js';

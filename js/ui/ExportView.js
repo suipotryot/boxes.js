@@ -41,8 +41,15 @@ export function renderExportPanel(project, showLabels, onToggleLabels) {
     },
   });
 
+  const deepnestHint = el('span', { class: 'hint' }, [
+    'Pour un nesting optimal (imbrication réelle des pièces), importer le SVG exporté dans ',
+    el('a', { href: 'https://deepnest.io/', target: '_blank', rel: 'noopener', text: 'Deepnest' }),
+    ' (gratuit).',
+  ]);
+
   return el('div', { class: 'export-panel' }, [
-    el('span', { class: 'hint', text: `Export SVG multi-pages — empaquetage par boîte englobante, pas d’imbrication réelle des pièces. ${summary}.` }),
+    el('span', { class: 'hint', text: `Export SVG multi-pages — empaquetage rectangulaire optimisé, pas d’imbrication réelle des pièces. ${summary}.` }),
+    deepnestHint,
     labelsToggle,
     button,
   ]);

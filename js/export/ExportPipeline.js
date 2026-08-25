@@ -1,12 +1,12 @@
 // Orchestrates the whole multi-page SVG export: computePieces -> group by
-// thickness -> shelf-pack each group's pieces onto laser-bed-sized pages.
+// thickness -> pack each group's pieces onto laser-bed-sized pages.
 // Split into a pure planning step (planExport, no DOM — fully unit
 // testable) and the actual download side effects (exportProjectSvg, needs
 // a browser), same separation this app already keeps elsewhere between
 // pure geometry/state and DOM-touching UI code.
 import { computePieces } from '../geometry/PieceFactory.js';
 import { groupByThickness } from './ThicknessGrouper.js';
-import { packShelves } from './ShelfPacker.js';
+import { packPieces } from './RectPacker.js';
 import { renderSvgPage, svgElementToFileText } from './SvgPageRenderer.js';
 
 function sanitizeFilename(name) {
@@ -20,14 +20,14 @@ function sleep(ms) {
 /** Pure planning step: what pages would be produced, with no side
  *  effects. Lets the export UI show a page-count summary before
  *  committing to actual downloads, and is unit-testable without a
- *  browser (computePieces/groupByThickness/packShelves are all pure). */
+ *  browser (computePieces/groupByThickness/packPieces are all pure). */
 export function planExport(project) {
   const pieces = computePieces(project);
   const groups = groupByThickness(pieces);
   const { widthMm, heightMm, spacingMm } = project.laserBed;
   return groups.map(({ thicknessMm, pieces }) => ({
     thicknessMm,
-    pages: packShelves(pieces, widthMm, heightMm, spacingMm),
+    pages: packPieces(pieces, widthMm, heightMm, spacingMm),
   }));
 }
 
