@@ -26,6 +26,17 @@ export function trashIcon() {
   ]);
 }
 
+// Same minimal stroke-only style as trashIcon(), but meant to sit inline
+// next to a button's text (the "Mes projets" toolbar button) rather than
+// alone in an icon-only button — carries the extra `icon-inline` class for
+// the spacing/alignment that context needs, which trashIcon() never did.
+export function homeIcon() {
+  return svgEl('svg', { viewBox: '0 0 24 24', class: 'icon-btn-svg icon-inline', 'aria-hidden': 'true' }, [
+    svgEl('path', { d: 'M3 11l9-8 9 8' }),
+    svgEl('path', { d: 'M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10' }),
+  ]);
+}
+
 export function numberField(labelText, value, onChange, step = '1', tooltip) {
   return el('label', { class: 'field' }, [
     el('span', { class: 'field-label' }, [labelText, infoIcon(tooltip)]),

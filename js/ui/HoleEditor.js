@@ -8,22 +8,14 @@
 // have SEVERAL holes, stored as a list (project.pieceHoles[pieceId],
 // Hole.holeListFor) — same list-of-removable-items UI as GripNotchEditor.js,
 // down to the shared trashIcon() and the one-line-per-item CSV field
-// (deliberately compact and copy/paste-able to duplicate a hole).
+// (deliberately compact and copy/paste-able to duplicate a hole). Each row
+// is just that field plus a trash button — the piece preview itself is
+// built once, in SegmentInspector.js, and shown at the top of the panel
+// rather than duplicated per section.
 import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
 import { DEFAULT_HOLE, maxRadiusMm, holeListFor, formatHoleLine, parseHoleLine } from '../geometry/Hole.js';
 import { validateHoleInRect, validateWallHole } from '../geometry/HoleValidation.js';
-import { buildWallPanel } from '../geometry/PanelBuilder.js';
-import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
-import { buildLid } from '../geometry/LidBuilder.js';
-import { DRAWER_PREFIX } from '../geometry/DrawerBuilder.js';
-import { burnCorrect } from '../geometry/BurnCorrection.js';
-import { pieceToStandaloneSvg, pieceLabel } from '../geometry/SvgPath.js';
-
-function rebuildPiece(context) {
-  if (context.kind === 'wall') return buildWallPanel(context.run, context.grid, context.project, true);
-  return context.rawId === 'base-plate' ? buildBasePlate(context.grid, context.project) : buildLid(context.grid, context.project);
-}
 
 function validateHole(context, hole, siblings) {
   return context.kind === 'wall'
@@ -31,24 +23,7 @@ function validateHole(context, hole, siblings) {
     : validateHoleInRect(context.widthMm, context.heightMm, hole, siblings);
 }
 
-function pieceHeading(pieceId, context, piece) {
-  const label = pieceLabel(piece);
-  if (label) return label;
-  const base = context.rawId === 'base-plate' ? 'Plaque de fond' : 'Couvercle';
-  return pieceId.startsWith(DRAWER_PREFIX) ? `Tiroir — ${base}` : base;
-}
-
-function renderOneHole(index, hole, siblings, context, onUpdate, onRemove) {
-  const header = el('div', { class: 'hole-header' }, [
-    el('span', { class: 'field-label' }, [`Trou ${index + 1}`, infoIcon(
-      'Position X, position Y, dimension X, dimension Y, arrondi des angles (mm) : les 5 valeurs de ce trou, séparées par des virgules, dans cet ordre. Le point (pas la virgule) sépare les décimales — ex. « 20, 10, 30, 15, 3 ». Le trou doit rester à au moins 2mm de chaque bord de la pièce (dents non comprises), et ne doit chevaucher aucun autre trou.',
-    )]),
-    el('button', {
-      class: 'icon-btn', title: 'Supprimer ce trou', 'aria-label': 'Supprimer ce trou',
-      onClick: onRemove,
-    }, [trashIcon()]),
-  ]);
-
+function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
   const lineField = el('label', { class: 'field' }, [
     el('input', {
       type: 'text', value: formatHoleLine(hole),
@@ -60,6 +35,13 @@ function renderOneHole(index, hole, siblings, context, onUpdate, onRemove) {
       },
     }),
   ]);
+
+  const trashBtn = el('button', {
+    class: 'icon-btn', title: 'Supprimer ce trou', 'aria-label': 'Supprimer ce trou',
+    onClick: onRemove,
+  }, [trashIcon()]);
+
+  const row = el('div', { class: 'compact-item-row' }, [lineField, trashBtn]);
 
   const validation = validateHole(context, hole, siblings);
   const warning = !validation.ok ? el('div', { class: 'field' }, [
@@ -78,7 +60,7 @@ function renderOneHole(index, hole, siblings, context, onUpdate, onRemove) {
     }),
   ]) : null;
 
-  return el('div', { class: 'hole-item' }, [header, lineField, warning]);
+  return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
 export function renderHoleSection(project, pieceId, context, store) {
@@ -92,27 +74,22 @@ export function renderHoleSection(project, pieceId, context, store) {
   const removeAt = (index) => setList(holeListFor(project.pieceHoles, pieceId).filter((_, i) => i !== index));
   const addHole = () => setList([...holes, { ...DEFAULT_HOLE }]);
 
-  // Built from the REAL pipeline (rebuildPiece, burn-corrected), folding in
-  // every hole currently in the list — what you see here IS what gets
-  // exported, same principle as GripNotchEditor's own preview.
-  const piece = burnCorrect(rebuildPiece(context), context.project.burnMm);
-  const heading = el('h3', { text: pieceHeading(pieceId, context, piece) });
-
   const sectionLabel = el('div', { class: 'field-label' }, [
     'Trous',
     infoIcon('Découpe un ou plusieurs trous rectangulaires (avec coins arrondis en option) dans cette pièce, par exemple pour un passage de câble ou une fixation.'),
   ]);
 
+  const fieldOrderHint = el('div', {
+    class: 'hint',
+    text: 'Position X, position Y, largeur, hauteur, rayon (mm), séparés par des virgules — le point sépare les décimales, ex. « 20, 10, 30, 15, 3 ».',
+  });
+
   const items = holes.map((hole, index) => {
     const siblings = holes.filter((_, i) => i !== index);
-    return renderOneHole(index, hole, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
+    return renderOneHole(hole, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
   });
 
   const addBtn = el('button', { class: 'btn', text: '+ Ajouter un trou', onClick: addHole });
 
-  const visual = el('div', { class: 'preview-card hole-visual' }, [
-    pieceToStandaloneSvg(piece, { padding: 8, minSize: 260, showLabels: false }),
-  ]);
-
-  return el('div', { class: 'inspector-section' }, [heading, sectionLabel, ...items, addBtn, visual]);
+  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, ...items, addBtn]);
 }

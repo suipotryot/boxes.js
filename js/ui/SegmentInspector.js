@@ -11,10 +11,45 @@ import { el } from './dom.js';
 import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
 import { resolveWallRunContext, resolvePieceHoleContext } from '../geometry/PieceContext.js';
+import { buildWallPanel } from '../geometry/PanelBuilder.js';
+import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
+import { buildLid } from '../geometry/LidBuilder.js';
+import { burnCorrect } from '../geometry/BurnCorrection.js';
+import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
 import { renderGripNotchSection } from './GripNotchEditor.js';
 import { renderHoleSection } from './HoleEditor.js';
 
 const KIND_LABEL = { v: 'vertical', h: 'horizontal' };
+
+// The single, real-pipeline piece build shared by the top preview — keyed
+// off holeContext (never wallContext): both resolvers (PieceContext.js)
+// key off the identical enumerateWallRuns(...).find(...) lookup, so for
+// any wall they always resolve in lockstep, and holeContext is a strict
+// superset of wallContext (same run/grid/project, plus `kind`) — while
+// holeContext is the ONLY one that ever resolves for the base plate/lid,
+// which have no wall run at all. Keying this off wallContext instead would
+// silently produce no preview for those two pieces.
+function buildInspectedPiece(holeContext) {
+  const raw = holeContext.kind === 'wall'
+    ? buildWallPanel(holeContext.run, holeContext.grid, holeContext.project, true)
+    : holeContext.rawId === 'base-plate'
+      ? buildBasePlate(holeContext.grid, holeContext.project)
+      : buildLid(holeContext.grid, holeContext.project);
+  return burnCorrect(raw, holeContext.project.burnMm);
+}
+
+// Built from the REAL pipeline, folding in every notch/hole currently
+// stored for this piece (buildWallPanel/buildBasePlate/buildLid all read
+// project.pieceNotches/pieceHoles directly) — what you see here IS what
+// gets exported, rendered exactly once regardless of which sections below
+// apply to the current piece.
+function renderPieceVisual(piece) {
+  return el('div', { class: 'inspector-section' }, [
+    el('div', { class: 'preview-card piece-visual' }, [
+      pieceToStandaloneSvg(piece, { padding: 8, minSize: 260, showLabels: false }),
+    ]),
+  ]);
+}
 
 function renderSegmentFields(project, selected, store) {
   const { kind, c, r } = selected;
@@ -71,12 +106,13 @@ function renderSegmentFields(project, selected, store) {
 
 export function renderInspector(project, selected, selectedWallId, store) {
   const sections = [];
-  if (selected) sections.push(renderSegmentFields(project, selected, store));
 
   const wallContext = selectedWallId ? resolveWallRunContext(project, selectedWallId) : null;
-  if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store));
-
   const holeContext = selectedWallId ? resolvePieceHoleContext(project, selectedWallId) : null;
+
+  if (holeContext) sections.push(renderPieceVisual(buildInspectedPiece(holeContext)));
+  if (selected) sections.push(renderSegmentFields(project, selected, store));
+  if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store));
   if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store));
 
   if (!sections.length) {

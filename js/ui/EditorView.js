@@ -6,7 +6,8 @@ import { el, clear } from './dom.js';
 import { renderEditorSvg } from './EditorRenderer.js';
 import { renderInspector } from './SegmentInspector.js';
 import { renderSettingsPanel } from './SettingsPanel.js';
-import { renderExportPanel } from './ExportView.js';
+import { renderExportButton, renderExportHint } from './ExportView.js';
+import { homeIcon } from './fields.js';
 import { computePieces } from '../geometry/PieceFactory.js';
 import { wallPieceId } from '../geometry/PanelBuilder.js';
 import { runAt } from '../model/GridQuery.js';
@@ -59,10 +60,12 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   // notch editor shows up for an ordinary wall click as well, not just a
   // preview-card click.
   let selectedWallId = null;
-  let showLabels = true;
+  // Off by default — labels are most useful right before a final export,
+  // not while experimenting with the layout.
+  let showLabels = false;
   // Épaisseurs & hauteurs starts open (the fields a new box always needs);
-  // the other three are lower-frequency settings, closed by default.
-  let openSections = { thickness: true, fingerJoint: false, lid: false, drawer: false, laserBed: false };
+  // the rest are lower-frequency settings, closed by default.
+  let openSections = { thickness: true, options: false, fingerJoint: false, lid: false, drawer: false, laserBed: false };
 
   function select(next) {
     selected = next;
@@ -105,7 +108,10 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     const project = store.project;
 
     const toolbar = el('div', { class: 'toolbar' }, [
-      onBackToList ? el('button', { class: 'btn', text: 'Mes projets', onClick: onBackToList }) : null,
+      el('div', { class: 'toolbar-group' }, [
+        onBackToList ? el('button', { class: 'btn', onClick: onBackToList }, [homeIcon(), 'Mes projets']) : null,
+        renderExportButton(project, showLabels),
+      ]),
       el('div', { class: 'toolbar-group' }, [
         el('button', { class: 'btn', text: 'Annuler (Ctrl+Z)', disabled: !store.canUndo(), onClick: () => store.undo() }),
         el('button', { class: 'btn', text: 'Rétablir (Ctrl+Shift+Z)', disabled: !store.canRedo(), onClick: () => store.redo() }),
@@ -115,8 +121,8 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     const editorCanvas = el('div', { class: 'editor-canvas' }, [renderEditorSvg(project, selected, select)]);
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
-      el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection)]),
-      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall), renderExportPanel(project, showLabels, toggleLabels)]),
+      el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection, showLabels, toggleLabels)]),
+      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall), renderExportHint(project)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store)]),
     ]));
   }

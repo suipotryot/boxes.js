@@ -96,6 +96,23 @@ function lidSection(project, store, openSections, onToggleSection) {
   return collapsibleSection(openSections, onToggleSection, 'lid', 'Couvercle', [enabledRow, heightField, warning]);
 }
 
+// The "Étiqueter les pièces" toggle — controls both the live preview
+// strip's labels and the SVG export's labels (EditorView-owned
+// showLabels/onToggleLabels, same idiom as openSections/selected). Lives
+// here rather than next to the export button so it isn't lost among the
+// low-frequency settings, yet doesn't clutter the toolbar either.
+function optionsSection(openSections, onToggleSection, showLabels, onToggleLabels) {
+  const labelsRow = el('label', { class: 'field lid-enabled' }, [
+    el('input', {
+      type: 'checkbox', checked: showLabels,
+      onChange: (evt) => onToggleLabels(evt.target.checked),
+    }),
+    el('span', { text: ' Étiqueter les pièces' }),
+    infoIcon('Grave le nom de chaque pièce (ex. « Paroi V2,0 ») sur son propre contour, dans l’aperçu et à l’export SVG.'),
+  ]);
+  return collapsibleSection(openSections, onToggleSection, 'options', 'Options', [labelsRow]);
+}
+
 const OPEN_SIDE_LABELS = { top: 'Haut', bottom: 'Bas', right: 'Droite', left: 'Gauche' };
 
 // The "boîte en tiroir" feature: an independent enclosing sleeve box (own
@@ -138,7 +155,7 @@ function drawerSection(project, store, openSections, onToggleSection) {
   ]);
 }
 
-export function renderSettingsPanel(project, store, openSections, onToggleSection) {
+export function renderSettingsPanel(project, store, openSections, onToggleSection, showLabels, onToggleLabels) {
   const grid = project.grid;
 
   const applyResize = (axis, parsed) => {
@@ -167,6 +184,8 @@ export function renderSettingsPanel(project, store, openSections, onToggleSectio
       numberField('Hauteur intérieure par défaut (mm)', project.innerHeightMm, (n) => store.apply((p) => ({ ...p, innerHeightMm: n })), '1', 'Hauteur par défaut des cloisons internes — modifiable individuellement par cloison dans l’inspecteur.'),
       numberField('Jeu de coupe / burn (mm)', project.burnMm, (n) => store.apply((p) => ({ ...p, burnMm: n })), '0.01', BURN_MM_HELP),
     ]),
+
+    optionsSection(openSections, onToggleSection, showLabels, onToggleLabels),
 
     lidSection(project, store, openSections, onToggleSection),
     drawerSection(project, store, openSections, onToggleSection),

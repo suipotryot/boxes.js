@@ -219,37 +219,22 @@ h3:first-child { margin-top: 0; }
   padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
-.grip-notch-visual { cursor: default; margin-top: 0.5rem; }
-.grip-notch-item {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.5rem 0.6rem;
-  margin-bottom: 0.6rem;
-}
-.grip-notch-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.3rem;
-}
-.grip-notch-header .field-label { margin-bottom: 0; }
+/* Single piece preview at the top of the inspector (SegmentInspector.js) —
+   shared by whatever's selected, wall or flat piece, instead of each
+   sub-section (notches/holes) rendering its own redundant copy. */
+.piece-visual { cursor: default; }
 
-.hole-visual { cursor: default; margin-top: 0.5rem; }
-.hole-item {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.5rem 0.6rem;
-  margin-bottom: 0.6rem;
-}
-.hole-header {
+/* Compact list-item row shared by GripNotchEditor.js and HoleEditor.js:
+   just the (single, comma-separated) text field and a trash button, no
+   per-item border/heading — the field order is explained once, above the
+   whole list, instead of repeated per row. */
+.compact-item { margin-bottom: 0.6rem; }
+.compact-item-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.3rem;
+  gap: 0.4rem;
 }
-.hole-header .field-label { margin-bottom: 0; }
+.compact-item-row .field { flex: 1 1 auto; margin-bottom: 0; }
 
 /* Small square icon-only button (currently just the per-notch trash
    button) — same footprint/border language as .btn, but sized to hug a
@@ -279,26 +264,28 @@ h3:first-child { margin-top: 0; }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* Icon sitting inline next to a button's text (e.g. the "Mes projets" home
+   icon), as opposed to .icon-btn-svg's usual icon-only-button usage. */
+.icon-inline { margin-right: 0.35rem; vertical-align: -2px; }
 .field input.invalid-input { border-color: var(--selected); }
 
 /* --- live preview strip --- */
 
-/* Scrollbar-on-top trick: flip the scrolling container vertically (which
-   flips its native scrollbar to the top edge too), then flip the actual
-   content back upright in a nested wrapper so it reads normally. */
 .preview-strip {
-  overflow-x: auto;
   padding: 0.75rem;
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  transform: scaleY(-1);
 }
+/* Stacked in a column (not a row) so the list only ever grows downward —
+   the page's own vertical scroll is far less friction than a horizontal
+   one, and align-items:flex-start keeps each card's highlighted outline
+   hugging its own thumbnail instead of stretching full width. */
 .preview-strip-inner {
   display: flex;
-  flex-wrap: nowrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.75rem;
-  transform: scaleY(-1);
 }
 
 .preview-card {
@@ -328,9 +315,9 @@ h3:first-child { margin-top: 0; }
   white-space: nowrap;
 }
 
-/* --- export panel (M7) --- */
+/* --- export hint strip (M7) --- */
 
-.export-panel {
+.export-hint {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -339,7 +326,7 @@ h3:first-child { margin-top: 0; }
   border: 1px solid var(--border);
   border-radius: 6px;
 }
-.export-panel .hint { flex: 1 1 auto; margin: 0; }
+.export-hint .hint { flex: 1 1 auto; margin: 0; }
 
 /* --- project list (M6) --- */
 

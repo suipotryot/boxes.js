@@ -11,30 +11,17 @@
 // disabling it. Each notch's 4 numbers (width/depth/radius/offset) are
 // edited as ONE comma-separated text field rather than 4 separate inputs —
 // deliberately compact, and directly copy/paste-able to duplicate a notch
-// (copy the line, paste it into a new one, just change the position).
+// (copy the line, paste it into a new one, just change the position). Each
+// row is just that field plus a trash button (no per-row heading/tooltip)
+// — the field order is explained once, above the whole list, instead of
+// repeated per row; the piece preview itself is rendered once, at the top
+// of SegmentInspector's panel, not duplicated here.
 import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
 import { DEFAULT_GRIP_NOTCH, maxRadiusMm, notchListFor, formatNotchLine, parseNotchLine } from '../geometry/GripNotch.js';
 import { validateGripNotch } from '../geometry/GripNotchValidation.js';
-import { buildWallPanel } from '../geometry/PanelBuilder.js';
-import { burnCorrect } from '../geometry/BurnCorrection.js';
-import { pieceToStandaloneSvg, pieceLabel } from '../geometry/SvgPath.js';
 
-function renderOneNotch(index, notch, siblings, context, onUpdate, onRemove) {
-  // The field's own info icon (what each of the 4 comma-separated numbers
-  // means) sits right in the header, next to "Encoche N" — rather than on
-  // its own line above the input — so a notch item is 3 lines tall
-  // (header, input, warning) instead of 4.
-  const header = el('div', { class: 'grip-notch-header' }, [
-    el('span', { class: 'field-label' }, [`Encoche ${index + 1}`, infoIcon(
-      'Largeur, profondeur, rayon, position (mm) : les 4 valeurs de cette encoche, séparées par des virgules, dans cet ordre. Le point (pas la virgule) sépare les décimales — ex. « 20.5, 8, 0, 10 ».',
-    )]),
-    el('button', {
-      class: 'icon-btn', title: 'Supprimer cette encoche', 'aria-label': 'Supprimer cette encoche',
-      onClick: onRemove,
-    }, [trashIcon()]),
-  ]);
-
+function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   const lineField = el('label', { class: 'field' }, [
     el('input', {
       type: 'text', value: formatNotchLine(notch),
@@ -46,6 +33,13 @@ function renderOneNotch(index, notch, siblings, context, onUpdate, onRemove) {
       },
     }),
   ]);
+
+  const trashBtn = el('button', {
+    class: 'icon-btn', title: 'Supprimer cette encoche', 'aria-label': 'Supprimer cette encoche',
+    onClick: onRemove,
+  }, [trashIcon()]);
+
+  const row = el('div', { class: 'compact-item-row' }, [lineField, trashBtn]);
 
   const validation = validateGripNotch(context.run, context.grid, context.project, notch, siblings);
   const warning = !validation.ok ? el('div', { class: 'field' }, [
@@ -62,7 +56,7 @@ function renderOneNotch(index, notch, siblings, context, onUpdate, onRemove) {
     }),
   ]) : null;
 
-  return el('div', { class: 'grip-notch-item' }, [header, lineField, warning]);
+  return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
 export function renderGripNotchSection(project, pieceId, context, store) {
@@ -76,30 +70,22 @@ export function renderGripNotchSection(project, pieceId, context, store) {
   const removeAt = (index) => setList(notchListFor(project.pieceNotches, pieceId).filter((_, i) => i !== index));
   const addNotch = () => setList([...notches, { ...DEFAULT_GRIP_NOTCH }]);
 
-  // Built from the REAL pipeline (buildWallPanel, burn-corrected), folding
-  // in every notch currently in the list — both for the heading's label
-  // text (correct thicknessGroup, unlike a hand-built fake piece) and for
-  // the visual below. This is deliberately the actual piece the laser
-  // would cut, not an approximation — what you see here IS what gets
-  // exported.
-  const piece = burnCorrect(buildWallPanel(context.run, context.grid, context.project, true), context.project.burnMm);
-  const heading = el('h3', { text: pieceLabel(piece) || pieceId });
-
   const sectionLabel = el('div', { class: 'field-label' }, [
     'Encoches pour doigt',
     infoIcon('Découpe une ou plusieurs encoches dans le bord haut (libre) de ce pan, pour pouvoir y passer les doigts — par exemple pour ouvrir une boîte en tiroir.'),
   ]);
 
+  const fieldOrderHint = el('div', {
+    class: 'hint',
+    text: 'Largeur, profondeur, rayon, position (mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
+  });
+
   const items = notches.map((notch, index) => {
     const siblings = notches.filter((_, i) => i !== index);
-    return renderOneNotch(index, notch, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
+    return renderOneNotch(notch, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
   });
 
   const addBtn = el('button', { class: 'btn', text: '+ Ajouter une encoche', onClick: addNotch });
 
-  const visual = el('div', { class: 'preview-card grip-notch-visual' }, [
-    pieceToStandaloneSvg(piece, { padding: 8, minSize: 260, showLabels: false }),
-  ]);
-
-  return el('div', { class: 'inspector-section' }, [heading, sectionLabel, ...items, addBtn, visual]);
+  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, ...items, addBtn]);
 }
