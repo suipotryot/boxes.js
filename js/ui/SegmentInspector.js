@@ -18,8 +18,11 @@ import { burnCorrect } from '../geometry/BurnCorrection.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
 import { renderGripNotchSection } from './GripNotchEditor.js';
 import { renderHoleSection } from './HoleEditor.js';
+import { t } from '../i18n/index.js';
 
-const KIND_LABEL = { v: 'vertical', h: 'horizontal' };
+function kindLabel(kind) {
+  return kind === 'v' ? t('inspector.kindVertical') : t('inspector.kindHorizontal');
+}
 
 // The single, real-pipeline piece build shared by the top preview — keyed
 // off holeContext (never wallContext): both resolvers (PieceContext.js)
@@ -60,22 +63,22 @@ function renderSegmentFields(project, selected, store) {
   const resolvedThickness = resolveThickness(seg, project);
 
   const presenceRow = el('div', { class: 'field' }, [
-    el('span', { class: 'field-label', text: 'État' }),
+    el('span', { class: 'field-label', text: t('inspector.state') }),
     el('button', {
       class: 'btn',
-      text: seg.present ? 'Supprimer ce segment' : 'Ajouter ce segment',
+      text: seg.present ? t('inspector.removeSegment') : t('inspector.addSegment'),
       disabled: outer,
       onClick: () => store.apply((p) => ({ ...p, grid: toggleWall(p.grid, kind, c, r) })),
     }),
-    outer ? el('span', { class: 'hint', text: 'Le périmètre extérieur ne peut pas être retiré.' }) : null,
+    outer ? el('span', { class: 'hint', text: t('inspector.outerCannotRemove') }) : null,
   ]);
 
   // No group selector — a segment's thicknessGroup is fixed by its
   // position (outer perimeter vs. interior divider), never reassignable
   // per segment. Just show the resolved value, read-only.
   const groupRow = el('div', { class: 'field' }, [
-    el('span', { class: 'field-label', text: 'Épaisseur' }),
-    el('span', { class: 'hint', text: `${resolvedThickness}mm (${outer ? 'extérieur' : 'intérieur'})` }),
+    el('span', { class: 'field-label', text: t('inspector.thickness') }),
+    el('span', { class: 'hint', text: t('inspector.thicknessValue', { thickness: resolvedThickness, kind: outer ? t('inspector.outer') : t('inspector.inner') }) }),
   ]);
 
   const heightInput = el('input', {
@@ -83,7 +86,7 @@ function renderSegmentFields(project, selected, store) {
     step: '1',
     min: '0',
     value: seg.heightMm != null ? String(seg.heightMm) : '',
-    placeholder: `hérite: ${resolvedHeight}mm`,
+    placeholder: t('inspector.heightPlaceholder', { height: resolvedHeight }),
     onChange: (evt) => {
       const raw = evt.target.value.trim();
       const heightMm = raw === '' ? null : Number(raw);
@@ -91,13 +94,13 @@ function renderSegmentFields(project, selected, store) {
     },
   });
   const heightRow = el('div', { class: 'field' }, [
-    el('span', { class: 'field-label', text: 'Hauteur (mm)' }),
+    el('span', { class: 'field-label', text: t('inspector.height') }),
     heightInput,
-    outer ? el('span', { class: 'hint', text: 'S’applique à tout le pourtour extérieur.' }) : null,
+    outer ? el('span', { class: 'hint', text: t('inspector.heightAppliesOuter') }) : null,
   ]);
 
   return el('div', { class: 'inspector-section' }, [
-    el('h3', { text: `Mur ${KIND_LABEL[kind]} — c=${c}, r=${r}` }),
+    el('h3', { text: t('inspector.wallHeading', { kind: kindLabel(kind), c, r }) }),
     presenceRow,
     groupRow,
     heightRow,
@@ -117,7 +120,7 @@ export function renderInspector(project, selected, selectedWallId, store) {
 
   if (!sections.length) {
     return el('div', { class: 'inspector empty' }, [
-      el('p', { text: 'Cliquez sur un segment de la grille, ou sur une pièce dans l’aperçu, pour l’inspecter.' }),
+      el('p', { text: t('inspector.empty') }),
     ]);
   }
 
