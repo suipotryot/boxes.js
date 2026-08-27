@@ -10,6 +10,7 @@
 // idiom, so it lives alongside the SVG one rather than in its own file.
 import { el } from './dom.js';
 import { planExport, exportProjectSvg, sanitizeFilename } from '../export/ExportPipeline.js';
+import { t } from '../i18n/index.js';
 
 // Prefers the File System Access API's save dialog (lets the user pick
 // where the file goes) over the classic blob + <a download> trick (which
@@ -27,7 +28,7 @@ async function exportProjectJson(project) {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName: filename,
-        types: [{ description: 'Projet JSON', accept: { 'application/json': ['.json'] } }],
+        types: [{ description: t('export.jsonFileType'), accept: { 'application/json': ['.json'] } }],
       });
       const writable = await handle.createWritable();
       await writable.write(text);
@@ -56,15 +57,15 @@ async function exportProjectJson(project) {
 export function renderExportJsonButton(project) {
   const button = el('button', {
     class: 'btn',
-    text: 'Exporter (JSON)',
+    text: t('export.exportJson'),
     onClick: async () => {
       button.disabled = true;
-      button.textContent = 'Export en cours…';
+      button.textContent = t('export.inProgress');
       try {
         await exportProjectJson(project);
       } finally {
         button.disabled = false;
-        button.textContent = 'Exporter (JSON)';
+        button.textContent = t('export.exportJson');
       }
     },
   });
@@ -82,15 +83,15 @@ export function renderExportJsonButton(project) {
 export function renderExportButton(project, showLabels) {
   const button = el('button', {
     class: 'btn',
-    text: 'Exporter (SVG)',
+    text: t('export.exportSvg'),
     onClick: async () => {
       button.disabled = true;
-      button.textContent = 'Export en cours…';
+      button.textContent = t('export.inProgress');
       try {
         await exportProjectSvg(project, { labels: showLabels });
       } finally {
         button.disabled = false;
-        button.textContent = 'Exporter (SVG)';
+        button.textContent = t('export.exportSvg');
       }
     },
   });
@@ -102,17 +103,21 @@ export function renderExportButton(project, showLabels) {
 export function renderExportHint(project) {
   const plan = planExport(project);
   const summary = plan.length
-    ? plan.map((g) => `${g.thicknessMm}mm : ${g.pages.length} page${g.pages.length > 1 ? 's' : ''}`).join(' · ')
-    : 'aucune pièce à exporter';
+    ? plan.map((g) => t('export.pageSummary', {
+      thickness: g.thicknessMm,
+      count: g.pages.length,
+      unit: g.pages.length > 1 ? t('export.pages') : t('export.page'),
+    })).join(' · ')
+    : t('export.noPieces');
 
   const deepnestHint = el('span', { class: 'hint' }, [
-    'Pour un nesting optimal (imbrication réelle des pièces), importer le SVG exporté dans ',
-    el('a', { href: 'https://deepnest.io/', target: '_blank', rel: 'noopener', text: 'Deepnest' }),
-    ' (gratuit).',
+    `${t('export.deepnestHintPrefix')} `,
+    el('a', { href: 'https://deepnest.io/', target: '_blank', rel: 'noopener', text: t('export.deepnestLinkText') }),
+    ` ${t('export.deepnestHintSuffix')}`,
   ]);
 
   return el('div', { class: 'export-hint' }, [
-    el('span', { class: 'hint', text: `Export SVG multi-pages — empaquetage rectangulaire optimisé, pas d’imbrication réelle des pièces. ${summary}.` }),
+    el('span', { class: 'hint', text: t('export.hintMain', { summary }) }),
     deepnestHint,
   ]);
 }

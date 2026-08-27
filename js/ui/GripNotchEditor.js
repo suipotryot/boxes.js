@@ -20,6 +20,7 @@ import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
 import { DEFAULT_GRIP_NOTCH, maxRadiusMm, notchListFor, formatNotchLine, parseNotchLine } from '../geometry/GripNotch.js';
 import { validateGripNotch } from '../geometry/GripNotchValidation.js';
+import { t } from '../i18n/index.js';
 
 function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   const lineField = el('label', { class: 'field' }, [
@@ -35,7 +36,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   ]);
 
   const trashBtn = el('button', {
-    class: 'icon-btn', title: 'Supprimer cette encoche', 'aria-label': 'Supprimer cette encoche',
+    class: 'icon-btn', title: t('notch.delete'), 'aria-label': t('notch.delete'),
     onClick: onRemove,
   }, [trashIcon()]);
 
@@ -45,7 +46,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   const warning = !validation.ok ? el('div', { class: 'field' }, [
     ...validation.problems.map((msg) => el('span', { class: 'warning', text: msg })),
     el('button', {
-      class: 'btn', text: 'Ajuster automatiquement',
+      class: 'btn', text: t('shared.autoFix'),
       onClick: () => {
         const widthMm = Math.max(1, Math.min(notch.widthMm, validation.maxWidthMm));
         const depthMm = Math.min(notch.depthMm, Math.max(1, validation.localHeight - 1));
@@ -71,13 +72,13 @@ export function renderGripNotchSection(project, pieceId, context, store) {
   const addNotch = () => setList([...notches, { ...DEFAULT_GRIP_NOTCH }]);
 
   const sectionLabel = el('div', { class: 'field-label' }, [
-    'Encoches pour doigt',
-    infoIcon('Découpe une ou plusieurs encoches dans le bord haut (libre) de ce pan, pour pouvoir y passer les doigts — par exemple pour ouvrir une boîte en tiroir.'),
+    t('notch.title'),
+    infoIcon(t('notch.help')),
   ]);
 
   const fieldOrderHint = el('div', {
     class: 'hint',
-    text: 'Largeur, profondeur, rayon, position (mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
+    text: t('notch.fieldOrderHint'),
   });
 
   const items = notches.map((notch, index) => {
@@ -85,7 +86,7 @@ export function renderGripNotchSection(project, pieceId, context, store) {
     return renderOneNotch(notch, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
   });
 
-  const addBtn = el('button', { class: 'btn', text: '+ Ajouter une encoche', onClick: addNotch });
+  const addBtn = el('button', { class: 'btn', text: t('notch.add'), onClick: addNotch });
 
   return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, ...items, addBtn]);
 }

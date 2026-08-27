@@ -8,6 +8,7 @@ import { renderInspector } from './SegmentInspector.js';
 import { renderSettingsPanel } from './SettingsPanel.js';
 import { renderExportButton, renderExportHint, renderExportJsonButton } from './ExportView.js';
 import { homeIcon } from './fields.js';
+import { t } from '../i18n/index.js';
 import { computePieces } from '../geometry/PieceFactory.js';
 import { wallPieceId } from '../geometry/PanelBuilder.js';
 import { runAt } from '../model/GridQuery.js';
@@ -111,7 +112,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     // below) are the conventional, sufficient way to reach them.
     const toolbar = el('div', { class: 'toolbar' }, [
       el('div', { class: 'toolbar-group' }, [
-        onBackToList ? el('button', { class: 'btn', onClick: onBackToList }, [homeIcon(), 'Mes projets']) : null,
+        onBackToList ? el('button', { class: 'btn', onClick: onBackToList }, [homeIcon(), t('editor.backToList')]) : null,
         renderExportJsonButton(project),
         renderExportButton(project, showLabels),
       ]),

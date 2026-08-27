@@ -16,6 +16,7 @@ import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
 import { DEFAULT_HOLE, maxRadiusMm, holeListFor, formatHoleLine, parseHoleLine } from '../geometry/Hole.js';
 import { validateHoleInRect, validateWallHole } from '../geometry/HoleValidation.js';
+import { t } from '../i18n/index.js';
 
 function validateHole(context, hole, siblings) {
   return context.kind === 'wall'
@@ -37,7 +38,7 @@ function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
   ]);
 
   const trashBtn = el('button', {
-    class: 'icon-btn', title: 'Supprimer ce trou', 'aria-label': 'Supprimer ce trou',
+    class: 'icon-btn', title: t('hole.delete'), 'aria-label': t('hole.delete'),
     onClick: onRemove,
   }, [trashIcon()]);
 
@@ -47,7 +48,7 @@ function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
   const warning = !validation.ok ? el('div', { class: 'field' }, [
     ...validation.problems.map((msg) => el('span', { class: 'warning', text: msg })),
     el('button', {
-      class: 'btn', text: 'Ajuster automatiquement',
+      class: 'btn', text: t('shared.autoFix'),
       onClick: () => {
         const widthMm = Math.max(1, Math.min(hole.widthMm, validation.maxWidthMm));
         const heightMm = Math.max(1, Math.min(hole.heightMm, validation.maxHeightMm));
@@ -75,13 +76,13 @@ export function renderHoleSection(project, pieceId, context, store) {
   const addHole = () => setList([...holes, { ...DEFAULT_HOLE }]);
 
   const sectionLabel = el('div', { class: 'field-label' }, [
-    'Trous',
-    infoIcon('Découpe un ou plusieurs trous rectangulaires (avec coins arrondis en option) dans cette pièce, par exemple pour un passage de câble ou une fixation.'),
+    t('hole.title'),
+    infoIcon(t('hole.help')),
   ]);
 
   const fieldOrderHint = el('div', {
     class: 'hint',
-    text: 'Position X, position Y, largeur, hauteur, rayon (mm), séparés par des virgules — le point sépare les décimales, ex. « 20, 10, 30, 15, 3 ».',
+    text: t('hole.fieldOrderHint'),
   });
 
   const items = holes.map((hole, index) => {
@@ -89,7 +90,7 @@ export function renderHoleSection(project, pieceId, context, store) {
     return renderOneHole(hole, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
   });
 
-  const addBtn = el('button', { class: 'btn', text: '+ Ajouter un trou', onClick: addHole });
+  const addBtn = el('button', { class: 'btn', text: t('hole.add'), onClick: addHole });
 
   return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, ...items, addBtn]);
 }
