@@ -6,16 +6,23 @@
 // underlying value. Screen-specific fields (project name, grid, lid,
 // autosave delay…) keep their tooltip text inline at their own call site
 // instead, since nothing else needs to match it.
-export const FINGER_MM_HELP = 'Largeur de chaque dent des assemblages en doigts de menuisier.';
-export const SPACE_MM_HELP = 'Largeur de chaque espace entre deux dents.';
-export const MARGIN_MM_HELP = 'Marge plane minimale laissée à chaque extrémité d’une rangée de dents, avant que les dents commencent.';
+//
+// Each is a function, not a plain string, so it re-reads the active locale
+// (js/i18n/index.js) at call time — every call site is inside some view's
+// render(), so this stays in sync the same way the rest of that view's own
+// text does.
+import { t } from '../i18n/index.js';
+
+export const FINGER_MM_HELP = () => t('help.fingerMm');
+export const SPACE_MM_HELP = () => t('help.spaceMm');
+export const MARGIN_MM_HELP = () => t('help.marginMm');
 // See FingerJoint.js's own fingerEdgePath(): play shrinks each dent and
 // grows each espace by this same amount — this text mirrors that exactly,
 // not a guess at the intent from the field's name alone.
-export const PLAY_MM_HELP = 'Jeu de serrage : chaque dent est rétrécie et chaque espace élargi de cette valeur, pour que les pièces s’emboîtent sans forcer une fois découpées (compense la découpe laser et les tolérances du matériau).';
-export const BURN_MM_HELP = 'Largeur de matière retirée par le laser à la découpe (jeu de coupe / kerf). L’app agrandit légèrement les contours et rétrécit les trous de ce montant pour que les pièces mesurent la bonne taille une fois coupées.';
-export const LASER_WIDTH_HELP = 'Largeur de la zone de découpe de la machine — détermine comment les pièces sont réparties sur plusieurs pages à l’export.';
-export const LASER_HEIGHT_HELP = 'Hauteur de la zone de découpe de la machine — détermine comment les pièces sont réparties sur plusieurs pages à l’export.';
-export const LASER_SPACING_HELP = 'Espace minimal laissé entre deux pièces voisines sur une même page d’export.';
-export const DRAWER_PLAY_HELP = 'Jeu de glissement entre la boîte actuelle et la boîte englobante — appliqué du côté fermé de l’axe d’ouverture, et des deux côtés sur l’autre axe. Le côté ouvert reste toujours à fleur, sans jeu ni marge supplémentaire.';
-export const DRAWER_THICKNESS_HELP = 'Épaisseur du matériau utilisé pour la boîte englobante — indépendante de l’épaisseur extérieure de la boîte principale.';
+export const PLAY_MM_HELP = () => t('help.playMm');
+export const BURN_MM_HELP = () => t('help.burnMm');
+export const LASER_WIDTH_HELP = () => t('help.laserWidth');
+export const LASER_HEIGHT_HELP = () => t('help.laserHeight');
+export const LASER_SPACING_HELP = () => t('help.laserSpacing');
+export const DRAWER_PLAY_HELP = () => t('help.drawerPlay');
+export const DRAWER_THICKNESS_HELP = () => t('help.drawerThickness');

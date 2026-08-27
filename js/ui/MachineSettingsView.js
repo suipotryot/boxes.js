@@ -17,6 +17,7 @@
 import { el, clear } from './dom.js';
 import { numberField } from './fields.js';
 import { BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP } from './fieldHelp.js';
+import { t } from '../i18n/index.js';
 
 export function mountMachineSettingsView(container, { repo }) {
   const machine = repo.getMachineSettings();
@@ -26,14 +27,14 @@ export function mountMachineSettingsView(container, { repo }) {
 
   clear(container);
   container.appendChild(el('div', { class: 'settings-screen' }, [
-    el('h2', { text: 'Ma machine' }),
-    el('p', { class: 'hint', text: 'Réglages de ta découpeuse laser, pré-remplis sur chaque nouveau projet — modifier ces valeurs n’affecte pas les projets déjà créés.' }),
+    el('h2', { text: t('shared.machineTitle') }),
+    el('p', { class: 'hint', text: t('machine.hint') }),
 
-    el('h3', { text: 'Découpe laser' }),
-    numberField('Largeur de la zone de travail (mm)', machine.laserBed.widthMm, (n) => updateLaserBed({ widthMm: n }), '1', LASER_WIDTH_HELP),
-    numberField('Hauteur de la zone de travail (mm)', machine.laserBed.heightMm, (n) => updateLaserBed({ heightMm: n }), '1', LASER_HEIGHT_HELP),
-    numberField('Espacement entre pièces (mm)', machine.laserBed.spacingMm, (n) => updateLaserBed({ spacingMm: n }), '1', LASER_SPACING_HELP),
-    numberField('Jeu de coupe / burn (mm)', machine.burnMm, (n) => update({ burnMm: n }), '0.01', BURN_MM_HELP),
+    el('h3', { text: t('shared.laserSection') }),
+    numberField(t('field.laserWidth'), machine.laserBed.widthMm, (n) => updateLaserBed({ widthMm: n }), '1', LASER_WIDTH_HELP()),
+    numberField(t('field.laserHeight'), machine.laserBed.heightMm, (n) => updateLaserBed({ heightMm: n }), '1', LASER_HEIGHT_HELP()),
+    numberField(t('field.laserSpacing'), machine.laserBed.spacingMm, (n) => updateLaserBed({ spacingMm: n }), '1', LASER_SPACING_HELP()),
+    numberField(t('field.burnMm'), machine.burnMm, (n) => update({ burnMm: n }), '0.01', BURN_MM_HELP()),
   ]));
 
   return { unmount() {} };

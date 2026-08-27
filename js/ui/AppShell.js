@@ -34,10 +34,12 @@ import { mountEditorView } from './EditorView.js';
 import { mountProjectListView } from './ProjectListView.js';
 import { mountMachineSettingsView } from './MachineSettingsView.js';
 import { mountPreferencesView } from './PreferencesView.js';
+import { setActiveLocale, t } from '../i18n/index.js';
 import Backbone from 'backbone';
 
 export function mountAppShell(container) {
   const repo = createProjectRepository();
+  setActiveLocale(repo.getLocale());
   let current = null; // whichever screen's { unmount(), flush? } is live
 
   // A brand-new project is only assigned an id in memory when created —
@@ -93,7 +95,7 @@ export function mountAppShell(container) {
   // rely on its exact hardcoded values). Never affects an
   // already-created project — this only runs once, at creation.
   function createAndOpenProject() {
-    const base = createDefaultProject();
+    const base = createDefaultProject(t('app.defaultProjectName'));
     const machine = repo.getMachineSettings();
     const prefs = repo.getPreferences();
     pendingNewProject = {
