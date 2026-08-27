@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Export &amp; Cutting — Boxes.js Documentation</title>
+  <link rel="stylesheet" href="assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../index.html">Back to the app</a>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Box maker for laser tool</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="getting-started.html">Getting Started</a></li>
+      <li><a href="the-grid-model.html">The Grid Model</a></li>
+      <li><a href="walls-and-joints.html">Walls &amp; Joints</a></li>
+      <li><a href="holes-and-notches.html">Holes &amp; Notches</a></li>
+      <li><a href="lid-and-drawer.html">Lid &amp; Drawer</a></li>
+      <li><a class="active" href="export-and-cutting.html">Export &amp; Cutting</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; Preferences</a></li>
+      <li><a href="managing-projects.html">Managing Projects</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Export &amp; Cutting</h1>
+    <p class="docs-lede">Two toolbar buttons, two very different files.</p>
+
+    <h2>Export (SVG) — the cutting file</h2>
+    <p>Produces the files you actually send to the laser. Pieces are first grouped by material thickness, then packed onto pages sized to your <strong>laser bed</strong> (see <a href="machine-and-preferences.html">Machine &amp; Preferences</a>), with the configured spacing kept both between pieces and along the page edges.</p>
+    <p>Each thickness group downloads as one or more SVG files, one per page, named after the project and page number. Because browsers block rapid multi-file downloads, files download roughly 300&nbsp;ms apart — expect a short pause between them for boxes with several thickness groups or pages.</p>
+    <p>Turn on <strong>Label pieces</strong> (in the left panel's Options section) to engrave each piece's name into its own outline in both the on-screen preview and the exported SVG — handy for telling similar-looking pieces apart once they're cut.</p>
+
+    <h3>Packing and nesting</h3>
+    <p>Pieces are packed with a rectangular bin-packing algorithm (MaxRects) that fills leftover space efficiently — but it's still <strong>bounding-box packing</strong>: an irregular piece (say, one with a curved notch) still reserves its full rectangular footprint, empty margin included. It isn't true polygon nesting.</p>
+    <div class="admonition">
+      <p class="admonition-title">Tip</p>
+      <p>For denser layouts with real irregular-shape nesting, import the exported SVG into the free tool <a href="https://deepnest.io/" target="_blank" rel="noopener">Deepnest</a>. Boxes.js shows a page-count summary and this same tip directly above the export button.</p>
+    </div>
+    <p>An oversized piece — bigger than the laser bed itself — is never silently dropped: it's placed alone on its own page instead.</p>
+
+    <h2>Export (JSON) — the project file</h2>
+    <p>Saves the whole project's state (dimensions, grid, holes, notches, lid/drawer settings, and so on) to a JSON file. This is for backing up or re-importing a project — it is <strong>not</strong> a cutting file. Where your browser supports it, this opens a real save-location dialog (the File System Access API); otherwise it falls back to a normal download into your browser's default downloads folder.</p>
+    <p>See <a href="managing-projects.html">Managing Projects</a> for the project list's own, separate import/export of saved projects.</p>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="lid-and-drawer.html"><span class="pager-label">Previous</span>← Lid &amp; Drawer</a>
+      <a class="pager-next" href="machine-and-preferences.html"><span class="pager-label">Next</span>Machine &amp; Preferences →</a>
+    </div>
+  </main>
+</body>
+</html>

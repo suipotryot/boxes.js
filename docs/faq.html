@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FAQ — Boxes.js Documentation</title>
+  <link rel="stylesheet" href="assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../index.html">Back to the app</a>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Box maker for laser tool</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="getting-started.html">Getting Started</a></li>
+      <li><a href="the-grid-model.html">The Grid Model</a></li>
+      <li><a href="walls-and-joints.html">Walls &amp; Joints</a></li>
+      <li><a href="holes-and-notches.html">Holes &amp; Notches</a></li>
+      <li><a href="lid-and-drawer.html">Lid &amp; Drawer</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; Cutting</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; Preferences</a></li>
+      <li><a href="managing-projects.html">Managing Projects</a></li>
+      <li><a class="active" href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>FAQ</h1>
+
+    <h3>Can I undo a change?</h3>
+    <p><kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redoes, while the editor is focused.</p>
+
+    <h3>Why isn't the exported layout as tight as I expected?</h3>
+    <p>Boxes.js packs pieces by their rectangular bounding box, not their exact outline — see <a href="export-and-cutting.html">Export &amp; Cutting</a>. For real irregular-shape nesting, run the exported SVG through <a href="https://deepnest.io/" target="_blank" rel="noopener">Deepnest</a>.</p>
+
+    <h3>Is my data stored online anywhere?</h3>
+    <p>No — everything runs locally in your browser, and projects are stored there. Use <strong>Export (JSON)</strong> (see <a href="export-and-cutting.html">Export &amp; Cutting</a>) if you want a portable backup, since browser storage can be cleared or is specific to one browser/device.</p>
+
+    <h3>What file formats can I export?</h3>
+    <p>SVG for cutting, and JSON for saving/reloading a project. There is no DXF export today.</p>
+
+    <h3>I changed My machine or Preferences, but an existing project didn't change.</h3>
+    <p>That's expected — those two screens only set defaults for <em>new</em> projects. See <a href="machine-and-preferences.html">Machine &amp; Preferences</a>.</p>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="managing-projects.html"><span class="pager-label">Previous</span>← Managing Projects</a>
+      <span></span>
+    </div>
+  </main>
+</body>
+</html>

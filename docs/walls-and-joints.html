@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Walls &amp; Joints — Boxes.js Documentation</title>
+  <link rel="stylesheet" href="assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../index.html">Back to the app</a>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Box maker for laser tool</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="getting-started.html">Getting Started</a></li>
+      <li><a href="the-grid-model.html">The Grid Model</a></li>
+      <li><a class="active" href="walls-and-joints.html">Walls &amp; Joints</a></li>
+      <li><a href="holes-and-notches.html">Holes &amp; Notches</a></li>
+      <li><a href="lid-and-drawer.html">Lid &amp; Drawer</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; Cutting</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; Preferences</a></li>
+      <li><a href="managing-projects.html">Managing Projects</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Walls &amp; Joints</h1>
+    <p class="docs-lede">Thickness, height, and how pieces lock together at the corners.</p>
+
+    <h2>Thickness</h2>
+    <p>Set separately for the two kinds of walls described in <a href="the-grid-model.html">The Grid Model</a>:</p>
+    <ul>
+      <li><strong>Outer thickness</strong> — the perimeter walls and the base plate.</li>
+      <li><strong>Inner thickness</strong> — the dividers between cells.</li>
+    </ul>
+    <p>Use the inner thickness that matches whatever sheet material you're actually cutting the dividers from — it doesn't have to match the outer thickness.</p>
+
+    <h2>Height</h2>
+    <ul>
+      <li><strong>Outer height</strong> — the perimeter wall height.</li>
+      <li><strong>Default inner height</strong> — applied to every divider, overridable per segment (see <a href="the-grid-model.html">The Grid Model</a>).</li>
+    </ul>
+
+    <h2>Finger joints</h2>
+    <p>Pieces that meet at a corner or a T-junction are locked together with finger joints (interlocking teeth), controlled by four fields:</p>
+    <table>
+      <tr><th>Field</th><th>What it does</th></tr>
+      <tr><td>Finger width</td><td>The width of each tooth of the joint.</td></tr>
+      <tr><td>Space width</td><td>The width of each gap between two teeth.</td></tr>
+      <tr><td>Min. margin</td><td>The flat margin left at each end of a row of teeth, before the teeth start.</td></tr>
+      <tr><td>Play</td><td>Each tooth is shrunk and each gap is widened by this amount, so the pieces fit together without forcing once cut — it compensates for laser kerf and material tolerance.</td></tr>
+    </table>
+
+    <h2>Kerf / burn compensation</h2>
+    <p>The <strong>burn</strong> (kerf) setting is the width of material the laser removes at the cut line. The app slightly enlarges outlines and shrinks holes by this amount, so pieces measure the correct size once they've actually been cut.</p>
+
+    <div class="admonition">
+      <p class="admonition-title">Tip</p>
+      <p>If pieces come out slightly undersized or oversized after cutting, adjust <strong>burn</strong> rather than the piece dimensions themselves — it's meant to be tuned per material and per laser.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="the-grid-model.html"><span class="pager-label">Previous</span>← The Grid Model</a>
+      <a class="pager-next" href="holes-and-notches.html"><span class="pager-label">Next</span>Holes &amp; Notches →</a>
+    </div>
+  </main>
+</body>
+</html>

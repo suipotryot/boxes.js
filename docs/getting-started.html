@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Getting Started — Boxes.js Documentation</title>
+  <link rel="stylesheet" href="assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../index.html">Back to the app</a>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Box maker for laser tool</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a class="active" href="getting-started.html">Getting Started</a></li>
+      <li><a href="the-grid-model.html">The Grid Model</a></li>
+      <li><a href="walls-and-joints.html">Walls &amp; Joints</a></li>
+      <li><a href="holes-and-notches.html">Holes &amp; Notches</a></li>
+      <li><a href="lid-and-drawer.html">Lid &amp; Drawer</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; Cutting</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; Preferences</a></li>
+      <li><a href="managing-projects.html">Managing Projects</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Getting Started</h1>
+    <p class="docs-lede">Build your first box in a few minutes.</p>
+
+    <h2>1. Create a project</h2>
+    <p>Open the app — you land on <strong>My projects</strong>. Click the button to create a new project. A new project starts from your <a href="machine-and-preferences.html">Preferences</a> and <a href="machine-and-preferences.html">machine</a> defaults, so it's worth setting those once before your first box.</p>
+
+    <h2>2. Set the grid</h2>
+    <p>In the editor's left panel, set <strong>Columns</strong> and <strong>Rows</strong> as comma-separated lists of sizes in millimeters, for example <code>100, 80, 100</code> for three columns of those widths. Each value becomes one column or row of the grid — see <a href="the-grid-model.html">The Grid Model</a> for how this maps to walls and dividers.</p>
+
+    <h2>3. Set thickness and height</h2>
+    <p>Still in the left panel, open <strong>Thickness &amp; heights</strong> and set the outer wall thickness, the inner divider thickness, the outer wall height, and the default divider height. These apply everywhere unless you override a specific wall — see <a href="walls-and-joints.html">Walls &amp; Joints</a>.</p>
+
+    <h2>4. Inspect and adjust a wall</h2>
+    <p>Click any wall line in the grid drawing to select it. The right panel (the inspector) shows that wall's state — present or absent, its height — and, once a piece is selected, its holes and finger-pull notches. Removing an inner divider or overriding one wall's height is done here.</p>
+
+    <h2>5. Check the pieces</h2>
+    <p>Below the grid, the preview strip lists every piece the app has computed from your settings — every wall, divider, and the base plate — as a small standalone drawing. Click a card to select that piece in the inspector.</p>
+
+    <h2>6. Export for cutting</h2>
+    <p>When the box looks right, use the toolbar's <strong>Export (SVG)</strong> button to download laser-ready cutting files, paginated to your laser bed size. See <a href="export-and-cutting.html">Export &amp; Cutting</a> for what gets exported and how pages are laid out.</p>
+
+    <div class="admonition">
+      <p class="admonition-title">Tip</p>
+      <p>Your project is saved automatically as you work — there's no save button. Use <strong>Export (JSON)</strong> if you want a backup file or want to move the project to another browser or machine.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="index.html"><span class="pager-label">Previous</span>← Home</a>
+      <a class="pager-next" href="the-grid-model.html"><span class="pager-label">Next</span>The Grid Model →</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>The Grid Model — Boxes.js Documentation</title>
+  <link rel="stylesheet" href="assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../index.html">Back to the app</a>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Box maker for laser tool</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="getting-started.html">Getting Started</a></li>
+      <li><a class="active" href="the-grid-model.html">The Grid Model</a></li>
+      <li><a href="walls-and-joints.html">Walls &amp; Joints</a></li>
+      <li><a href="holes-and-notches.html">Holes &amp; Notches</a></li>
+      <li><a href="lid-and-drawer.html">Lid &amp; Drawer</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; Cutting</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; Preferences</a></li>
+      <li><a href="managing-projects.html">Managing Projects</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>The Grid Model</h1>
+    <p class="docs-lede">Boxes.js builds a box from a grid of cells, not a fixed set of box "shapes".</p>
+
+    <h2>Columns and rows</h2>
+    <p>The grid is defined by two comma-separated lists: <strong>Columns</strong> (widths, left to right) and <strong>Rows</strong> (depths, front to back). Each entry is one column or row width in millimeters — they don't need to be equal, so <code>60, 120, 60</code> gives you a wide center compartment flanked by two narrower ones.</p>
+    <p>The number of entries sets the number of cells; the grid lines between and around them become walls and dividers.</p>
+
+    <h2>Segments</h2>
+    <p>Every wall line in the grid drawing is a <strong>segment</strong> — one edge between two grid intersections. Click a segment to select it in the inspector, which shows:</p>
+    <ul>
+      <li><strong>Present / absent</strong> — an inner segment (a divider) can be removed to merge two cells into one compartment. Outer perimeter segments can't be removed.</li>
+      <li><strong>Height</strong> — overridable per segment. Changing the height of an <em>outer</em> segment applies to the whole outer perimeter, since the lid needs a flat, level rim to sit on.</li>
+    </ul>
+
+    <h2>Pieces</h2>
+    <p>Several segments in a straight line, all present, are grouped into a single <strong>piece</strong> — the actual part that gets cut, with its own finger joints along shared edges. That's what's shown in the preview strip and what the inspector's holes/notches sections apply to once you select one.</p>
+
+    <h2>Outer walls vs. inner dividers</h2>
+    <p>The grid distinguishes two kinds of walls, each with its own thickness setting (see <a href="walls-and-joints.html">Walls &amp; Joints</a>):</p>
+    <table>
+      <tr><th>Kind</th><th>Where</th><th>Can be removed?</th></tr>
+      <tr><td>Outer</td><td>The box's perimeter</td><td>No</td></tr>
+      <tr><td>Inner</td><td>Dividers between cells</td><td>Yes</td></tr>
+    </table>
+
+    <div class="admonition warning">
+      <p class="admonition-title">Warning</p>
+      <p>Resizing the grid (changing the Columns or Rows list) can discard segment and floor customizations that no longer map onto the new layout. The app asks for confirmation before applying a resize that would lose work.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="getting-started.html"><span class="pager-label">Previous</span>← Getting Started</a>
+      <a class="pager-next" href="walls-and-joints.html"><span class="pager-label">Next</span>Walls &amp; Joints →</a>
+    </div>
+  </main>
+</body>
+</html>

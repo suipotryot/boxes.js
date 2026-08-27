@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Lid &amp; Drawer — Boxes.js Documentation</title>
+  <link rel="stylesheet" href="assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../index.html">Back to the app</a>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Box maker for laser tool</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="getting-started.html">Getting Started</a></li>
+      <li><a href="the-grid-model.html">The Grid Model</a></li>
+      <li><a href="walls-and-joints.html">Walls &amp; Joints</a></li>
+      <li><a href="holes-and-notches.html">Holes &amp; Notches</a></li>
+      <li><a class="active" href="lid-and-drawer.html">Lid &amp; Drawer</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; Cutting</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; Preferences</a></li>
+      <li><a href="managing-projects.html">Managing Projects</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Lid &amp; Drawer</h1>
+    <p class="docs-lede">Two optional, independent additions to a box: a fixed lid, and a sliding drawer sleeve.</p>
+
+    <h2>Fixed lid</h2>
+    <p>Enable the lid in the left panel's <strong>Lid</strong> section. Its position is set with a single field:</p>
+    <ul>
+      <li><strong>Insertion height</strong> — the height at which the lid's underside sits inside the box. A lower value seats the lid flush with, or recessed below, the top of the walls; a higher value would sit above it.</li>
+    </ul>
+    <p>The value is validated against a minimum and maximum for the current box; if it's out of range, use the <strong>Auto-fix</strong> button to snap it back into a valid position.</p>
+    <p>Because the lid needs a level rim to rest on, overriding one outer wall's height (see <a href="the-grid-model.html">The Grid Model</a>) applies to the whole outer perimeter, not just that one segment.</p>
+
+    <h2>Drawer sleeve</h2>
+    <p>Enable the drawer in the left panel's <strong>Drawer box</strong> section. This builds a second, independent enclosing box around your current box's footprint — always five pieces (base, lid, and three walls) — open on one side, so the box you designed slides out of it like a drawer.</p>
+    <table>
+      <tr><th>Field</th><th>Meaning</th></tr>
+      <tr><td>Open side</td><td>Which side of the sleeve is left open: top, bottom, right, or left.</td></tr>
+      <tr><td>Play / margin</td><td>Sliding clearance between the inner box and the sleeve — applied on the closed side of the opening axis, and on both sides of the other axis. The open side itself stays flush, with no extra clearance.</td></tr>
+      <tr><td>Wood thickness</td><td>Material thickness for the sleeve, set independently from the main box's outer thickness.</td></tr>
+    </table>
+
+    <div class="admonition">
+      <p class="admonition-title">Tip</p>
+      <p>Add a <a href="holes-and-notches.html">grip notch</a> on the open side of your inner box so there's something to pull it out by.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="holes-and-notches.html"><span class="pager-label">Previous</span>← Holes &amp; Notches</a>
+      <a class="pager-next" href="export-and-cutting.html"><span class="pager-label">Next</span>Export &amp; Cutting →</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Holes &amp; Notches — Boxes.js Documentation</title>
+  <link rel="stylesheet" href="assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../index.html">Back to the app</a>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Box maker for laser tool</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="getting-started.html">Getting Started</a></li>
+      <li><a href="the-grid-model.html">The Grid Model</a></li>
+      <li><a href="walls-and-joints.html">Walls &amp; Joints</a></li>
+      <li><a class="active" href="holes-and-notches.html">Holes &amp; Notches</a></li>
+      <li><a href="lid-and-drawer.html">Lid &amp; Drawer</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; Cutting</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; Preferences</a></li>
+      <li><a href="managing-projects.html">Managing Projects</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Holes &amp; Notches</h1>
+    <p class="docs-lede">Two different ways to cut extra openings into a piece.</p>
+
+    <h2>Holes</h2>
+    <p>A hole is a rectangle, with optional rounded corners, that can sit anywhere inside a piece — a wall, the base plate, the lid, or a drawer panel. A piece can have several holes. Typical uses are a cable pass-through or a mounting hole for a fixing.</p>
+    <p>Select a piece, open its <strong>Holes</strong> section in the inspector, and add a hole as one comma-separated line:</p>
+    <table>
+      <tr><th>Field</th><th>Meaning</th></tr>
+      <tr><td>Position X</td><td>Distance from the piece's left edge, in mm.</td></tr>
+      <tr><td>Position Y</td><td>Distance from the piece's top edge, in mm.</td></tr>
+      <tr><td>Width</td><td>Hole width, in mm.</td></tr>
+      <tr><td>Height</td><td>Hole height, in mm.</td></tr>
+      <tr><td>Radius</td><td>Corner rounding, in mm — <code>0</code> for sharp corners. Capped at half the smaller of width/height, since a bigger radius would make the corner arcs overlap.</td></tr>
+    </table>
+    <p>For example, <code>20, 10, 30, 15, 3</code> places a 30×15&nbsp;mm hole with 3&nbsp;mm rounded corners, 20&nbsp;mm from the left and 10&nbsp;mm from the top.</p>
+
+    <h2>Grip notches</h2>
+    <p>A grip notch is a different kind of cutout: it's always anchored to a wall's own free top edge, rather than floating freely like a hole. It's typically used to make a finger-pull opening — for example on the open side of a <a href="lid-and-drawer.html">drawer</a>.</p>
+    <p>Grip notches use the same compact comma-separated row editor as holes, with width, depth, radius, and offset along the edge.</p>
+
+    <div class="admonition">
+      <p class="admonition-title">Tip</p>
+      <p>Both editors validate your values and offer an <strong>Auto-fix</strong> button when a hole or notch doesn't fit the piece — for example when it would run past an edge.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="walls-and-joints.html"><span class="pager-label">Previous</span>← Walls &amp; Joints</a>
+      <a class="pager-next" href="lid-and-drawer.html"><span class="pager-label">Next</span>Lid &amp; Drawer →</a>
+    </div>
+  </main>
+</body>
+</html>
