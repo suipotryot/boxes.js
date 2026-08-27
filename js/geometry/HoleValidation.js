@@ -14,6 +14,10 @@
 // from PanelBuilder.js exactly as GripNotchValidation.js already does).
 import { heightProfile, heightAt } from './PanelBuilder.js';
 import { maxRadiusMm } from './Hole.js';
+// See GripNotchValidation.js's own comment on this same import: a
+// deliberate exception to geometry/'s usual zero-UI-dependency rule, since
+// these messages are rendered verbatim in HoleEditor.js.
+import { t } from '../i18n/index.js';
 
 const MIN_EDGE_MARGIN_MM = 2;
 
@@ -21,23 +25,23 @@ export function validateHoleInRect(rectWidthMm, rectHeightMm, hole, siblings = [
   const problems = [];
   const { xMm, yMm, widthMm, heightMm } = hole;
 
-  if (!(widthMm > 0)) problems.push('La dimension X doit être positive.');
-  if (!(heightMm > 0)) problems.push('La dimension Y doit être positive.');
+  if (!(widthMm > 0)) problems.push(t('validation.hole.xPositive'));
+  if (!(heightMm > 0)) problems.push(t('validation.hole.yPositive'));
 
   const radiusCap = maxRadiusMm(hole);
   if ((hole.radiusMm || 0) > radiusCap + 1e-9) {
-    problems.push(`Le rayon des coins ne peut pas dépasser ${radiusCap.toFixed(1)}mm (la moitié de la plus petite dimension).`);
+    problems.push(t('validation.hole.radiusTooBig', { cap: radiusCap.toFixed(1) }));
   }
 
   if (widthMm > 0 && heightMm > 0) {
-    if (xMm < MIN_EDGE_MARGIN_MM - 1e-9) problems.push(`Le trou doit rester à au moins ${MIN_EDGE_MARGIN_MM}mm du bord gauche.`);
-    if (yMm < MIN_EDGE_MARGIN_MM - 1e-9) problems.push(`Le trou doit rester à au moins ${MIN_EDGE_MARGIN_MM}mm du bord bas.`);
-    if (xMm + widthMm > rectWidthMm - MIN_EDGE_MARGIN_MM + 1e-9) problems.push(`Le trou doit rester à au moins ${MIN_EDGE_MARGIN_MM}mm du bord droit.`);
-    if (yMm + heightMm > rectHeightMm - MIN_EDGE_MARGIN_MM + 1e-9) problems.push(`Le trou doit rester à au moins ${MIN_EDGE_MARGIN_MM}mm du bord haut.`);
+    if (xMm < MIN_EDGE_MARGIN_MM - 1e-9) problems.push(t('validation.hole.tooCloseLeft', { margin: MIN_EDGE_MARGIN_MM }));
+    if (yMm < MIN_EDGE_MARGIN_MM - 1e-9) problems.push(t('validation.hole.tooCloseBottom', { margin: MIN_EDGE_MARGIN_MM }));
+    if (xMm + widthMm > rectWidthMm - MIN_EDGE_MARGIN_MM + 1e-9) problems.push(t('validation.hole.tooCloseRight', { margin: MIN_EDGE_MARGIN_MM }));
+    if (yMm + heightMm > rectHeightMm - MIN_EDGE_MARGIN_MM + 1e-9) problems.push(t('validation.hole.tooCloseTop', { margin: MIN_EDGE_MARGIN_MM }));
   }
 
   if (siblings.some((s) => xMm < s.xMm + s.widthMm && xMm + widthMm > s.xMm && yMm < s.yMm + s.heightMm && yMm + heightMm > s.yMm)) {
-    problems.push('Ce trou chevauche un autre trou de la même pièce — repositionnez-le ou repositionnez l\'autre.');
+    problems.push(t('validation.hole.overlapsSibling'));
   }
 
   return {
@@ -63,7 +67,7 @@ export function validateWallHole(run, grid, project, hole, siblings = []) {
   const result = validateHoleInRect(run.length, localHeight, hole, siblings);
   if (!containingSpan && widthMm > 0) {
     result.ok = false;
-    result.problems = [...result.problems, 'Le trou chevauche une variation de hauteur le long du pan — repositionnez-le dans une zone de hauteur uniforme.'];
+    result.problems = [...result.problems, t('validation.hole.crossesHeightChange')];
   }
   return result;
 }

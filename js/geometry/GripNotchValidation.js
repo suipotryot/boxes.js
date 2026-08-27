@@ -7,6 +7,14 @@
 // graph one-directional.
 import { heightProfile, junctionExclusionRanges } from './PanelBuilder.js';
 import { maxRadiusMm } from './GripNotch.js';
+// A rare dependency from geometry/ (otherwise pure math, no UI/state
+// imports) on the i18n singleton — these problem messages are shown
+// verbatim in GripNotchEditor.js, so they need to be in the active
+// locale too. t() defaults to 'fr' until something calls setActiveLocale
+// (AppShell.js, at startup), which is also why the existing French-text
+// assertions in js/test/gripNotch.test.js keep passing unmodified: that
+// test never touches locale, so it only ever sees the 'fr' dictionary.
+import { t } from '../i18n/index.js';
 
 /** @param {object[]} [siblings] the piece's OTHER grip notches (not this
  *  one), for the pairwise-overlap check below — a piece can now have
@@ -20,36 +28,36 @@ export function validateGripNotch(run, grid, project, notch, siblings = []) {
   const { widthMm, offsetMm, depthMm } = notch;
   const uEnd = offsetMm + widthMm;
 
-  if (!(widthMm > 0)) problems.push('La largeur doit être positive.');
-  if (!(depthMm > 0)) problems.push('La profondeur doit être positive.');
-  if (!(offsetMm >= 0)) problems.push('La position ne peut pas être négative.');
+  if (!(widthMm > 0)) problems.push(t('validation.widthPositive'));
+  if (!(depthMm > 0)) problems.push(t('validation.depthPositive'));
+  if (!(offsetMm >= 0)) problems.push(t('validation.offsetNotNegative'));
 
   const radiusCap = maxRadiusMm(notch);
   if ((notch.radiusMm || 0) > radiusCap + 1e-9) {
-    problems.push(`Le rayon des coins ne peut pas dépasser ${radiusCap.toFixed(1)}mm (la moitié de la largeur, ou la profondeur si elle est plus petite).`);
+    problems.push(t('validation.notch.radiusTooBig', { cap: radiusCap.toFixed(1) }));
   }
 
   if (widthMm > 0 && offsetMm >= 0 && uEnd > run.length + 1e-6) {
-    problems.push(`L'encoche dépasse l'extrémité du pan (largeur + position ≤ ${run.length.toFixed(1)}mm).`);
+    problems.push(t('validation.notch.overflowsRun', { length: run.length.toFixed(1) }));
   }
 
   const spans = heightProfile(run, grid, project);
   const containingSpan = spans.find((s) => s.uStart <= offsetMm + 1e-6 && s.uEnd >= uEnd - 1e-6);
   const localHeight = containingSpan ? containingSpan.height : Math.min(...spans.map((s) => s.height));
   if (!containingSpan && widthMm > 0 && offsetMm >= 0 && uEnd <= run.length + 1e-6) {
-    problems.push('L\'encoche chevauche une variation de hauteur le long du pan — repositionnez-la dans une zone de hauteur uniforme.');
+    problems.push(t('validation.notch.crossesHeightChange'));
   }
   if (depthMm > 0 && depthMm >= localHeight) {
-    problems.push(`La profondeur doit être inférieure à la hauteur locale du pan à cet endroit (${localHeight}mm).`);
+    problems.push(t('validation.notch.depthExceedsHeight', { height: localHeight }));
   }
 
   const exclusions = junctionExclusionRanges(run, grid, project);
   if (exclusions.some((ex) => offsetMm < ex.uEnd && uEnd > ex.uStart)) {
-    problems.push('L\'encoche chevauche une jonction (entaille en croix ou mortaise) sur ce pan — repositionnez-la.');
+    problems.push(t('validation.notch.crossesJunction'));
   }
 
   if (siblings.some((s) => offsetMm < s.offsetMm + s.widthMm && uEnd > s.offsetMm)) {
-    problems.push('Cette encoche chevauche une autre encoche du même pan — repositionnez-la ou repositionnez l\'autre.');
+    problems.push(t('validation.notch.overlapsSibling'));
   }
 
   return {
