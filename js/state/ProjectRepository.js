@@ -16,6 +16,7 @@ const AUTOSAVE_DELAY_KEY = 'boxes.js:autosave-delay-ms';
 const DEFAULT_AUTOSAVE_DELAY_MS = 5000;
 const MACHINE_SETTINGS_KEY = 'boxes.js:machine-settings';
 const PREFERENCES_KEY = 'boxes.js:preferences';
+const LOCALE_KEY = 'boxes.js:locale';
 
 // Matches createDefaultProject()'s own hardcoded values (js/state/Project.js)
 // — a first-ever launch, before the user has touched "Ma machine" or
@@ -46,7 +47,14 @@ function writeIndex(storage, ids) {
   storage.setItem(INDEX_KEY, JSON.stringify(ids));
 }
 
-export function createProjectRepository(storage = window.localStorage) {
+// Split out as its own injectable dependency (same spirit as debounce.js's
+// `scheduler` param) so getLocale() stays testable without a real
+// `navigator` — Node has no `navigator.language`, only browsers do.
+function defaultDetectLocale() {
+  return typeof navigator !== 'undefined' && navigator.language ? navigator.language.slice(0, 2) : null;
+}
+
+export function createProjectRepository(storage = window.localStorage, detectLocale = defaultDetectLocale) {
   // Backfills any top-level field missing from an older saved blob (e.g. a
   // project saved before `drawer` existed) with createDefaultProject()'s
   // own value for it — the loaded project's own fields always win where
@@ -151,6 +159,17 @@ export function createProjectRepository(storage = window.localStorage) {
 
     setPreferences(prefs) {
       storage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
+    },
+
+    /** The UI language. Falls back to the browser's own language (via
+     *  detectLocale) then to 'fr' once the user has never picked one
+     *  explicitly via setLocale(). */
+    getLocale() {
+      return storage.getItem(LOCALE_KEY) || detectLocale() || 'fr';
+    },
+
+    setLocale(locale) {
+      storage.setItem(LOCALE_KEY, locale);
     },
   };
 }

@@ -175,4 +175,20 @@ test('setPreferences()/getPreferences() round-trip', () => {
   assertClose(prefs.fingerJoint.playMm, 0.2, 1e-9);
 });
 
+test('getLocale() falls back to the injected detectLocale() when nothing is stored', () => {
+  const repo = createProjectRepository(createFakeStorage(), () => 'en');
+  assert(repo.getLocale() === 'en');
+});
+
+test('getLocale() falls back to "fr" when nothing is stored and detectLocale() finds nothing', () => {
+  const repo = createProjectRepository(createFakeStorage(), () => null);
+  assert(repo.getLocale() === 'fr');
+});
+
+test('setLocale()/getLocale() round-trip, taking priority over detectLocale()', () => {
+  const repo = createProjectRepository(createFakeStorage(), () => 'en');
+  repo.setLocale('fr');
+  assert(repo.getLocale() === 'fr');
+});
+
 run();
