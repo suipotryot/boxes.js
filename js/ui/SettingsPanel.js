@@ -8,6 +8,7 @@ import { numberField, textField, infoIcon } from './fields.js';
 import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP, DRAWER_PLAY_HELP, DRAWER_THICKNESS_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
 import { validateLid } from '../model/GridQuery.js';
+import { t } from '../i18n/index.js';
 
 function parseMmList(text) {
   return text.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
@@ -56,18 +57,18 @@ function lidSection(project, store, openSections, onToggleSection) {
       type: 'checkbox', checked: lid.enabled,
       onChange: (evt) => store.apply((p) => ({ ...p, lid: { ...p.lid, enabled: evt.target.checked } })),
     }),
-    el('span', { text: ' Couvercle fixe' }),
-    infoIcon('Ajoute un couvercle plat qui s’assemble aux parois extérieures, à une hauteur d’insertion donnée.'),
+    el('span', { text: ` ${t('settingsPanel.lidEnabled')}` }),
+    infoIcon(t('settingsPanel.lidHelp')),
   ]);
 
   if (!lid.enabled) {
-    return collapsibleSection(openSections, onToggleSection, 'lid', 'Couvercle', [enabledRow]);
+    return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow]);
   }
 
   const validation = validateLid(grid, project, lid.insertHeightMm);
 
   const heightField = el('label', { class: 'field' }, [
-    el('span', { class: 'field-label' }, ['Hauteur d’insertion (mm)', infoIcon('Hauteur à laquelle repose le dessous du couvercle, mesurée depuis le fond de la boîte.')]),
+    el('span', { class: 'field-label' }, [t('settingsPanel.lidInsertHeight'), infoIcon(t('settingsPanel.lidInsertHeightHelp'))]),
     el('input', {
       type: 'number', step: '1', min: '0',
       value: lid.insertHeightMm != null ? String(lid.insertHeightMm) : '',
@@ -77,13 +78,13 @@ function lidSection(project, store, openSections, onToggleSection) {
         store.apply((p) => ({ ...p, lid: { ...p.lid, insertHeightMm } }));
       },
     }),
-    el('span', { class: 'hint', text: `Plage valide : ${validation.min}–${validation.max}mm.` }),
+    el('span', { class: 'hint', text: t('settingsPanel.lidValidRange', { min: validation.min, max: validation.max }) }),
   ]);
 
   const warning = !validation.ok ? el('div', { class: 'field' }, [
-    el('span', { class: 'warning', text: `Hauteur invalide — doit être entre ${validation.min} et ${validation.max}mm.` }),
+    el('span', { class: 'warning', text: t('settingsPanel.lidInvalid', { min: validation.min, max: validation.max }) }),
     el('button', {
-      class: 'btn', text: 'Ajuster automatiquement',
+      class: 'btn', text: t('shared.autoFix'),
       onClick: () => {
         const clamped = lid.insertHeightMm == null
           ? validation.max
@@ -93,7 +94,7 @@ function lidSection(project, store, openSections, onToggleSection) {
     }),
   ]) : null;
 
-  return collapsibleSection(openSections, onToggleSection, 'lid', 'Couvercle', [enabledRow, heightField, warning]);
+  return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, heightField, warning]);
 }
 
 // The "Étiqueter les pièces" toggle — controls both the live preview
@@ -107,13 +108,15 @@ function optionsSection(openSections, onToggleSection, showLabels, onToggleLabel
       type: 'checkbox', checked: showLabels,
       onChange: (evt) => onToggleLabels(evt.target.checked),
     }),
-    el('span', { text: ' Étiqueter les pièces' }),
-    infoIcon('Grave le nom de chaque pièce (ex. « Paroi V2,0 ») sur son propre contour, dans l’aperçu et à l’export SVG.'),
+    el('span', { text: ` ${t('settingsPanel.labelPieces')}` }),
+    infoIcon(t('settingsPanel.labelPiecesHelp')),
   ]);
-  return collapsibleSection(openSections, onToggleSection, 'options', 'Options', [labelsRow]);
+  return collapsibleSection(openSections, onToggleSection, 'options', t('settingsPanel.optionsSection'), [labelsRow]);
 }
 
-const OPEN_SIDE_LABELS = { top: 'Haut', bottom: 'Bas', right: 'Droite', left: 'Gauche' };
+function openSideLabels() {
+  return { top: t('settingsPanel.sideTop'), bottom: t('settingsPanel.sideBottom'), right: t('settingsPanel.sideRight'), left: t('settingsPanel.sideLeft') };
+}
 
 // The "boîte en tiroir" feature: an independent enclosing sleeve box (own
 // grid, own thickness, see DrawerBuilder.js) built around the current
@@ -128,17 +131,17 @@ function drawerSection(project, store, openSections, onToggleSection) {
       type: 'checkbox', checked: drawer.enabled,
       onChange: (evt) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, enabled: evt.target.checked } })),
     }),
-    el('span', { text: ' Boîte en tiroir' }),
-    infoIcon('Ajoute une boîte englobante autour de la boîte actuelle, ouverte sur un côté, pour en faire un tiroir coulissant.'),
+    el('span', { text: ` ${t('settingsPanel.drawerSection')}` }),
+    infoIcon(t('settingsPanel.drawerHelp')),
   ]);
 
   if (!drawer.enabled) {
-    return collapsibleSection(openSections, onToggleSection, 'drawer', 'Boîte en tiroir', [enabledRow]);
+    return collapsibleSection(openSections, onToggleSection, 'drawer', t('settingsPanel.drawerSection'), [enabledRow]);
   }
 
   const sideField = el('div', { class: 'field' }, [
-    el('span', { class: 'field-label' }, ['Côté ouvert', infoIcon('Face de la boîte englobante laissée ouverte, pour insérer/retirer la boîte actuelle comme un tiroir.')]),
-    el('div', { class: 'radio-group' }, Object.entries(OPEN_SIDE_LABELS).map(([value, label]) => el('label', { class: 'radio-option' }, [
+    el('span', { class: 'field-label' }, [t('settingsPanel.drawerOpenSide'), infoIcon(t('settingsPanel.drawerOpenSideHelp'))]),
+    el('div', { class: 'radio-group' }, Object.entries(openSideLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
       el('input', {
         type: 'radio', name: 'drawer-open-side', value, checked: drawer.openSide === value,
         onChange: () => store.apply((p) => ({ ...p, drawer: { ...p.drawer, openSide: value } })),
@@ -147,10 +150,10 @@ function drawerSection(project, store, openSections, onToggleSection) {
     ]))),
   ]);
 
-  return collapsibleSection(openSections, onToggleSection, 'drawer', 'Boîte en tiroir', [
+  return collapsibleSection(openSections, onToggleSection, 'drawer', t('settingsPanel.drawerSection'), [
     enabledRow,
-    numberField('Jeu / marge (mm)', drawer.playMm, (n) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, playMm: n } })), '0.1', DRAWER_PLAY_HELP),
-    numberField('Épaisseur bois (mm)', drawer.thicknessMm, (n) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, thicknessMm: n } })), '1', DRAWER_THICKNESS_HELP),
+    numberField(t('field.drawerPlay'), drawer.playMm, (n) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, playMm: n } })), '0.1', DRAWER_PLAY_HELP()),
+    numberField(t('field.drawerThickness'), drawer.thicknessMm, (n) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, thicknessMm: n } })), '1', DRAWER_THICKNESS_HELP()),
     sideField,
   ]);
 }
@@ -163,26 +166,26 @@ export function renderSettingsPanel(project, store, openSections, onToggleSectio
     const newSy = axis === 'y' ? parsed : grid.sy;
     const { grid: resized, lostCustomization } = resizeGrid(grid, newSx, newSy);
     if (lostCustomization) {
-      const ok = window.confirm('Ce redimensionnement va faire perdre des personnalisations de segments existants (hauteur, épaisseur ou suppression). Continuer ?');
+      const ok = window.confirm(t('settingsPanel.resizeConfirm'));
       if (!ok) return;
     }
     store.apply((p) => ({ ...p, grid: resized }));
   };
 
   return el('div', { class: 'settings-panel' }, [
-    el('h3', { text: 'Projet' }),
-    textField('Nom du projet', project.name, (name) => store.apply((p) => ({ ...p, name })), 'Nom affiché dans « Mes projets » et utilisé pour le nom du fichier à l’export JSON.'),
+    el('h3', { text: t('settingsPanel.projectSection') }),
+    textField(t('settingsPanel.projectName'), project.name, (name) => store.apply((p) => ({ ...p, name })), t('settingsPanel.projectNameHelp')),
 
-    el('h3', { text: 'Grille' }),
-    gridSizeField('Colonnes (sx, mm)', grid.sx, (parsed) => applyResize('x', parsed), 'Largeurs des colonnes de la grille, en mm, séparées par des virgules — définit le nombre de colonnes et leur taille.'),
-    gridSizeField('Rangées (sy, mm)', grid.sy, (parsed) => applyResize('y', parsed), 'Hauteurs des rangées de la grille, en mm, séparées par des virgules — définit le nombre de rangées et leur taille.'),
+    el('h3', { text: t('settingsPanel.gridSection') }),
+    gridSizeField(t('settingsPanel.columns'), grid.sx, (parsed) => applyResize('x', parsed), t('settingsPanel.columnsHelp')),
+    gridSizeField(t('settingsPanel.rows'), grid.sy, (parsed) => applyResize('y', parsed), t('settingsPanel.rowsHelp')),
 
-    collapsibleSection(openSections, onToggleSection, 'thickness', 'Épaisseurs & hauteurs', [
-      numberField('Épaisseur extérieure (mm)', project.outerThicknessMm, (n) => store.apply((p) => ({ ...p, outerThicknessMm: n })), '1', 'Épaisseur du matériau utilisé pour le fond et les parois extérieures.'),
-      numberField('Épaisseur intérieure (mm)', project.innerThicknessMm, (n) => store.apply((p) => ({ ...p, innerThicknessMm: n })), '1', 'Épaisseur du matériau utilisé pour les cloisons internes.'),
-      numberField('Hauteur extérieure (mm)', project.outerHeightMm, (n) => store.apply((p) => ({ ...p, outerHeightMm: n })), '1', 'Hauteur des parois extérieures (le pourtour de la boîte).'),
-      numberField('Hauteur intérieure par défaut (mm)', project.innerHeightMm, (n) => store.apply((p) => ({ ...p, innerHeightMm: n })), '1', 'Hauteur par défaut des cloisons internes — modifiable individuellement par cloison dans l’inspecteur.'),
-      numberField('Jeu de coupe / burn (mm)', project.burnMm, (n) => store.apply((p) => ({ ...p, burnMm: n })), '0.01', BURN_MM_HELP),
+    collapsibleSection(openSections, onToggleSection, 'thickness', t('settingsPanel.thicknessSection'), [
+      numberField(t('settingsPanel.outerThickness'), project.outerThicknessMm, (n) => store.apply((p) => ({ ...p, outerThicknessMm: n })), '1', t('settingsPanel.outerThicknessHelp')),
+      numberField(t('settingsPanel.innerThickness'), project.innerThicknessMm, (n) => store.apply((p) => ({ ...p, innerThicknessMm: n })), '1', t('settingsPanel.innerThicknessHelp')),
+      numberField(t('settingsPanel.outerHeight'), project.outerHeightMm, (n) => store.apply((p) => ({ ...p, outerHeightMm: n })), '1', t('settingsPanel.outerHeightHelp')),
+      numberField(t('settingsPanel.innerHeight'), project.innerHeightMm, (n) => store.apply((p) => ({ ...p, innerHeightMm: n })), '1', t('settingsPanel.innerHeightHelp')),
+      numberField(t('field.burnMm'), project.burnMm, (n) => store.apply((p) => ({ ...p, burnMm: n })), '0.01', BURN_MM_HELP()),
     ]),
 
     optionsSection(openSections, onToggleSection, showLabels, onToggleLabels),
@@ -190,17 +193,17 @@ export function renderSettingsPanel(project, store, openSections, onToggleSectio
     lidSection(project, store, openSections, onToggleSection),
     drawerSection(project, store, openSections, onToggleSection),
 
-    collapsibleSection(openSections, onToggleSection, 'fingerJoint', 'Doigts (finger joint)', [
-      numberField('Largeur doigt (mm)', project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } })), '1', FINGER_MM_HELP),
-      numberField('Largeur espace (mm)', project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } })), '1', SPACE_MM_HELP),
-      numberField('Marge min. (mm)', project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } })), '1', MARGIN_MM_HELP),
-      numberField('Jeu (play, mm)', project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01', PLAY_MM_HELP),
+    collapsibleSection(openSections, onToggleSection, 'fingerJoint', t('shared.fingerJointSection'), [
+      numberField(t('field.fingerMm'), project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } })), '1', FINGER_MM_HELP()),
+      numberField(t('field.spaceMm'), project.fingerJoint.spaceMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, spaceMm: n } })), '1', SPACE_MM_HELP()),
+      numberField(t('field.marginMm'), project.fingerJoint.marginMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, marginMm: n } })), '1', MARGIN_MM_HELP()),
+      numberField(t('field.playMm'), project.fingerJoint.playMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, playMm: n } })), '0.01', PLAY_MM_HELP()),
     ]),
 
-    collapsibleSection(openSections, onToggleSection, 'laserBed', 'Découpe laser', [
-      numberField('Largeur de la zone de travail (mm)', project.laserBed.widthMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, widthMm: n } })), '1', LASER_WIDTH_HELP),
-      numberField('Hauteur de la zone de travail (mm)', project.laserBed.heightMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, heightMm: n } })), '1', LASER_HEIGHT_HELP),
-      numberField('Espacement entre pièces (mm)', project.laserBed.spacingMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, spacingMm: n } })), '1', LASER_SPACING_HELP),
+    collapsibleSection(openSections, onToggleSection, 'laserBed', t('shared.laserSection'), [
+      numberField(t('field.laserWidth'), project.laserBed.widthMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, widthMm: n } })), '1', LASER_WIDTH_HELP()),
+      numberField(t('field.laserHeight'), project.laserBed.heightMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, heightMm: n } })), '1', LASER_HEIGHT_HELP()),
+      numberField(t('field.laserSpacing'), project.laserBed.spacingMm, (n) => store.apply((p) => ({ ...p, laserBed: { ...p.laserBed, spacingMm: n } })), '1', LASER_SPACING_HELP()),
     ]),
   ]);
 }
