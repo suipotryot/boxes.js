@@ -122,7 +122,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection, showLabels, toggleLabels)]),
-      el('div', { class: 'editor-main' }, [toolbar, editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall), renderExportHint(project)]),
+      el('div', { class: 'editor-main' }, [toolbar, renderExportHint(project), editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store)]),
     ]));
   }
