@@ -9,6 +9,7 @@ export const en = {
   'shared.fingerJointSection': 'Finger joints',
   'shared.laserSection': 'Laser cutting',
   'shared.autoFix': 'Auto-fix',
+  'shared.save': 'Save',
 
   // Shared field labels (Machine settings / Preferences / SettingsPanel)
   'field.laserWidth': 'Laser bed width (mm)',

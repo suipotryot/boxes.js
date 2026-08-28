@@ -138,11 +138,20 @@ export function mountAppShell(container) {
         onOpenPreferences: () => router.navigate('preferences', { trigger: true }),
       }),
       // "Ma machine"/"Préférences" are only reachable from "Mes projets"
-      // (see ProjectListView's own toolbar) — never from the editor. No
-      // in-screen "back" button either: with real routing in place, the
-      // browser's own back button already does that job.
-      machine: () => mountScreen(mountMachineSettingsView, { repo }),
-      preferences: () => mountScreen(mountPreferencesView, { repo }),
+      // (see ProjectListView's own toolbar) — never from the editor. Each
+      // screen gets an "Enregistrer" button wired to the same navigate,
+      // even though every field already persisted the instant it changed
+      // (see each view's own onChange) — it's a UX confirmation, not an
+      // actual save, letting the user leave without hunting for the
+      // browser's own back button.
+      machine: () => mountScreen(mountMachineSettingsView, {
+        repo,
+        onBackToList: () => router.navigate('list', { trigger: true }),
+      }),
+      preferences: () => mountScreen(mountPreferencesView, {
+        repo,
+        onBackToList: () => router.navigate('list', { trigger: true }),
+      }),
       'editor/:id': openEditorRoute,
     },
   });

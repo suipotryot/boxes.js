@@ -18,7 +18,7 @@ import { numberField, selectField } from './fields.js';
 import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP } from './fieldHelp.js';
 import { setActiveLocale, getActiveLocale, t } from '../i18n/index.js';
 
-export function mountPreferencesView(container, { repo }) {
+export function mountPreferencesView(container, { repo, onBackToList }) {
   const updateFingerJoint = (patch) => {
     const current = repo.getPreferences();
     repo.setPreferences({ ...current, fingerJoint: { ...current.fingerJoint, ...patch } });
@@ -53,6 +53,8 @@ export function mountPreferencesView(container, { repo }) {
         setActiveLocale(locale);
         render();
       }),
+
+      el('button', { class: 'btn', text: t('shared.save'), onClick: onBackToList }),
     ]));
   }
 

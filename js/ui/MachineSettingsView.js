@@ -19,7 +19,7 @@ import { numberField } from './fields.js';
 import { BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP } from './fieldHelp.js';
 import { t } from '../i18n/index.js';
 
-export function mountMachineSettingsView(container, { repo }) {
+export function mountMachineSettingsView(container, { repo, onBackToList }) {
   const machine = repo.getMachineSettings();
 
   const update = (patch) => repo.setMachineSettings({ ...repo.getMachineSettings(), ...patch });
@@ -35,6 +35,8 @@ export function mountMachineSettingsView(container, { repo }) {
     numberField(t('field.laserHeight'), machine.laserBed.heightMm, (n) => updateLaserBed({ heightMm: n }), '1', LASER_HEIGHT_HELP()),
     numberField(t('field.laserSpacing'), machine.laserBed.spacingMm, (n) => updateLaserBed({ spacingMm: n }), '1', LASER_SPACING_HELP()),
     numberField(t('field.burnMm'), machine.burnMm, (n) => update({ burnMm: n }), '0.01', BURN_MM_HELP()),
+
+    el('button', { class: 'btn', text: t('shared.save'), onClick: onBackToList }),
   ]));
 
   return { unmount() {} };

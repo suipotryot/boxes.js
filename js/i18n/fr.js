@@ -14,6 +14,7 @@ export const fr = {
   'shared.fingerJointSection': 'Doigts (finger joint)',
   'shared.laserSection': 'Découpe laser',
   'shared.autoFix': 'Ajuster automatiquement',
+  'shared.save': 'Enregistrer',
 
   // Shared field labels (Machine settings / Preferences / SettingsPanel)
   'field.laserWidth': 'Largeur de la zone de travail (mm)',
