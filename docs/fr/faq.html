@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>FAQ — Documentation Boxes.js</title>
+  <link rel="stylesheet" href="../assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../../index.html">Retour à l'application</a>
+    <div class="lang-switch"><a href="../faq.html">English</a> · <span class="lang-current">Français</span></div>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Générateur de boîtes pour découpe laser</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="getting-started.html">Démarrage rapide</a></li>
+      <li><a href="the-grid-model.html">Le modèle de grille</a></li>
+      <li><a href="walls-and-joints.html">Parois &amp; assemblages</a></li>
+      <li><a href="holes-and-notches.html">Trous &amp; encoches</a></li>
+      <li><a href="lid-and-drawer.html">Couvercle &amp; tiroir</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; découpe</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; préférences</a></li>
+      <li><a href="managing-projects.html">Gestion des projets</a></li>
+      <li><a class="active" href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>FAQ</h1>
+
+    <h3>Puis-je annuler une modification ?</h3>
+    <p><kbd>Ctrl</kbd>+<kbd>Z</kbd> annule, <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>Z</kbd> rétablit, tant que l'éditeur a le focus.</p>
+
+    <h3>Pourquoi la disposition exportée n'est pas aussi compacte que prévu ?</h3>
+    <p>Boxes.js empaquette les pièces par leur boîte englobante rectangulaire, pas leur contour exact — voir <a href="export-and-cutting.html">Export &amp; découpe</a>. Pour une véritable imbrication des formes irrégulières, passez le SVG exporté dans <a href="https://deepnest.io/" target="_blank" rel="noopener">Deepnest</a>.</p>
+
+    <h3>Mes données sont-elles stockées en ligne quelque part ?</h3>
+    <p>Non — tout fonctionne localement dans votre navigateur, et les projets y sont stockés. Utilisez <strong>Exporter (JSON)</strong> (voir <a href="export-and-cutting.html">Export &amp; découpe</a>) pour obtenir une sauvegarde portable, car le stockage du navigateur peut être effacé ou est propre à un seul navigateur/appareil.</p>
+
+    <h3>Quels formats de fichiers puis-je exporter ?</h3>
+    <p>Le SVG pour la découpe, et le JSON pour enregistrer/recharger un projet. Il n'y a pas d'export DXF aujourd'hui.</p>
+
+    <h3>J'ai modifié Ma machine ou Préférences, mais un projet existant n'a pas changé.</h3>
+    <p>C'est normal — ces deux écrans ne fixent que les valeurs par défaut des <em>nouveaux</em> projets. Voir <a href="machine-and-preferences.html">Machine &amp; préférences</a>.</p>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="managing-projects.html"><span class="pager-label">Précédent</span>← Gestion des projets</a>
+      <span></span>
+    </div>
+  </main>
+</body>
+</html>

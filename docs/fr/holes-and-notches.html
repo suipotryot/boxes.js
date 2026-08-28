@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Trous &amp; encoches — Documentation Boxes.js</title>
+  <link rel="stylesheet" href="../assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../../index.html">Retour à l'application</a>
+    <div class="lang-switch"><a href="../holes-and-notches.html">English</a> · <span class="lang-current">Français</span></div>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Générateur de boîtes pour découpe laser</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="getting-started.html">Démarrage rapide</a></li>
+      <li><a href="the-grid-model.html">Le modèle de grille</a></li>
+      <li><a href="walls-and-joints.html">Parois &amp; assemblages</a></li>
+      <li><a class="active" href="holes-and-notches.html">Trous &amp; encoches</a></li>
+      <li><a href="lid-and-drawer.html">Couvercle &amp; tiroir</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; découpe</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; préférences</a></li>
+      <li><a href="managing-projects.html">Gestion des projets</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Trous &amp; encoches</h1>
+    <p class="docs-lede">Deux façons différentes de découper des ouvertures supplémentaires dans une pièce.</p>
+
+    <h2>Trous</h2>
+    <p>Un trou est un rectangle, avec coins arrondis en option, qui peut se placer n'importe où dans une pièce — une paroi, le fond, le couvercle, ou un panneau de tiroir. Une pièce peut avoir plusieurs trous. Cas d'usage typiques : un passage de câble ou un trou de fixation.</p>
+    <p>Sélectionnez une pièce, ouvrez sa section <strong>Trous</strong> dans l'inspecteur, et ajoutez un trou sous forme d'une ligne séparée par des virgules :</p>
+    <table>
+      <tr><th>Champ</th><th>Signification</th></tr>
+      <tr><td>Position X</td><td>Distance depuis le bord gauche de la pièce, en mm.</td></tr>
+      <tr><td>Position Y</td><td>Distance depuis le bord haut de la pièce, en mm.</td></tr>
+      <tr><td>Largeur</td><td>Largeur du trou, en mm.</td></tr>
+      <tr><td>Hauteur</td><td>Hauteur du trou, en mm.</td></tr>
+      <tr><td>Rayon</td><td>Arrondi des coins, en mm — <code>0</code> pour des coins vifs. Plafonné à la moitié de la plus petite dimension, sinon les arcs des coins se chevaucheraient.</td></tr>
+    </table>
+    <p>Par exemple, <code>20, 10, 30, 15, 3</code> place un trou de 30×15&nbsp;mm avec des coins arrondis à 3&nbsp;mm, à 20&nbsp;mm du bord gauche et 10&nbsp;mm du bord haut.</p>
+
+    <h2>Encoches pour doigt</h2>
+    <p>Une encoche pour doigt est un autre type de découpe : elle est toujours ancrée au bord haut libre d'une paroi, plutôt que librement placée comme un trou. Elle sert typiquement à créer une ouverture pour y passer les doigts — par exemple sur le côté ouvert d'un <a href="lid-and-drawer.html">tiroir</a>.</p>
+    <p>Les encoches pour doigt utilisent le même éditeur compact en ligne que les trous, avec largeur, profondeur, rayon et position le long du bord.</p>
+
+    <div class="admonition">
+      <p class="admonition-title">Astuce</p>
+      <p>Les deux éditeurs valident vos valeurs et proposent un bouton <strong>Ajuster automatiquement</strong> quand un trou ou une encoche ne rentre pas dans la pièce — par exemple s'il dépasserait un bord.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="walls-and-joints.html"><span class="pager-label">Précédent</span>← Parois &amp; assemblages</a>
+      <a class="pager-next" href="lid-and-drawer.html"><span class="pager-label">Suivant</span>Couvercle &amp; tiroir →</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Export &amp; découpe — Documentation Boxes.js</title>
+  <link rel="stylesheet" href="../assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../../index.html">Retour à l'application</a>
+    <div class="lang-switch"><a href="../export-and-cutting.html">English</a> · <span class="lang-current">Français</span></div>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Générateur de boîtes pour découpe laser</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="getting-started.html">Démarrage rapide</a></li>
+      <li><a href="the-grid-model.html">Le modèle de grille</a></li>
+      <li><a href="walls-and-joints.html">Parois &amp; assemblages</a></li>
+      <li><a href="holes-and-notches.html">Trous &amp; encoches</a></li>
+      <li><a href="lid-and-drawer.html">Couvercle &amp; tiroir</a></li>
+      <li><a class="active" href="export-and-cutting.html">Export &amp; découpe</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; préférences</a></li>
+      <li><a href="managing-projects.html">Gestion des projets</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Export &amp; découpe</h1>
+    <p class="docs-lede">Deux boutons dans la barre d'outils, deux fichiers très différents.</p>
+
+    <h2>Exporter (SVG) — le fichier de découpe</h2>
+    <p>Produit les fichiers réellement envoyés au laser. Les pièces sont d'abord groupées par épaisseur de matériau, puis pagées selon votre <strong>zone de découpe</strong> (voir <a href="machine-and-preferences.html">Machine &amp; préférences</a>), en conservant l'espacement configuré aussi bien entre les pièces que le long des bords de page.</p>
+    <p>Chaque groupe d'épaisseur se télécharge en un ou plusieurs fichiers SVG, un par page, nommés d'après le projet et le numéro de page. Comme les navigateurs bloquent les téléchargements multiples trop rapides, les fichiers se téléchargent à environ 300&nbsp;ms d'intervalle — une petite pause est normale pour des boîtes avec plusieurs groupes d'épaisseur ou plusieurs pages.</p>
+    <p>Activez <strong>Étiqueter les pièces</strong> (dans la section Options du panneau de gauche) pour graver le nom de chaque pièce sur son propre contour, dans l'aperçu à l'écran comme dans le SVG exporté — pratique pour distinguer des pièces qui se ressemblent une fois découpées.</p>
+
+    <h3>Empaquetage et imbrication</h3>
+    <p>Les pièces sont empaquetées avec un algorithme d'empaquetage rectangulaire (MaxRects) qui remplit efficacement l'espace restant — mais ça reste un <strong>empaquetage par boîte englobante</strong> : une pièce irrégulière (par exemple avec une encoche courbe) réserve quand même toute son emprise rectangulaire, marge vide comprise. Ce n'est pas une véritable imbrication de polygones.</p>
+    <div class="admonition">
+      <p class="admonition-title">Astuce</p>
+      <p>Pour une disposition plus dense avec une véritable imbrication des formes irrégulières, importez le SVG exporté dans l'outil gratuit <a href="https://deepnest.io/" target="_blank" rel="noopener">Deepnest</a>. Boxes.js affiche un résumé du nombre de pages et cette même astuce, juste au-dessus du bouton d'export.</p>
+    </div>
+    <p>Une pièce surdimensionnée — plus grande que la zone de découpe elle-même — n'est jamais silencieusement écartée : elle est placée seule sur sa propre page.</p>
+
+    <h2>Exporter (JSON) — le fichier projet</h2>
+    <p>Enregistre l'état complet du projet (dimensions, grille, trous, encoches, réglages du couvercle/tiroir, etc.) dans un fichier JSON. C'est pour sauvegarder ou réimporter un projet — <strong>pas</strong> un fichier de découpe. Quand le navigateur le permet, ça ouvre une vraie boîte de dialogue d'enregistrement (l'API File System Access) ; sinon, ça se rabat sur un téléchargement classique vers le dossier de téléchargements par défaut du navigateur.</p>
+    <p>Voir <a href="managing-projects.html">Gestion des projets</a> pour l'import/export propre à la liste des projets, distinct du bouton JSON dans l'éditeur.</p>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="lid-and-drawer.html"><span class="pager-label">Précédent</span>← Couvercle &amp; tiroir</a>
+      <a class="pager-next" href="machine-and-preferences.html"><span class="pager-label">Suivant</span>Machine &amp; préférences →</a>
+    </div>
+  </main>
+</body>
+</html>

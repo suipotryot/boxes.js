@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Couvercle &amp; tiroir — Documentation Boxes.js</title>
+  <link rel="stylesheet" href="../assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../../index.html">Retour à l'application</a>
+    <div class="lang-switch"><a href="../lid-and-drawer.html">English</a> · <span class="lang-current">Français</span></div>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Générateur de boîtes pour découpe laser</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="getting-started.html">Démarrage rapide</a></li>
+      <li><a href="the-grid-model.html">Le modèle de grille</a></li>
+      <li><a href="walls-and-joints.html">Parois &amp; assemblages</a></li>
+      <li><a href="holes-and-notches.html">Trous &amp; encoches</a></li>
+      <li><a class="active" href="lid-and-drawer.html">Couvercle &amp; tiroir</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; découpe</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; préférences</a></li>
+      <li><a href="managing-projects.html">Gestion des projets</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Couvercle &amp; tiroir</h1>
+    <p class="docs-lede">Deux ajouts optionnels et indépendants à une boîte : un couvercle fixe, et une boîte englobante en tiroir.</p>
+
+    <h2>Couvercle fixe</h2>
+    <p>Activez le couvercle dans la section <strong>Couvercle</strong> du panneau de gauche. Sa position se règle avec un seul champ :</p>
+    <ul>
+      <li><strong>Hauteur d'insertion</strong> — la hauteur à laquelle repose le dessous du couvercle à l'intérieur de la boîte. Une valeur plus basse pose le couvercle à fleur ou en retrait du haut des parois ; une valeur plus haute le placerait au-dessus.</li>
+    </ul>
+    <p>La valeur est validée par rapport à un minimum et un maximum pour la boîte actuelle ; si elle est hors plage, utilisez le bouton <strong>Ajuster automatiquement</strong> pour la ramener dans une position valide.</p>
+    <p>Comme le couvercle a besoin d'un rebord de niveau pour reposer dessus, surcharger la hauteur d'une paroi extérieure (voir <a href="the-grid-model.html">Le modèle de grille</a>) s'applique à tout le pourtour extérieur, pas seulement à ce segment.</p>
+
+    <h2>Boîte en tiroir</h2>
+    <p>Activez le tiroir dans la section <strong>Boîte en tiroir</strong> du panneau de gauche. Ça construit une deuxième boîte, indépendante, englobant l'emprise de votre boîte actuelle — toujours 5 pièces (fond, couvercle et 3 parois) — ouverte sur un côté, pour que la boîte que vous avez conçue en sorte comme un tiroir.</p>
+    <table>
+      <tr><th>Champ</th><th>Signification</th></tr>
+      <tr><td>Côté ouvert</td><td>Le côté de la boîte englobante laissé ouvert : haut, bas, droite ou gauche.</td></tr>
+      <tr><td>Jeu / marge</td><td>Le jeu de glissement entre la boîte interne et la boîte englobante — appliqué du côté fermé de l'axe d'ouverture, et des deux côtés sur l'autre axe. Le côté ouvert reste toujours à fleur, sans jeu supplémentaire.</td></tr>
+      <tr><td>Épaisseur bois</td><td>L'épaisseur du matériau pour la boîte englobante, réglée indépendamment de l'épaisseur extérieure de la boîte principale.</td></tr>
+    </table>
+
+    <div class="admonition">
+      <p class="admonition-title">Astuce</p>
+      <p>Ajoutez une <a href="holes-and-notches.html">encoche pour doigt</a> sur le côté ouvert de votre boîte interne, pour avoir de quoi la tirer.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="holes-and-notches.html"><span class="pager-label">Précédent</span>← Trous &amp; encoches</a>
+      <a class="pager-next" href="export-and-cutting.html"><span class="pager-label">Suivant</span>Export &amp; découpe →</a>
+    </div>
+  </main>
+</body>
+</html>

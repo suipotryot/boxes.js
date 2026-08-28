@@ -55,6 +55,15 @@ a:hover { text-decoration: none; }
 .docs-sidebar .back-to-app:hover { color: var(--sidebar-text); }
 .docs-sidebar .back-to-app::before { content: '← '; }
 
+.docs-sidebar .lang-switch {
+  font-size: 0.78rem;
+  color: var(--sidebar-muted);
+  margin-bottom: 1rem;
+}
+.docs-sidebar .lang-switch a { color: var(--sidebar-muted); text-decoration: none; }
+.docs-sidebar .lang-switch a:hover { color: var(--sidebar-text); }
+.docs-sidebar .lang-switch .lang-current { color: var(--sidebar-text); font-weight: 600; }
+
 .docs-sidebar h2 {
   margin: 0 0 0.1rem;
   font-size: 1.05rem;

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Le modèle de grille — Documentation Boxes.js</title>
+  <link rel="stylesheet" href="../assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../../index.html">Retour à l'application</a>
+    <div class="lang-switch"><a href="../the-grid-model.html">English</a> · <span class="lang-current">Français</span></div>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Générateur de boîtes pour découpe laser</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="getting-started.html">Démarrage rapide</a></li>
+      <li><a class="active" href="the-grid-model.html">Le modèle de grille</a></li>
+      <li><a href="walls-and-joints.html">Parois &amp; assemblages</a></li>
+      <li><a href="holes-and-notches.html">Trous &amp; encoches</a></li>
+      <li><a href="lid-and-drawer.html">Couvercle &amp; tiroir</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; découpe</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; préférences</a></li>
+      <li><a href="managing-projects.html">Gestion des projets</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Le modèle de grille</h1>
+    <p class="docs-lede">Boxes.js construit une boîte à partir d'une grille de cellules, pas d'un catalogue de « formes » de boîte figées.</p>
+
+    <h2>Colonnes et rangées</h2>
+    <p>La grille est définie par deux listes séparées par des virgules : <strong>Colonnes</strong> (largeurs, de gauche à droite) et <strong>Rangées</strong> (profondeurs, d'avant en arrière). Chaque valeur est une largeur de colonne ou de rangée en millimètres — elles n'ont pas besoin d'être égales, donc <code>60, 120, 60</code> donne un compartiment central large encadré de deux plus étroits.</p>
+    <p>Le nombre de valeurs fixe le nombre de cellules ; les lignes de la grille entre et autour d'elles deviennent des parois et des cloisons.</p>
+
+    <h2>Segments</h2>
+    <p>Chaque trait de la grille est un <strong>segment</strong> — une arête entre deux intersections de la grille. Cliquez sur un segment pour le sélectionner dans l'inspecteur, qui affiche :</p>
+    <ul>
+      <li><strong>Présent / absent</strong> — un segment intérieur (une cloison) peut être retiré pour fusionner deux cellules en un seul compartiment. Les segments du périmètre extérieur ne peuvent pas être retirés.</li>
+      <li><strong>Hauteur</strong> — surchageable par segment. Modifier la hauteur d'un segment <em>extérieur</em> s'applique à tout le pourtour extérieur, car le couvercle a besoin d'un rebord plat et de niveau pour reposer dessus.</li>
+    </ul>
+
+    <h2>Pièces</h2>
+    <p>Plusieurs segments alignés, tous présents, sont regroupés en une seule <strong>pièce</strong> — la partie réellement découpée, avec ses propres doigts d'assemblage le long des arêtes partagées. C'est ce qui apparaît dans la bande d'aperçu, et c'est à ça que s'appliquent les sections trous/encoches de l'inspecteur une fois une pièce sélectionnée.</p>
+
+    <h2>Parois extérieures vs. cloisons internes</h2>
+    <p>La grille distingue deux types de parois, chacune avec son propre réglage d'épaisseur (voir <a href="walls-and-joints.html">Parois &amp; assemblages</a>) :</p>
+    <table>
+      <tr><th>Type</th><th>Où</th><th>Peut être retiré ?</th></tr>
+      <tr><td>Extérieure</td><td>Le périmètre de la boîte</td><td>Non</td></tr>
+      <tr><td>Intérieure</td><td>Cloisons entre les cellules</td><td>Oui</td></tr>
+    </table>
+
+    <div class="admonition warning">
+      <p class="admonition-title">Attention</p>
+      <p>Redimensionner la grille (modifier la liste Colonnes ou Rangées) peut faire perdre des personnalisations de segments ou de sols qui ne correspondent plus à la nouvelle disposition. L'application demande confirmation avant d'appliquer un redimensionnement qui ferait perdre du travail.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="getting-started.html"><span class="pager-label">Précédent</span>← Démarrage rapide</a>
+      <a class="pager-next" href="walls-and-joints.html"><span class="pager-label">Suivant</span>Parois &amp; assemblages →</a>
+    </div>
+  </main>
+</body>
+</html>

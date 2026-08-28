@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Parois &amp; assemblages — Documentation Boxes.js</title>
+  <link rel="stylesheet" href="../assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../../index.html">Retour à l'application</a>
+    <div class="lang-switch"><a href="../walls-and-joints.html">English</a> · <span class="lang-current">Français</span></div>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Générateur de boîtes pour découpe laser</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="getting-started.html">Démarrage rapide</a></li>
+      <li><a href="the-grid-model.html">Le modèle de grille</a></li>
+      <li><a class="active" href="walls-and-joints.html">Parois &amp; assemblages</a></li>
+      <li><a href="holes-and-notches.html">Trous &amp; encoches</a></li>
+      <li><a href="lid-and-drawer.html">Couvercle &amp; tiroir</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; découpe</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; préférences</a></li>
+      <li><a href="managing-projects.html">Gestion des projets</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Parois &amp; assemblages</h1>
+    <p class="docs-lede">Épaisseur, hauteur, et la façon dont les pièces s'emboîtent aux angles.</p>
+
+    <h2>Épaisseur</h2>
+    <p>Réglée séparément pour les deux types de parois décrits dans <a href="the-grid-model.html">Le modèle de grille</a> :</p>
+    <ul>
+      <li><strong>Épaisseur extérieure</strong> — les parois du périmètre et le fond.</li>
+      <li><strong>Épaisseur intérieure</strong> — les cloisons entre les cellules.</li>
+    </ul>
+    <p>Utilisez l'épaisseur intérieure correspondant au matériau que vous découpez réellement pour les cloisons — elle n'a pas besoin d'être identique à l'épaisseur extérieure.</p>
+
+    <h2>Hauteur</h2>
+    <ul>
+      <li><strong>Hauteur extérieure</strong> — la hauteur des parois du périmètre.</li>
+      <li><strong>Hauteur intérieure par défaut</strong> — appliquée à chaque cloison, surchargeable par segment (voir <a href="the-grid-model.html">Le modèle de grille</a>).</li>
+    </ul>
+
+    <h2>Doigts (finger joint)</h2>
+    <p>Les pièces qui se rejoignent à un angle ou en T sont assemblées par des doigts (des dents qui s'imbriquent), contrôlés par quatre champs :</p>
+    <table>
+      <tr><th>Champ</th><th>Rôle</th></tr>
+      <tr><td>Largeur doigt</td><td>La largeur de chaque dent de l'assemblage.</td></tr>
+      <tr><td>Largeur espace</td><td>La largeur de chaque espace entre deux dents.</td></tr>
+      <tr><td>Marge min.</td><td>La marge plane laissée à chaque extrémité d'une rangée de dents, avant que les dents commencent.</td></tr>
+      <tr><td>Jeu (play)</td><td>Chaque dent est rétrécie et chaque espace élargi de cette valeur, pour que les pièces s'emboîtent sans forcer une fois découpées — ça compense la découpe laser et les tolérances du matériau.</td></tr>
+    </table>
+
+    <h2>Jeu de coupe / burn</h2>
+    <p>Le réglage <strong>burn</strong> (jeu de coupe) est la largeur de matière retirée par le laser à la découpe. L'application agrandit légèrement les contours et rétrécit les trous de ce montant, pour que les pièces mesurent la bonne taille une fois réellement coupées.</p>
+
+    <div class="admonition">
+      <p class="admonition-title">Astuce</p>
+      <p>Si les pièces ressortent légèrement trop petites ou trop grandes après la découpe, ajustez le <strong>burn</strong> plutôt que les dimensions des pièces elles-mêmes — c'est fait pour être réglé par matériau et par laser.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="the-grid-model.html"><span class="pager-label">Précédent</span>← Le modèle de grille</a>
+      <a class="pager-next" href="holes-and-notches.html"><span class="pager-label">Suivant</span>Trous &amp; encoches →</a>
+    </div>
+  </main>
+</body>
+</html>

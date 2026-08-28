@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Démarrage rapide — Documentation Boxes.js</title>
+  <link rel="stylesheet" href="../assets/docs.css" />
+</head>
+<body>
+  <nav class="docs-sidebar">
+    <a class="back-to-app" href="../../index.html">Retour à l'application</a>
+    <div class="lang-switch"><a href="../getting-started.html">English</a> · <span class="lang-current">Français</span></div>
+    <h2>Boxes.js</h2>
+    <p class="docs-tagline">Générateur de boîtes pour découpe laser</p>
+    <ul class="docs-nav">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a class="active" href="getting-started.html">Démarrage rapide</a></li>
+      <li><a href="the-grid-model.html">Le modèle de grille</a></li>
+      <li><a href="walls-and-joints.html">Parois &amp; assemblages</a></li>
+      <li><a href="holes-and-notches.html">Trous &amp; encoches</a></li>
+      <li><a href="lid-and-drawer.html">Couvercle &amp; tiroir</a></li>
+      <li><a href="export-and-cutting.html">Export &amp; découpe</a></li>
+      <li><a href="machine-and-preferences.html">Machine &amp; préférences</a></li>
+      <li><a href="managing-projects.html">Gestion des projets</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+  </nav>
+
+  <main class="docs-content">
+    <h1>Démarrage rapide</h1>
+    <p class="docs-lede">Construisez votre première boîte en quelques minutes.</p>
+
+    <h2>1. Créer un projet</h2>
+    <p>Ouvrez l'application — vous arrivez sur <strong>Mes projets</strong>. Cliquez sur le bouton pour créer un nouveau projet. Un nouveau projet part des réglages par défaut de <a href="machine-and-preferences.html">Préférences</a> et de <a href="machine-and-preferences.html">Ma machine</a> — autant les régler une fois avant votre première boîte.</p>
+
+    <h2>2. Régler la grille</h2>
+    <p>Dans le panneau de gauche de l'éditeur, réglez <strong>Colonnes</strong> et <strong>Rangées</strong> sous forme de listes de tailles séparées par des virgules, en millimètres — par exemple <code>100, 80, 100</code> pour trois colonnes de ces largeurs. Chaque valeur devient une colonne ou une rangée de la grille — voir <a href="the-grid-model.html">Le modèle de grille</a> pour comprendre le lien avec les parois et cloisons.</p>
+
+    <h2>3. Régler épaisseur et hauteur</h2>
+    <p>Toujours dans le panneau de gauche, ouvrez <strong>Épaisseurs &amp; hauteurs</strong> et réglez l'épaisseur des parois extérieures, l'épaisseur des cloisons internes, la hauteur des parois extérieures et la hauteur par défaut des cloisons. Ces valeurs s'appliquent partout, sauf si vous surchargez une paroi précise — voir <a href="walls-and-joints.html">Parois &amp; assemblages</a>.</p>
+
+    <h2>4. Inspecter et ajuster une paroi</h2>
+    <p>Cliquez sur n'importe quel trait de la grille pour sélectionner cette paroi. Le panneau de droite (l'inspecteur) affiche son état — présente ou absente, sa hauteur — et, une fois une pièce sélectionnée, ses trous et ses encoches pour doigt. C'est ici qu'on retire une cloison interne ou qu'on surcharge la hauteur d'une paroi.</p>
+
+    <h2>5. Vérifier les pièces</h2>
+    <p>Sous la grille, la bande d'aperçu liste chaque pièce calculée à partir de vos réglages — chaque paroi, chaque cloison et le fond — sous forme de petit dessin autonome. Cliquez sur une carte pour sélectionner cette pièce dans l'inspecteur.</p>
+
+    <h2>6. Exporter pour la découpe</h2>
+    <p>Quand la boîte vous convient, utilisez le bouton <strong>Exporter (SVG)</strong> de la barre d'outils pour télécharger les fichiers de découpe prêts pour le laser, paginés selon la taille de votre zone de découpe. Voir <a href="export-and-cutting.html">Export &amp; découpe</a> pour le détail de ce qui est exporté et comment les pages sont composées.</p>
+
+    <div class="admonition">
+      <p class="admonition-title">Astuce</p>
+      <p>Votre projet est enregistré automatiquement au fil de vos modifications — il n'y a pas de bouton d'enregistrement. Utilisez <strong>Exporter (JSON)</strong> pour obtenir un fichier de sauvegarde ou déplacer le projet vers un autre navigateur ou une autre machine.</p>
+    </div>
+
+    <div class="docs-pager">
+      <a class="pager-prev" href="index.html"><span class="pager-label">Précédent</span>← Accueil</a>
+      <a class="pager-next" href="the-grid-model.html"><span class="pager-label">Suivant</span>Le modèle de grille →</a>
+    </div>
+  </main>
+</body>
+</html>
