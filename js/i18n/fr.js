@@ -48,10 +48,6 @@ export const fr = {
   'preferences.saveSection': 'Sauvegarde',
   'preferences.autosaveDelay': 'Délai de sauvegarde automatique (s)',
   'preferences.autosaveDelayHelp': 'Temps d’inactivité après une modification avant l’enregistrement automatique du projet en cours d’édition.',
-  'preferences.languageSection': 'Langue',
-  'preferences.language': 'Langue de l’interface',
-  'preferences.languageFr': 'Français',
-  'preferences.languageEn': 'Anglais',
 
   // Project list screen
   'projectList.title': 'Mes projets',

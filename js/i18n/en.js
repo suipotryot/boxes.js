@@ -43,10 +43,6 @@ export const en = {
   'preferences.saveSection': 'Autosave',
   'preferences.autosaveDelay': 'Autosave delay (s)',
   'preferences.autosaveDelayHelp': 'Idle time after a change before the currently-edited project is saved automatically.',
-  'preferences.languageSection': 'Language',
-  'preferences.language': 'Interface language',
-  'preferences.languageFr': 'French',
-  'preferences.languageEn': 'English',
 
   // Project list screen
   'projectList.title': 'My projects',

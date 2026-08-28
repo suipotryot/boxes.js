@@ -59,16 +59,3 @@ export function textField(labelText, value, onChange, tooltip) {
     }),
   ]);
 }
-
-/** @param {{value: string, label: string}[]} options
- *  Each <option>'s own `selected` is what actually picks the current value
- *  — a `value` attr on the <select> itself would be applied (see dom.js's
- *  el()) before these children even exist to match against. */
-export function selectField(labelText, options, value, onChange, tooltip) {
-  return el('label', { class: 'field' }, [
-    el('span', { class: 'field-label' }, [labelText, infoIcon(tooltip)]),
-    el('select', {
-      onChange: (evt) => onChange(evt.target.value),
-    }, options.map((opt) => el('option', { value: opt.value, selected: opt.value === value, text: opt.label }))),
-  ]);
-}

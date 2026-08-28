@@ -21,6 +21,10 @@ body {
 }
 
 header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border);
 }
@@ -30,6 +34,32 @@ h3 { margin: 1rem 0 0.5rem; font-size: 0.85rem; text-transform: uppercase; lette
 h3:first-child { margin-top: 0; }
 .subtitle { margin: 0; color: var(--muted); font-size: 0.9rem; }
 .subtitle a { color: var(--accent); }
+
+/* --- language switcher (top-right, present on every screen since it
+   lives in index.html's own static header, outside #editor-root) --- */
+.lang-switcher {
+  display: flex;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+.lang-flag {
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  opacity: 0.55;
+}
+.lang-flag:hover { opacity: 0.85; }
+.lang-flag.active {
+  opacity: 1;
+  border-color: var(--border);
+  background: var(--panel-bg);
+  cursor: default;
+}
 
 /* --- editor layout --- */
 

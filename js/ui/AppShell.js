@@ -34,13 +34,19 @@ import { mountEditorView } from './EditorView.js';
 import { mountProjectListView } from './ProjectListView.js';
 import { mountMachineSettingsView } from './MachineSettingsView.js';
 import { mountPreferencesView } from './PreferencesView.js';
+import { mountLanguageSwitcher } from './LanguageSwitcher.js';
 import { setActiveLocale, t } from '../i18n/index.js';
 import Backbone from 'backbone';
 
-export function mountAppShell(container) {
+export function mountAppShell(container, langSwitcherContainer) {
   const repo = createProjectRepository();
   setActiveLocale(repo.getLocale());
   let current = null; // whichever screen's { unmount(), flush? } is live
+  // How to redo whatever mountScreen()/mountEditorScreen() call last ran —
+  // set by both of them, called by the language switcher below so
+  // switching locale re-renders whatever screen happens to be live, from
+  // outside #editor-root entirely (see LanguageSwitcher.js's own comment).
+  let remountCurrentScreen = () => {};
 
   // A brand-new project is only assigned an id in memory when created —
   // it isn't written to storage until the first real edit reaches the
@@ -56,6 +62,7 @@ export function mountAppShell(container) {
   function mountScreen(mountFn, opts) {
     if (current) current.unmount();
     current = mountFn(container, opts);
+    remountCurrentScreen = () => mountScreen(mountFn, opts);
   }
 
   // The project's id must be resolved BEFORE the store/autosave loop ever
@@ -85,6 +92,7 @@ export function mountAppShell(container) {
         editor.unmount();
       },
     };
+    remountCurrentScreen = () => mountEditorScreen(project);
   }
 
   // Pre-fills a brand-new project from the user's own saved "Ma machine"/
@@ -165,6 +173,14 @@ export function mountAppShell(container) {
   // mounted).
   window.addEventListener('beforeunload', () => {
     if (current && current.flush) current.flush();
+  });
+
+  mountLanguageSwitcher(langSwitcherContainer, {
+    repo,
+    onChange: (locale) => {
+      setActiveLocale(locale);
+      remountCurrentScreen();
+    },
   });
 
   clear(container);
