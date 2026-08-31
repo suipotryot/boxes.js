@@ -82,13 +82,13 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   // the rest are lower-frequency settings, closed by default.
   let openSections = { thickness: true, options: false, fingerJoint: false, lid: false, drawer: false, laserBed: false };
 
-  // '2d' (the clickable grid) or '3d' (the Zdog preview). `threeDContainer`
+  // '2d' (the clickable grid) or '3d' (the three.js preview). `threeDContainer`
   // is created ONCE and never recreated — render() rebuilds the rest of
   // the DOM from scratch on every store change, but appendChild() MOVES an
   // existing node rather than cloning it, so re-inserting this same
-  // container each render keeps the canvas, its Zdog Illustration, and
-  // critically the user's current drag-rotation/zoom alive across edits
-  // instead of resetting them on every keystroke. `threeD` (the
+  // container each render keeps the canvas, its renderer/camera/orbit
+  // controls, and critically the user's current orbit/zoom alive across
+  // edits instead of resetting them on every keystroke. `threeD` (the
   // mountThreeDView handle) is created lazily on first entry into 3D mode.
   let viewMode = '2d';
   const threeDContainer = el('div', { class: 'threed-view' });

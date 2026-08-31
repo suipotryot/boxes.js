@@ -1,15 +1,19 @@
 // Places every piece of computePieces() into one shared 3D world space,
-// ahead of the 3D preview's extrusion step (PanelExtrude3D.js). X = width,
-// Y = depth, Z = height, Z=0 at the true floor (the base plate's own
-// bottom face) — baseZ = outerThicknessMm is the world Z of GridQuery's
-// own v=0 convention (a wall's bottom mating edge / the base plate's top
-// face).
+// ahead of the 3D preview's own extrusion step (ThreeJsScene.js, via
+// three.js's ExtrudeGeometry). X = width, Y = depth, Z = height, Z=0 at
+// the true floor (the base plate's own bottom face) — baseZ =
+// outerThicknessMm is the world Z of GridQuery's own v=0 convention (a
+// wall's bottom mating edge / the base plate's top face).
 //
 // Returns a full orthonormal basis (origin + 3 unit axes) instead of
-// Zdog-style Euler rotate angles: this keeps 100% of the placement
-// arithmetic pure/testable, with zero dependency on Zdog's own
-// rotation-composition order — getting that order wrong would silently
-// mis-rotate a whole wall, hard to catch from a screenshot.
+// Euler rotate angles: this keeps 100% of the placement arithmetic
+// pure/testable, with zero dependency on any particular rendering
+// library's own rotation-composition order — getting that order wrong
+// would silently mis-rotate a whole wall, hard to catch from a
+// screenshot. It also paid off directly when the renderer itself got
+// swapped (Zdog -> three.js, see the plan): this module needed no change
+// at all, since a basis maps onto a three.js Matrix4 (via makeBasis) just
+// as directly as it mapped onto raw Zdog world-space points.
 //
 // Mirrors the exact outward-vs-centered asymmetry xAt/yAt and
 // BasePlateBuilder's own margin logic already encode: an outer

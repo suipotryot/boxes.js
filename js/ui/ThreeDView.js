@@ -1,41 +1,14 @@
-// Mounts a Zdog canvas showing the assembled box, following the same
+// Mounts a three.js canvas showing the assembled box, following the same
 // mount*View(container, opts) -> {unmount()} contract used everywhere else
 // (AppShell.js's mountScreen/mountEditorScreen) — plus updateProject(),
 // so the caller can push new project state without re-mounting (which
-// would reset the user's current drag-rotation/zoom, see EditorView.js).
-import Zdog from 'zdog';
+// would reset the user's current orbit/zoom, see EditorView.js).
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { el, clear } from './dom.js';
 import { t } from '../i18n/index.js';
 import { outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
-import { populateScene } from './Zdog3DScene.js';
-
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 20;
-const ZOOM_WHEEL_SENSITIVITY = 0.002;
-const FIT_MARGIN = 0.7; // leave ~30% of the canvas as breathing room around the box
-
-// Centers the box's own middle point at the world origin and picks a zoom
-// so its largest dimension roughly fills the canvas — Zdog's `zoom` is a
-// literal px-per-mm multiplier (Illustration's own scale = pixelRatio *
-// zoom), so a fixed default would look tiny for a small box and overflow
-// the canvas for a large one, exactly what produced an unreadable
-// off-center crop before this existed. Only called once, right after the
-// first real measurement of the canvas — NOT on every updateProject — so
-// a later edit never undoes the zoom/rotation the user set by hand.
-function fitView(illustration, project) {
-  const maxDimension = Math.max(
-    outerBoxWidth(project.grid, project),
-    outerBoxDepth(project.grid, project),
-    outerBoxHeight(project.grid, project),
-  ) || 1;
-  const displaySize = Math.min(illustration.width, illustration.height) || 1;
-  illustration.zoom = (displaySize / maxDimension) * FIT_MARGIN;
-  illustration.translate.set({
-    x: -outerBoxWidth(project.grid, project) / 2,
-    y: -outerBoxDepth(project.grid, project) / 2,
-    z: -outerBoxHeight(project.grid, project) / 2,
-  });
-}
+import { populateScene } from './ThreeJsScene.js';
 
 /**
  * @param {HTMLElement} container appended into immediately; owned by the
@@ -49,43 +22,99 @@ export function mountThreeDView(container, project) {
   container.appendChild(canvas);
   container.appendChild(hint);
 
-  const illustration = new Zdog.Illustration({ element: canvas, dragRotate: true, resize: true });
-  populateScene(illustration, project);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 1, 10000);
+  camera.up.set(0, 0, 1); // our world is Z-up (height); OrbitControls orbits around this axis
 
-  // `resize: true` above already measured the canvas once, synchronously,
-  // during this very function call — but `container` (owned by the
-  // caller, EditorView.js) isn't actually inserted into the live document
-  // until AFTER mountThreeDView() returns, so that first measurement reads
-  // a detached 0x0 box and Zdog sizes the canvas to nothing. Re-measure
-  // (and only then fit the initial view) on the first animation frame
-  // instead: by then the browser has committed the caller's own DOM
-  // insertion, so the canvas has its real CSS size.
-  let measured = false;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 3));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  keyLight.position.set(1, 1.5, 1);
+  scene.add(keyLight);
+
+  // Pieces live in their own group, separate from the lights above:
+  // populateScene() clears+disposes every child it's handed on each call,
+  // and a Light has no .geometry/.material to dispose — mixing them into
+  // the same container would throw the moment a second populateScene()
+  // call (updateProject) tried to dispose a light as if it were a mesh.
+  const pieceGroup = new THREE.Group();
+  scene.add(pieceGroup);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  // Keep the camera above the box: nothing about the design is visible
+  // from directly underneath (the base plate's own outer face is a plain
+  // rectangle — piece.holes aren't cut into the 3D geometry yet, see
+  // ThreeJsScene.js), and at a near-horizontal-or-below angle the walls'
+  // and dividers' own thin (3mm) profile is viewed almost perfectly
+  // edge-on, which reads as confusing thin-line aliasing rather than a
+  // legible box.
+  controls.minPolarAngle = 0.1;
+  controls.maxPolarAngle = Math.PI / 2 + 0.3;
+
+  populateScene(pieceGroup, project);
+  fitView(camera, controls, project);
+
+  // A ResizeObserver rather than a synchronous getBoundingClientRect() at
+  // mount time: `container` isn't actually inserted into the live document
+  // until AFTER this function returns (EditorView.js appends the whole
+  // editor tree in one go at the end of its own render()), so a
+  // synchronous read here would measure a detached 0x0 box — exactly the
+  // bug the Zdog version of this file hit before being replaced with this
+  // approach, which keeps re-measuring as the real layout settles.
+  const resizeObserver = new ResizeObserver((entries) => {
+    const { width, height } = entries[0].contentRect;
+    if (width === 0 || height === 0) return;
+    renderer.setSize(width, height, false); // false: don't fight our own CSS sizing
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  });
+  resizeObserver.observe(canvas);
+
   let raf = requestAnimationFrame(animate);
   function animate() {
-    if (!measured) {
-      measured = true;
-      illustration.setMeasuredSize();
-      fitView(illustration, project);
-    }
-    illustration.updateRenderGraph();
+    controls.update(); // required every frame while enableDamping is on
+    renderer.render(scene, camera);
     raf = requestAnimationFrame(animate);
   }
 
-  function onWheel(evt) {
-    evt.preventDefault();
-    illustration.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, illustration.zoom - evt.deltaY * ZOOM_WHEEL_SENSITIVITY));
-  }
-  canvas.addEventListener('wheel', onWheel, { passive: false });
-
   return {
     updateProject(nextProject) {
-      populateScene(illustration, nextProject);
+      populateScene(pieceGroup, nextProject);
     },
     unmount() {
       cancelAnimationFrame(raf);
-      canvas.removeEventListener('wheel', onWheel);
+      resizeObserver.disconnect();
+      controls.dispose();
+      pieceGroup.children.slice().forEach((mesh) => {
+        mesh.geometry.dispose();
+        mesh.material.dispose();
+      });
+      renderer.dispose();
       clear(container);
     },
   };
+}
+
+// Centers the orbit target on the box's own middle point and backs the
+// camera off along a fixed 3/4 direction, far enough that a sphere around
+// the box's own diagonal fits the vertical field of view. Only called once,
+// right after the first mount — NOT on every updateProject — so a later
+// edit never undoes the framing/rotation the user set by hand (same
+// reasoning as EditorView.js's persistent threeDContainer).
+function fitView(camera, controls, project) {
+  const w = outerBoxWidth(project.grid, project);
+  const d = outerBoxDepth(project.grid, project);
+  const h = outerBoxHeight(project.grid, project);
+  const center = new THREE.Vector3(w / 2, d / 2, h / 2);
+  const radius = Math.sqrt(w * w + d * d + h * h) / 2;
+  const fovRadians = (camera.fov * Math.PI) / 180;
+  const distance = (radius / Math.sin(fovRadians / 2)) * 1.15; // 15% margin
+
+  const direction = new THREE.Vector3(-0.6, -0.6, 0.5).normalize();
+  camera.position.copy(center).addScaledVector(direction, distance);
+  camera.lookAt(center);
+  controls.target.copy(center);
+  controls.update();
 }

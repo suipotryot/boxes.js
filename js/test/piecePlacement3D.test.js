@@ -1,8 +1,9 @@
 // PiecePlacement3D places every piece of computePieces() into one shared
-// 3D world space, ahead of the 3D preview's extrusion step. Returns a full
-// orthonormal basis (origin + 3 unit axes) rather than Zdog-style Euler
-// angles, so this stays pure/testable arithmetic with zero dependency on
-// Zdog's own rotation-composition order (see the plan).
+// 3D world space, ahead of the 3D preview's own extrusion step. Returns a
+// full orthonormal basis (origin + 3 unit axes) rather than Euler angles,
+// so this stays pure/testable arithmetic with zero dependency on any
+// particular rendering library's own rotation-composition order (see the
+// plan).
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
