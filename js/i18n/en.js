@@ -64,6 +64,9 @@ export const en = {
   // Editor toolbar
   'editor.backToList': 'My projects',
   'editor.dimensions': 'Exterior size: {width} × {depth} × {height} mm',
+  'editor.view2dTab': '2D',
+  'editor.view3dTab': '3D preview',
+  'editor.view3dHint': 'Drag to rotate, scroll to zoom. Holes and cutouts are not shown in this preview.',
 
   // Export
   'export.exportJson': 'Export (JSON)',

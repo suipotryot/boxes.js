@@ -69,6 +69,9 @@ export const fr = {
   // Editor toolbar
   'editor.backToList': 'Mes projets',
   'editor.dimensions': 'Taille extérieure : {width} × {depth} × {height} mm',
+  'editor.view2dTab': '2D',
+  'editor.view3dTab': 'Aperçu 3D',
+  'editor.view3dHint': 'Glisser pour pivoter, molette pour zoomer. Les trous et découpes ne sont pas représentés dans cet aperçu.',
 
   // Export
   'export.exportJson': 'Exporter (JSON)',

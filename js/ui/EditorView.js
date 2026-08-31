@@ -7,6 +7,7 @@ import { renderEditorSvg } from './EditorRenderer.js';
 import { renderInspector } from './SegmentInspector.js';
 import { renderSettingsPanel } from './SettingsPanel.js';
 import { renderExportButton, renderExportHint, renderExportJsonButton } from './ExportView.js';
+import { mountThreeDView } from './ThreeDView.js';
 import { homeIcon } from './fields.js';
 import { t } from '../i18n/index.js';
 import { computePieces } from '../geometry/PieceFactory.js';
@@ -81,6 +82,23 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   // the rest are lower-frequency settings, closed by default.
   let openSections = { thickness: true, options: false, fingerJoint: false, lid: false, drawer: false, laserBed: false };
 
+  // '2d' (the clickable grid) or '3d' (the Zdog preview). `threeDContainer`
+  // is created ONCE and never recreated — render() rebuilds the rest of
+  // the DOM from scratch on every store change, but appendChild() MOVES an
+  // existing node rather than cloning it, so re-inserting this same
+  // container each render keeps the canvas, its Zdog Illustration, and
+  // critically the user's current drag-rotation/zoom alive across edits
+  // instead of resetting them on every keystroke. `threeD` (the
+  // mountThreeDView handle) is created lazily on first entry into 3D mode.
+  let viewMode = '2d';
+  const threeDContainer = el('div', { class: 'threed-view' });
+  let threeD = null;
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    render();
+  }
+
   function select(next) {
     selected = next;
     selectedWallId = selectedPieceId(store.project, next);
@@ -129,9 +147,25 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
         renderExportJsonButton(project),
         renderExportButton(project, showLabels),
       ]),
+      el('div', { class: 'toolbar-group view-toggle' }, [
+        el('button', { class: viewMode === '2d' ? 'btn active' : 'btn', onClick: () => setViewMode('2d'), text: t('editor.view2dTab') }),
+        el('button', { class: viewMode === '3d' ? 'btn active' : 'btn', onClick: () => setViewMode('3d'), text: t('editor.view3dTab') }),
+      ]),
     ]);
 
-    const editorCanvas = el('div', { class: 'editor-canvas' }, [renderEditorSvg(project, selected, select)]);
+    // threeDContainer is the same long-lived node every render (see its
+    // declaration above) — only (de)activated here, never rebuilt.
+    if (viewMode === '3d') {
+      if (!threeD) threeD = mountThreeDView(threeDContainer, project);
+      else threeD.updateProject(project);
+    } else if (threeD) {
+      threeD.unmount(); // stop its rAF loop before dropping the reference
+      threeD = null;
+    }
+
+    const editorCanvas = el('div', { class: 'editor-canvas' }, [
+      viewMode === '3d' ? threeDContainer : renderEditorSvg(project, selected, select),
+    ]);
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection, showLabels, toggleLabels)]),
@@ -160,6 +194,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     unmount() {
       unsubscribe();
       document.removeEventListener('keydown', onKeydown);
+      if (threeD) threeD.unmount();
     },
   };
 }
