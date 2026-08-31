@@ -68,6 +68,7 @@ export const fr = {
 
   // Editor toolbar
   'editor.backToList': 'Mes projets',
+  'editor.dimensions': 'Taille extérieure : {width} × {depth} × {height} mm',
 
   // Export
   'export.exportJson': 'Exporter (JSON)',

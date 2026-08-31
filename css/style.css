@@ -346,9 +346,9 @@ h3:first-child { margin-top: 0; }
   white-space: nowrap;
 }
 
-/* --- export hint strip (M7) --- */
+/* --- export hint strip (M7) / dimensions hint --- */
 
-.export-hint {
+.export-hint, .dimensions-hint {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -357,7 +357,7 @@ h3:first-child { margin-top: 0; }
   border: 1px solid var(--border);
   border-radius: 6px;
 }
-.export-hint .hint { flex: 1 1 auto; margin: 0; }
+.export-hint .hint, .dimensions-hint .hint { flex: 1 1 auto; margin: 0; }
 
 /* --- project list (M6) --- */
 

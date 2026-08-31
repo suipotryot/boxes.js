@@ -238,6 +238,22 @@ export function outerBoxHeight(grid, project) {
   return project.outerThicknessMm + perimeterHeight(grid, project) + (flush ? project.outerThicknessMm : 0);
 }
 
+/** Total exterior footprint width (X) / depth (Y), outer face to outer
+ *  face: the interior span (xAt/yAt at the last grid line) plus a full
+ *  outerThicknessMm margin on each side, since the outer wall's own
+ *  material extends entirely outward from the compartment boundary rather
+ *  than eating into it (see xAt/yAt's own doc comment). Same formula
+ *  already used by BasePlateBuilder's buildOuterEdgeOutline and
+ *  DrawerBuilder's buildSleeveContext — named here so both can eventually
+ *  point at one place instead of re-deriving it. */
+export function outerBoxWidth(grid, project) {
+  return xAt(grid, project, grid.sx.length) + 2 * project.outerThicknessMm;
+}
+
+export function outerBoxDepth(grid, project) {
+  return yAt(grid, project, grid.sy.length) + 2 * project.outerThicknessMm;
+}
+
 /** Pure validation for a fixed lid's insertion height (the height its own
  *  BOTTOM face rests at): it must clear every interior divider directly —
  *  the lid only joints with the OUTER walls, and a stem taller than the

@@ -11,7 +11,7 @@ import { homeIcon } from './fields.js';
 import { t } from '../i18n/index.js';
 import { computePieces } from '../geometry/PieceFactory.js';
 import { wallPieceId } from '../geometry/PanelBuilder.js';
-import { runAt } from '../model/GridQuery.js';
+import { runAt, outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
 
 // Which preview piece (if any) corresponds to the currently-selected grid
@@ -23,6 +23,19 @@ function selectedPieceId(project, selected) {
   if (!selected) return null;
   const run = runAt(project.grid, project, selected.kind, selected.c, selected.r);
   return run ? wallPieceId(run) : null;
+}
+
+/** Always-visible readout of the box's total exterior footprint — so the
+ *  user knows what size box they've committed to without having to expand
+ *  the (collapsible) thickness section of the settings panel to derive it
+ *  themselves. */
+function renderDimensionsHint(project) {
+  const width = outerBoxWidth(project.grid, project).toFixed(1);
+  const depth = outerBoxDepth(project.grid, project).toFixed(1);
+  const height = outerBoxHeight(project.grid, project).toFixed(1);
+  return el('div', { class: 'dimensions-hint' }, [
+    el('span', { class: 'hint', text: t('editor.dimensions', { width, depth, height }) }),
+  ]);
 }
 
 function renderPreviewStrip(project, selectedWallId, showLabels, onSelectWall) {
@@ -122,7 +135,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection, showLabels, toggleLabels)]),
-      el('div', { class: 'editor-main' }, [toolbar, renderExportHint(project), editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall)]),
+      el('div', { class: 'editor-main' }, [toolbar, renderDimensionsHint(project), renderExportHint(project), editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store)]),
     ]));
   }

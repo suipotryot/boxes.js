@@ -4,7 +4,7 @@
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, toggleWall } from '../model/Grid.js';
-import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, runAt, xAt, yAt } from '../model/GridQuery.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
 import { createDefaultProject } from '../state/Project.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
@@ -132,6 +132,40 @@ test('a fully-absent interior column contributes zero — no phantom gap for a d
   project.grid = toggleWall(project.grid, 'v', 1, 0); // remove the only interior divider
   assertClose(xAt(project.grid, project, 1), 50, 1e-9, 'no divider present, no contribution at this boundary yet');
   assertClose(xAt(project.grid, project, 2), 100, 1e-9, 'the two compartments merge with no added gap');
+});
+
+test('outerBoxWidth/outerBoxDepth add a full outerThicknessMm margin on each side of the interior span', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([150], [100]);
+  project.outerThicknessMm = 3;
+  assertClose(outerBoxWidth(project.grid, project), 156, 1e-9, '150 interior + 3mm margin each side');
+  assertClose(outerBoxDepth(project.grid, project), 106, 1e-9, '100 interior + 3mm margin each side');
+});
+
+test('outerBoxWidth/outerBoxDepth on the 2x2/50mm scenario match basePlateBuilder.test.js\'s own already-tested 108mm footprint', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([50, 50], [50, 50]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+  assertClose(outerBoxWidth(project.grid, project), 108, 1e-9);
+  assertClose(outerBoxDepth(project.grid, project), 108, 1e-9);
+});
+
+test('outerBoxHeight is the base plate plus the perimeter wall height, with no lid contribution when the lid is disabled', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [100]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'outerThicknessMm + perimeterHeight, lid disabled by default');
+});
+
+test('outerBoxHeight adds a second outerThicknessMm when the lid is enabled and sits flush with the perimeter', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [100]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.lid = { enabled: true, insertHeightMm: 40 - 3 }; // flush: lidTopFace === perimeterHeight
+  assertClose(outerBoxHeight(project.grid, project), 46, 1e-9, 'base plate + wall height + flush lid thickness');
 });
 
 run();
