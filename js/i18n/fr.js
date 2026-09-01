@@ -71,7 +71,7 @@ export const fr = {
   'editor.dimensions': 'Taille extérieure : {width} × {depth} × {height} mm',
   'editor.view2dTab': '2D',
   'editor.view3dTab': 'Aperçu 3D',
-  'editor.view3dHint': 'Glisser pour pivoter, molette pour zoomer. Les trous et découpes ne sont pas représentés dans cet aperçu.',
+  'editor.view3dHint': 'Glisser pour pivoter, molette pour zoomer.',
 
   // Export
   'export.exportJson': 'Exporter (JSON)',
@@ -106,15 +106,15 @@ export const fr = {
 
   // Grip notch editor
   'notch.title': 'Encoches pour doigt',
-  'notch.help': 'Découpe une ou plusieurs encoches dans le bord haut (libre) de ce pan, pour pouvoir y passer les doigts — par exemple pour ouvrir une boîte en tiroir.',
-  'notch.fieldOrderHint': 'Largeur, profondeur, rayon, position (mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
+  'notch.help': 'Découpe une ou plusieurs encoches dans le bord haut (libre) de ce pan, pour pouvoir y passer les doigts — par exemple pour ouvrir une boîte en tiroir. Largeur L, profondeur P, rayon R, position P (en mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
+  'notch.fieldOrderHint': 'L, P, R, X (mm)',
   'notch.add': '+ Ajouter une encoche',
   'notch.delete': 'Supprimer cette encoche',
 
   // Hole editor
   'hole.title': 'Trous',
-  'hole.help': 'Découpe un ou plusieurs trous rectangulaires (avec coins arrondis en option) dans cette pièce, par exemple pour un passage de câble ou une fixation.',
-  'hole.fieldOrderHint': 'Position X, position Y, largeur, hauteur, rayon (mm), séparés par des virgules — le point sépare les décimales, ex. « 20, 10, 30, 15, 3 ».',
+  'hole.help': 'Découpe un ou plusieurs trous rectangulaires (avec coins arrondis en option) dans cette pièce, par exemple pour un passage de câble ou une fixation. Position X, position Y, largeur L, hauteur H, rayon R (en mm), séparés par des virgules — le point sépare les décimales, ex. « 20, 10, 30, 15, 3 ».',
+  'hole.fieldOrderHint': 'X, Y, L, H, R (mm)',
   'hole.add': '+ Ajouter un trou',
   'hole.delete': 'Supprimer ce trou',
 

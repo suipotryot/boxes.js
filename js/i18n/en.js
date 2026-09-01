@@ -66,7 +66,7 @@ export const en = {
   'editor.dimensions': 'Exterior size: {width} × {depth} × {height} mm',
   'editor.view2dTab': '2D',
   'editor.view3dTab': '3D preview',
-  'editor.view3dHint': 'Drag to rotate, scroll to zoom. Holes and cutouts are not shown in this preview.',
+  'editor.view3dHint': 'Drag to rotate, scroll to zoom.',
 
   // Export
   'export.exportJson': 'Export (JSON)',
@@ -101,15 +101,15 @@ export const en = {
 
   // Grip notch editor
   'notch.title': 'Grip notches',
-  'notch.help': 'Cuts one or more notches into the free top edge of this panel, to slide fingers through — for example to open a drawer box.',
-  'notch.fieldOrderHint': 'Width, depth, radius, offset (mm), comma-separated — the period separates decimals, e.g. "20.5, 8, 0, 10".',
+  'notch.help': 'Cuts one or more notches into the free top edge of this panel, to slide fingers through — for example to open a drawer box. Width W, depth D, radius R, offset O (mm), comma-separated — the period separates decimals, e.g. "20.5, 8, 0, 10".',
+  'notch.fieldOrderHint': 'W, D, E, O (mm)',
   'notch.add': '+ Add a notch',
   'notch.delete': 'Delete this notch',
 
   // Hole editor
   'hole.title': 'Holes',
-  'hole.help': 'Cuts one or more rectangular holes (with optional rounded corners) into this piece, for example for a cable pass-through or a fixing.',
-  'hole.fieldOrderHint': 'Position X, position Y, width, height, radius (mm), comma-separated — the period separates decimals, e.g. "20, 10, 30, 15, 3".',
+  'hole.help': 'Cuts one or more rectangular holes (with optional rounded corners) into this piece, for example for a cable pass-through or a fixing. Position X, position Y, width W, height H, radius R (mm), comma-separated — the period separates decimals, e.g. "20, 10, 30, 15, 3".',
+  'hole.fieldOrderHint': 'X, Y, W, H, R (mm)',
   'hole.add': '+ Add a hole',
   'hole.delete': 'Delete this hole',
 
