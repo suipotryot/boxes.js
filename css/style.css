@@ -344,10 +344,12 @@ h3:first-child { margin-top: 0; }
 
 .preview-card {
   flex: 0 0 auto;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   cursor: pointer;
 }
-.preview-card svg { display: block; }
+.preview-card svg { display: block; max-width: 100%; height: auto; }
 .preview-card path {
   fill: #eadfc7;
   stroke: var(--accent);

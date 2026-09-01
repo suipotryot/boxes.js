@@ -26,19 +26,39 @@ export function pieceToSvgElement(piece, { interactive = false } = {}) {
 /** A ready-to-insert standalone <svg> for one piece, sized to its bounds
  *  plus padding. Used identically for the full-size preview strip and (in
  *  a smaller instance) anywhere else a quick piece thumbnail is needed. */
+// The model's v axis is never flipped when mapping to SVG y (see
+// pieceToPathData's own comment on that), so drawn as-is a piece appears
+// upside down relative to how it stands once assembled — teeth near the
+// top of the viewBox instead of the bottom. Rotating everything 180° about
+// the piece's own bounding-box center fixes that for on-screen display
+// (a 180° rotation about that exact center maps the bounding box onto
+// itself, so the viewBox math above needs no adjustment) without touching
+// pieceToPathData/pieceToSvgElement/pieceBounds themselves, which the real
+// export pipeline (SvgPageRenderer.js) also relies on and whose own
+// orientation convention is untouched by this. As a side effect, this
+// exactly cancels pieceLabelElement's own 180° pre-rotation, so a label
+// reads upright here too. `.piece-space` is also where interactive
+// overlays (e.g. hole drag handles) get attached, in this same rotated
+// coordinate space.
 export function pieceToStandaloneSvg(piece, { padding = 10, minSize = 0, showLabels = false } = {}) {
   const bounds = pieceBounds(piece);
   const w = bounds.width + padding * 2;
   const h = bounds.height + padding * 2;
+  const cx = (bounds.minX + bounds.maxX) / 2;
+  const cy = (bounds.minY + bounds.maxY) / 2;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `${bounds.minX - padding} ${bounds.minY - padding} ${w} ${h}`);
   svg.setAttribute('width', Math.max(minSize, w));
   svg.setAttribute('height', Math.max(minSize, h));
-  svg.appendChild(pieceToSvgElement(piece));
+  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  group.setAttribute('class', 'piece-space');
+  group.setAttribute('transform', `rotate(180 ${cx} ${cy})`);
+  group.appendChild(pieceToSvgElement(piece));
   if (showLabels) {
     const labelEl = pieceLabelElement(piece);
-    if (labelEl) svg.appendChild(labelEl);
+    if (labelEl) group.appendChild(labelEl);
   }
+  svg.appendChild(group);
   return svg;
 }
 
