@@ -426,7 +426,9 @@ function mortiseHoles(run, grid, project) {
 // is a strictly LARGER combined opening (wall notch + lid's own untouched
 // notch) than the wall alone — exactly what a finger-pull needs, with
 // zero change to the lid itself.
-function lidTopEdgePoints(run, grid, project, height, notches = []) {
+// Exported for lidBuilder.test.js's own corner-continuity regression test
+// (same precedent as bottomCombSegments/heightAt above).
+export function lidTopEdgePoints(run, grid, project, height, notches = []) {
   const protrusion = project.outerThicknessMm;
   const segs = bottomCombSegments(run, grid, project);
   const boundarySet = new Set([0, run.length]);
@@ -444,7 +446,20 @@ function lidTopEdgePoints(run, grid, project, height, notches = []) {
     if (notch && notch.points) { for (const p of notch.points) pts.push({ x: p.u, y: p.y }); continue; }
     if (notch) { pts.push({ x: uStart, y: notch.depth }, { x: uEnd, y: notch.depth }); continue; }
     const seg = segs.find((s) => mid > s.start && mid < s.start + s.length);
-    const y = seg && seg.kind === 'finger' ? height : height - protrusion;
+    // The run's own two physical extremities (u=0, u=run.length) always
+    // reach `height` — never `height - protrusion` — regardless of
+    // whether the comb tiling happens to land on 'flush' there: this is
+    // exactly the same box-corner reach endEdgePoints itself guarantees at
+    // its own end, via extendToTips's tooth-stretch (a real corner comb)
+    // or its own flat mateProtrusion<=0 case (an open side, no neighbor to
+    // comb against) — both always go all the way up to `height`. Without
+    // matching that here, a 'flush' stretch landing on either end would
+    // drop this edge `protrusion` below where the corner edge already left
+    // off — a real geometric spike, not a rendering artifact, since the
+    // two edges are stitched into one outline (buildWallPanel's own
+    // `[...bottom, ...right, ...top, ...left]`).
+    const atEnd = uStart <= 1e-9 || uEnd >= run.length - 1e-9;
+    const y = atEnd || (seg && seg.kind === 'finger') ? height : height - protrusion;
     pts.push({ x: uStart, y }, { x: uEnd, y });
   }
   return pts.reverse(); // match freeEdgePoints' length -> 0 traversal

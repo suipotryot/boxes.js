@@ -15,7 +15,7 @@
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight } from '../model/Grid.js';
 import { enumerateWallRuns, validateLid } from '../model/GridQuery.js';
-import { buildWallPanel } from '../geometry/PanelBuilder.js';
+import { buildWallPanel, bottomCombSegments, lidTopEdgePoints } from '../geometry/PanelBuilder.js';
 import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
 import { buildLid } from '../geometry/LidBuilder.js';
 import { computePieces } from '../geometry/PieceFactory.js';
@@ -109,6 +109,26 @@ test('outer wall, flush lid: its own top edge grows tabs that reach exactly the 
   assert(ys.some((y) => Math.abs(y - 50) < 1e-6), 'expected finger tabs to reach exactly 50mm — the lid\'s own top (outer) face, insertHeightMm + lid thickness — flush with it, poking fully through');
   assert(ys.every((y) => y <= 50 + 1e-6), 'no point should protrude past the lid\'s own top face');
   assert(ys.some((y) => Math.abs(y - 47) < 1e-6), 'expected flush (non-finger) stretches to stop at 47mm — the lid\'s own bottom face (insertHeightMm) — touching it without overlapping the lid\'s own material');
+});
+
+test('outer wall, flush lid: the top edge reaches the full lid-top height at BOTH of its own corners, matching endEdgePoints\' own corner reach exactly (regression: a "flush" comb stretch landing on a corner used to drop the edge a full thickness short there, opening a spike where it meets the corner comb)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([150], [100]);
+  const topRun = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+
+  // Confirm the regression's own precondition: this run's comb tiling
+  // actually starts (and ends) on a 'flush' stretch — exactly the case
+  // the fix targets. If FingerJoint's own defaults ever changed this,
+  // this test would need a different run/grid to still exercise the bug.
+  const segs = bottomCombSegments(topRun, project.grid, project);
+  assert(segs[0].kind === 'flush', 'expected this run\'s comb to start flush — the precondition for the corner regression this test targets');
+  assert(segs[segs.length - 1].kind === 'flush', 'expected this run\'s comb to also end flush');
+
+  const points = lidTopEdgePoints(topRun, project.grid, project, 50, []);
+  const atStart = points.filter((p) => Math.abs(p.x - 0) < 1e-6);
+  const atEnd = points.filter((p) => Math.abs(p.x - topRun.length) < 1e-6);
+  assert(atStart.length > 0 && atStart.every((p) => Math.abs(p.y - 50) < 1e-6), 'the edge must reach the full 50mm at u=0, matching endEdgePoints\' own corner reach there — not 47mm (height - protrusion), which is what the "flush" branch alone would give');
+  assert(atEnd.length > 0 && atEnd.every((p) => Math.abs(p.y - 50) < 1e-6), 'the edge must reach the full 50mm at u=length too');
 });
 
 test('outer wall, recessed lid: its own top edge stays flat, gets enclosed holes at insertHeightMm instead', () => {
