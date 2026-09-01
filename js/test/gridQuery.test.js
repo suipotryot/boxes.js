@@ -159,13 +159,13 @@ test('outerBoxHeight is the base plate plus the perimeter wall height, with no l
   assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'outerThicknessMm + perimeterHeight, lid disabled by default');
 });
 
-test('outerBoxHeight adds a second outerThicknessMm when the lid is enabled and sits flush with the perimeter', () => {
+test('outerBoxHeight is unchanged by a flush lid — its own tabs land exactly on the lid\'s outer face, never past it', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [100]);
   project.outerThicknessMm = 3;
   project.outerHeightMm = 40;
   project.lid = { enabled: true, insertHeightMm: 40 - 3 }; // flush: lidTopFace === perimeterHeight
-  assertClose(outerBoxHeight(project.grid, project), 46, 1e-9, 'base plate + wall height + flush lid thickness');
+  assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'same as the no-lid case: outerThicknessMm + perimeterHeight');
 });
 
 run();

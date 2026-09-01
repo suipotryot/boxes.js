@@ -72,6 +72,11 @@ export const fr = {
   'editor.view2dTab': '2D',
   'editor.view3dTab': 'Aperçu 3D',
   'editor.view3dHint': 'Glisser pour pivoter, molette pour zoomer.',
+  'editor.view3dShowBox': 'Boîte',
+  'editor.view3dShowDrawer': 'Manchon',
+  'editor.view3dShowDrawerLid': 'Couvercle manchon',
+  'editor.view3dShowLid': 'Couvercle',
+  'editor.view3dDrawerOpen': 'Ouverture du tiroir',
 
   // Export
   'export.exportJson': 'Exporter (JSON)',

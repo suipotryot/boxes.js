@@ -96,7 +96,7 @@ test('buildLid, recessed case: protrudes its own tabs past the nominal W x D foo
   assert(bounds.height > 100, `expected tabs to protrude past the nominal 100mm height, got ${bounds.height}`);
 });
 
-test('outer wall, flush lid: its own top edge grows protruding tabs, no enclosed holes', () => {
+test('outer wall, flush lid: its own top edge grows tabs that reach exactly the lid\'s own top face, no enclosed holes', () => {
   const project = createDefaultProject();
   project.grid = createGrid([150], [100]);
   project.lid = { enabled: true, insertHeightMm: 47 }; // top face === perimeter height (50) once the 3mm lid thickness is added
@@ -106,7 +106,9 @@ test('outer wall, flush lid: its own top edge grows protruding tabs, no enclosed
   assert(isSimplePolygon(piece.outline), 'flush-lid wall outline self-intersects');
   assert(piece.holes.length === 0, 'the flush case joints via the free edge shape, not holes');
   const ys = piece.outline.map((p) => p.y);
-  assert(ys.some((y) => y > 50 + 1e-6), 'expected the wall\'s own top edge to protrude above the nominal 50mm height at finger positions');
+  assert(ys.some((y) => Math.abs(y - 50) < 1e-6), 'expected finger tabs to reach exactly 50mm — the lid\'s own top (outer) face, insertHeightMm + lid thickness — flush with it, poking fully through');
+  assert(ys.every((y) => y <= 50 + 1e-6), 'no point should protrude past the lid\'s own top face');
+  assert(ys.some((y) => Math.abs(y - 47) < 1e-6), 'expected flush (non-finger) stretches to stop at 47mm — the lid\'s own bottom face (insertHeightMm) — touching it without overlapping the lid\'s own material');
 });
 
 test('outer wall, recessed lid: its own top edge stays flat, gets enclosed holes at insertHeightMm instead', () => {

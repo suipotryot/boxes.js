@@ -8,7 +8,8 @@ import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
 import { computePieces } from './../geometry/PieceFactory.js';
-import { computePiecePlacement3D, toWorld } from '../geometry/PiecePlacement3D.js';
+import { computePiecePlacement3D, toWorld, translatePlacement } from '../geometry/PiecePlacement3D.js';
+import { computeDrawerOffset } from '../geometry/DrawerBuilder.js';
 
 // Same fixture as gridQuery.test.js's xAt/yAt scenario: xAt(...,1) = 51
 // (50 + half the 2mm divider).
@@ -98,6 +99,43 @@ test('the lid placement sits flat at outerThicknessMm + insertHeightMm above the
   const placement = computePiecePlacement3D(project.grid, project, lid);
   assertVec(placement.origin, { x: 0, y: 0, z: 3 + 30 }, 'origin.z = outerThicknessMm + insertHeightMm');
   assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'flat, same orientation as the base plate');
+});
+
+test('translatePlacement shifts only origin, leaving the basis untouched', () => {
+  const placement = {
+    origin: { x: 1, y: 2, z: 3 },
+    uAxis: { x: 1, y: 0, z: 0 },
+    vAxis: { x: 0, y: 1, z: 0 },
+    wAxis: { x: 0, y: 0, z: -1 },
+  };
+  const translated = translatePlacement(placement, { x: 10, y: -5, z: 0 });
+  assertVec(translated.origin, { x: 11, y: -3, z: 3 }, 'origin');
+  assertVec(translated.uAxis, placement.uAxis, 'uAxis unchanged');
+  assertVec(translated.wAxis, placement.wAxis, 'wAxis unchanged');
+});
+
+test('a drawer base plate placement is the sleeve\'s own identity transform, translated by computeDrawerOffset', () => {
+  const project = fixtureProject();
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+  const drawerBasePlate = computePieces(project).find((p) => p.id === 'drawer:base-plate');
+  assert(drawerBasePlate, 'expected a drawer:base-plate piece once the drawer is enabled');
+  const placement = computePiecePlacement3D(project.grid, project, drawerBasePlate);
+  assertVec(placement.origin, computeDrawerOffset(project), 'origin: identity (0,0,0) + computeDrawerOffset');
+  assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'wAxis unchanged by the offset translation');
+});
+
+test('a drawer wall placement resolves against the SLEEVE\'s own grid/project (not the main box\'s), then is offset', () => {
+  const project = fixtureProject(); // outerThicknessMm 3
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+  // openSide 'right' removes the sleeve's v,c=1 wall — its remaining closed
+  // left wall (v,c=0) is a plain outer wall of the sleeve's own 1x1 grid.
+  const drawerLeftWall = computePieces(project).find((p) => p.id === 'drawer:wall-v-0-0');
+  assert(drawerLeftWall, 'expected a drawer:wall-v-0-0 piece');
+  const placement = computePiecePlacement3D(project.grid, project, drawerLeftWall);
+  const offset = computeDrawerOffset(project);
+  // Local placement (sleeve's own frame): origin (0,0,baseZ=drawer.thicknessMm=3), extrudes outward (-X) same as any c=0 outer wall.
+  assertVec(placement.origin, { x: offset.x, y: offset.y, z: 3 + offset.z }, 'origin: sleeve-local origin + computeDrawerOffset');
+  assertVec(placement.wAxis, { x: -1, y: 0, z: 0 }, 'extrudes outward, same convention as the main box\'s own c=0 wall');
 });
 
 test('toWorld combines a placement and a local point via the basis + origin', () => {

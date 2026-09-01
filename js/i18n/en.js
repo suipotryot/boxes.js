@@ -67,6 +67,11 @@ export const en = {
   'editor.view2dTab': '2D',
   'editor.view3dTab': '3D preview',
   'editor.view3dHint': 'Drag to rotate, scroll to zoom.',
+  'editor.view3dShowBox': 'Box',
+  'editor.view3dShowDrawer': 'Drawer',
+  'editor.view3dShowDrawerLid': 'Drawer lid',
+  'editor.view3dShowLid': 'Lid',
+  'editor.view3dDrawerOpen': 'Drawer opening',
 
   // Export
   'export.exportJson': 'Export (JSON)',

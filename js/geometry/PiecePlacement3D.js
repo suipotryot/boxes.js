@@ -20,9 +20,10 @@
 // (perimeter) wall extrudes its thickness entirely OUTWARD from the
 // compartment boundary; an interior divider extrudes CENTERED on the grid
 // line (half each side) — see isOuterSegment.
-import { xAt, yAt } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
-import { resolveWallRunContext } from './PieceContext.js';
+import { wallPieceId } from './PanelBuilder.js';
+import { buildSleeveContext, computeDrawerOffset, DRAWER_PREFIX } from './DrawerBuilder.js';
 
 function identityPlacement() {
   return {
@@ -33,18 +34,16 @@ function identityPlacement() {
   };
 }
 
-/**
- * @param {object} grid
- * @param {object} project
- * @param {object} piece one entry from computePieces(project) — kind must
- *   be 'basePlate', 'lid', or 'wall' (with a non-drawer-prefixed id; the
- *   drawer sleeve is out of scope for the 3D view, see the plan).
- * @returns {{origin:{x,y,z}, uAxis:{x,y,z}, vAxis:{x,y,z}, wAxis:{x,y,z}}}
- *   world = origin + local.x*uAxis + local.y*vAxis + local.z*wAxis, where
- *   (local.x, local.y) is a point from piece.outline (or piece.holes) and
- *   local.z in [0, piece.thicknessMm] is the extrusion depth.
- */
-export function computePiecePlacement3D(grid, project, piece) {
+/** Places a piece using whichever grid/project actually built it — the
+ *  main box's own for an ordinary piece, or (see computePiecePlacement3D
+ *  below) the drawer sleeve's own synthetic grid/project for a drawer
+ *  piece, with `pieceId` already stripped of DRAWER_PREFIX either way. Runs
+ *  are looked up directly via enumerateWallRuns/wallPieceId rather than
+ *  PieceContext.resolveWallRunContext, which re-derives its OWN grid/
+ *  project from a (possibly still-prefixed) id — calling it here, on an
+ *  already-resolved sleeve grid/project, would try to resolve the prefix a
+ *  second time. */
+function computeLocalPlacement(grid, project, pieceId, piece) {
   const baseZ = project.outerThicknessMm;
 
   if (piece.kind === 'basePlate') return identityPlacement();
@@ -57,7 +56,7 @@ export function computePiecePlacement3D(grid, project, piece) {
     throw new Error(`computePiecePlacement3D: unsupported piece kind "${piece.kind}"`);
   }
 
-  const { run } = resolveWallRunContext(project, piece.id);
+  const run = enumerateWallRuns(grid, project).find((r) => wallPieceId(r) === pieceId);
   const thickness = piece.thicknessMm;
 
   if (run.kind === 'h') {
@@ -74,6 +73,45 @@ export function computePiecePlacement3D(grid, project, piece) {
   const x0 = xAt(grid, project, run.c) - (outer ? 0 : thickness / 2);
   const wAxis = outer && run.c === 0 ? { x: -1, y: 0, z: 0 } : { x: 1, y: 0, z: 0 };
   return { origin: { x: x0, y: y0, z: baseZ }, uAxis: { x: 0, y: 1, z: 0 }, vAxis: { x: 0, y: 0, z: 1 }, wAxis };
+}
+
+/**
+ * @param {object} grid
+ * @param {object} project
+ * @param {object} piece one entry from computePieces(project) — kind must
+ *   be 'basePlate', 'lid', or 'wall'. A drawer-prefixed id (see
+ *   DrawerBuilder.DRAWER_PREFIX) is placed against the sleeve's own
+ *   synthetic grid/project (buildSleeveContext), then translated into the
+ *   main box's world space by computeDrawerOffset.
+ * @returns {{origin:{x,y,z}, uAxis:{x,y,z}, vAxis:{x,y,z}, wAxis:{x,y,z}}}
+ *   world = origin + local.x*uAxis + local.y*vAxis + local.z*wAxis, where
+ *   (local.x, local.y) is a point from piece.outline (or piece.holes) and
+ *   local.z in [0, piece.thicknessMm] is the extrusion depth.
+ */
+export function computePiecePlacement3D(grid, project, piece) {
+  if (!piece.id.startsWith(DRAWER_PREFIX)) {
+    return computeLocalPlacement(grid, project, piece.id, piece);
+  }
+
+  const { sleeveGrid, sleeveProject } = buildSleeveContext(grid, project);
+  const rawId = piece.id.slice(DRAWER_PREFIX.length);
+  const local = computeLocalPlacement(sleeveGrid, sleeveProject, rawId, piece);
+  return translatePlacement(local, computeDrawerOffset(project));
+}
+
+/** Shifts only `origin`, leaving the basis (uAxis/vAxis/wAxis) untouched —
+ *  used above to place a drawer piece into the main box's world space, and
+ *  reused by ThreeJsScene.js to apply the "open the drawer" slider's
+ *  translation on top of a piece's own placement. */
+export function translatePlacement(placement, offset) {
+  return {
+    ...placement,
+    origin: {
+      x: placement.origin.x + offset.x,
+      y: placement.origin.y + offset.y,
+      z: placement.origin.z + offset.z,
+    },
+  };
 }
 
 /** world = placement.origin + local.x*uAxis + local.y*vAxis + local.z*wAxis */

@@ -9,16 +9,39 @@
 // module is needed anymore.
 import * as THREE from 'three';
 import { computePieces } from '../geometry/PieceFactory.js';
-import { computePiecePlacement3D } from '../geometry/PiecePlacement3D.js';
-import { DRAWER_PREFIX } from '../geometry/DrawerBuilder.js';
+import { computePiecePlacement3D, translatePlacement } from '../geometry/PiecePlacement3D.js';
+import { DRAWER_PREFIX, computeDrawerSlideVector } from '../geometry/DrawerBuilder.js';
 
-// v1 scope (see the plan): base plate, every wall run, and the lid — same
-// as before. Drawer pieces stay out (no world-offset for the sleeve
-// exists anywhere in the pipeline yet).
+// base plate, every wall run, and the lid — the same kinds computePieces()
+// itself groups drawer sleeve pieces under too (see PiecePlacement3D.js,
+// which resolves a drawer-prefixed id against the sleeve's own synthetic
+// grid and offsets the result into the main box's world space).
 const SUPPORTED_KINDS = new Set(['basePlate', 'lid', 'wall']);
 
+const ZERO_VECTOR = { x: 0, y: 0, z: 0 };
+
+// The 4 independently-hideable/-slideable groups the 3D preview's own
+// checkboxes and "open the drawer" slider (see ThreeDView.js) operate on.
+// The sleeve's own lid gets its own group ('couvercleManchon'), split out
+// from the rest of the sleeve ('manchon', base + walls) rather than
+// bundled as one — the sleeve's lid is a solid, permanent ceiling over
+// its own base plate (never toggled open by the slider, unlike the main
+// box's own lid/walls, which slide away together): without a way to hide
+// JUST the sleeve's lid, nothing under it — the base plate itself, or any
+// hole cut into it — could ever be seen, since the camera is also never
+// allowed to look up from underneath (see ThreeDView.js's minPolarAngle/
+// maxPolarAngle). Neither sleeve group ever slides with the "open the
+// drawer" control — only the main box's own two groups do.
+function pieceGroupName(piece) {
+  const isDrawer = piece.id.startsWith(DRAWER_PREFIX);
+  if (piece.kind === 'lid') return isDrawer ? 'couvercleManchon' : 'couvercle';
+  return isDrawer ? 'manchon' : 'box';
+}
+
 function pieceColor(piece) {
-  const varName = piece.thicknessGroup === 'outer' ? '--outer' : '--inner';
+  const varName = piece.id.startsWith(DRAWER_PREFIX)
+    ? '--drawer'
+    : piece.thicknessGroup === 'outer' ? '--outer' : '--inner';
   return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 }
 
@@ -75,23 +98,36 @@ function disposeMesh(mesh) {
   mesh.material.dispose();
 }
 
-/** Clears and repopulates `scene` with one Mesh per eligible piece of
- *  computePieces(project). Disposes every previous mesh's geometry and
- *  material first — this rebuilds from scratch on every project edit
- *  (same as the rest of this app's DOM rendering), and WebGL resources
- *  aren't garbage-collected on their own; skipping this would leak GPU
- *  memory for the length of an editing session. */
-export function populateScene(scene, project) {
+/** Clears and repopulates `scene` with one Mesh per eligible, currently
+ *  visible piece of computePieces(project). Disposes every previous mesh's
+ *  geometry and material first — this rebuilds from scratch on every
+ *  project edit (same as the rest of this app's DOM rendering), and WebGL
+ *  resources aren't garbage-collected on their own; skipping this would
+ *  leak GPU memory for the length of an editing session.
+ *
+ * @param {object} [opts]
+ * @param {number} [opts.openT] 0 (closed/nested) to 1 (fully clear of the
+ *   sleeve) — the "open the drawer" slider; only ever moves the main box's
+ *   own pieces (box + couvercle groups), never the sleeve itself.
+ * @param {{box:boolean, manchon:boolean, couvercle:boolean, couvercleManchon:boolean}} [opts.visible]
+ *   per-group checkbox state — a piece whose group is false is simply
+ *   skipped, never added to the scene. */
+export function populateScene(scene, project, { openT = 0, visible = { box: true, manchon: true, couvercle: true, couvercleManchon: true } } = {}) {
   scene.children.slice().forEach((mesh) => {
     scene.remove(mesh);
     disposeMesh(mesh);
   });
 
-  const pieces = computePieces(project)
-    .filter((p) => SUPPORTED_KINDS.has(p.kind) && !p.id.startsWith(DRAWER_PREFIX));
+  const slideVector = project.drawer?.enabled ? computeDrawerSlideVector(project.grid, project, openT) : ZERO_VECTOR;
+  const pieces = computePieces(project).filter((p) => SUPPORTED_KINDS.has(p.kind));
 
   for (const piece of pieces) {
-    const placement = computePiecePlacement3D(project.grid, project, piece);
+    const group = pieceGroupName(piece);
+    if (!visible[group]) continue;
+
+    let placement = computePiecePlacement3D(project.grid, project, piece);
+    if (group === 'box' || group === 'couvercle') placement = translatePlacement(placement, slideVector);
+
     const shape = buildShape(piece.outline);
     shape.holes = piece.holes.map(buildHolePath);
     const geometry = new THREE.ExtrudeGeometry(shape, { depth: piece.thicknessMm, bevelEnabled: false });

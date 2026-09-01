@@ -389,23 +389,43 @@ function mortiseHoles(run, grid, project) {
 
 // A fixed lid's own top-edge comb — replaces freeEdgePoints entirely for
 // an OUTER run when the lid sits exactly flush with the perimeter height
-// (see buildWallPanel): the wall's tabs protrude ABOVE its own nominal
-// height at 'finger' positions (mirroring bottomEdgePoints' own tabs
-// protruding BELOW v=0 into the base plate), interlocking with notches
-// cut into the lid's own outline (BasePlateBuilder.buildOuterEdgeOutline
-// — the lid and the base plate share that exact function, since a flush
-// lid is geometrically the base plate's mirror image at the top). Outer
-// runs are always a single uniform height and never have an X-crossing
-// notch on their own free edge (a perimeter run can only ever meet a T
-// junction, never an X — one side of any interior point along it is
-// always out-of-grid), so this never needs to merge with freeEdgePoints'
-// other concerns EXCEPT a grip notch (see `notches`, GripNotch.js):
-// cutting a grip notch out of a 'finger' position here simply removes
-// that tab — the lid (BasePlateBuilder.buildOuterEdgeOutline) still cuts
-// its own matching notch there via the same bottomCombSegments tiling,
-// unaware of pieceNotches, so the result is a strictly LARGER combined
-// opening (wall notch + lid's own untouched notch) than the wall alone —
-// exactly what a finger-pull needs, with zero change to the lid itself.
+// (see buildWallPanel), mirroring bottomEdgePoints' own tabs exactly:
+// there, a 'finger' tab extends BELOW v=0 by the base plate's own
+// thickness, landing exactly on the plate's outer (bottom) face — flush,
+// poking fully through, never beyond — while a flush (non-finger) stretch
+// stops AT v=0, touching the plate's own top face without overlapping it
+// (the plate itself supplies the material there, reaching out to meet the
+// wall). Here at the top, `height` (this run's own resolved height) is,
+// whenever the lid is flush, exactly the LID's own TOP face (that's what
+// "flush" means — see isLidFlush/lidTopFace) — so by the same mirrored
+// logic: a 'finger' tab reaches exactly `height`, landing flush on the
+// lid's own top (outer) face, poking fully through its thickness; a flush
+// (non-finger) stretch stops `protrusion` (the lid's own thickness) short
+// of that, at `height - protrusion` — exactly the lid's own BOTTOM face,
+// where the wall's plain body ends and the lid's solid sheet (extending
+// out to meet it there, via the matching notch BasePlateBuilder.
+// buildOuterEdgeOutline cuts into the lid's own outline — the lid and the
+// base plate share that exact function, since a flush lid is
+// geometrically the base plate's mirror image at the top) takes over.
+// Getting either term wrong here reintroduces the exact defect a flush
+// lid is meant to avoid: either a gap (tab falls short of the lid) or an
+// overlap (wall material doubling up inside the lid's own thickness, or a
+// tab poking out past its outer face) — both invisible in the 2D/SVG
+// piece-by-piece preview, only obvious once pieces are actually composited
+// in 3D (or physically assembled).
+//
+// Outer runs are always a single uniform height and never have an
+// X-crossing notch on their own free edge (a perimeter run can only ever
+// meet a T junction, never an X — one side of any interior point along it
+// is always out-of-grid), so this never needs to merge with
+// freeEdgePoints' other concerns EXCEPT a grip notch (see `notches`,
+// GripNotch.js): cutting a grip notch out of a 'finger' position here
+// simply removes that tab — the lid (BasePlateBuilder.
+// buildOuterEdgeOutline) still cuts its own matching notch there via the
+// same bottomCombSegments tiling, unaware of pieceNotches, so the result
+// is a strictly LARGER combined opening (wall notch + lid's own untouched
+// notch) than the wall alone — exactly what a finger-pull needs, with
+// zero change to the lid itself.
 function lidTopEdgePoints(run, grid, project, height, notches = []) {
   const protrusion = project.outerThicknessMm;
   const segs = bottomCombSegments(run, grid, project);
@@ -424,7 +444,7 @@ function lidTopEdgePoints(run, grid, project, height, notches = []) {
     if (notch && notch.points) { for (const p of notch.points) pts.push({ x: p.u, y: p.y }); continue; }
     if (notch) { pts.push({ x: uStart, y: notch.depth }, { x: uEnd, y: notch.depth }); continue; }
     const seg = segs.find((s) => mid > s.start && mid < s.start + s.length);
-    const y = seg && seg.kind === 'finger' ? height + protrusion : height;
+    const y = seg && seg.kind === 'finger' ? height : height - protrusion;
     pts.push({ x: uStart, y }, { x: uEnd, y });
   }
   return pts.reverse(); // match freeEdgePoints' length -> 0 traversal

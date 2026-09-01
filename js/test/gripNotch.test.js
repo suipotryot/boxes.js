@@ -221,11 +221,17 @@ test('a grip notch on a drawer wall removes a real finger tab (lidTopEdgePoints 
 
   function tabPresentInRange(pieces, seg) {
     const wall = pieces.find((p) => p.id === drawerPieceId);
-    // Strictly ABOVE the un-notched height, not just >= it — a plain
-    // boundary point at exactly outerHeightMm (the neighboring un-notched
-    // segments' own edges) sits right at this range's endpoints too and
-    // must not be mistaken for a genuinely protruding tab.
-    return wall.outline.some((p) => p.x >= seg.start - 1e-6 && p.x <= seg.start + seg.length + 1e-6 && p.y > ctxBefore.sleeveProject.outerHeightMm + 1e-6);
+    // A present (un-notched) tab reaches EXACTLY outerHeightMm — the lid's
+    // own top face, flush, no protrusion past it (PanelBuilder.
+    // lidTopEdgePoints). Matching that exact value, rather than any point
+    // above some threshold, is what a naive ">insertHeightMm" check gets
+    // wrong for a ROUNDED notch (radiusMm>0): when the notch's own depth
+    // doesn't fully clear depthMm below radiusMm, its fillet's own corner
+    // briefly passes back through the insertHeightMm..outerHeightMm band
+    // right at the notch's edge (a real, correctly-carved short vertical
+    // wall — see GripNotch.gripNotchOverride's own doc comment — not a
+    // leftover tab), which a ">threshold" check can't tell apart from one.
+    return wall.outline.some((p) => p.x >= seg.start - 1e-6 && p.x <= seg.start + seg.length + 1e-6 && Math.abs(p.y - ctxBefore.sleeveProject.outerHeightMm) < 1e-6);
   }
 
   const withoutNotch = buildDrawerBox(project.grid, project);
@@ -252,7 +258,14 @@ test('two grip notches on a drawer wall each remove their own, independent finge
   const drawerPieceId = `${DRAWER_PREFIX}wall-h-0-0`;
   function tabPresentInRange(pieces, seg) {
     const wall = pieces.find((p) => p.id === drawerPieceId);
-    return wall.outline.some((p) => p.x >= seg.start - 1e-6 && p.x <= seg.start + seg.length + 1e-6 && p.y > ctxBefore.sleeveProject.outerHeightMm + 1e-6);
+    // A present (un-notched) tab reaches EXACTLY outerHeightMm — matching
+    // that exact value, rather than any point above some threshold, is
+    // what a rounded notch's own short corner fillet needs: it can
+    // briefly pass back through the insertHeightMm..outerHeightMm band
+    // right at the notch's edge (a real, correctly-carved short vertical
+    // wall — see GripNotch.gripNotchOverride's own doc comment — not a
+    // leftover tab), which a ">threshold" check can't tell apart from one.
+    return wall.outline.some((p) => p.x >= seg.start - 1e-6 && p.x <= seg.start + seg.length + 1e-6 && Math.abs(p.y - ctxBefore.sleeveProject.outerHeightMm) < 1e-6);
   }
 
   project.pieceNotches = {

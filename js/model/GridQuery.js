@@ -222,20 +222,21 @@ export function isLidFlush(grid, project, insertHeightMm) {
 
 /** Total assembled outer height of the box, base plate to topmost point —
  *  unlike perimeterHeight (walls only; v=0 sits at the base plate's own
- *  TOP face), this adds the base plate's own material below v=0, and a
- *  flush lid's own material above the walls' top edge. A recessed lid
- *  sits below the walls' own top edge (the walls form a rim above it) so
- *  it never adds height beyond perimeterHeight, and a disabled lid leaves
- *  the box open at the walls' top edge — both cases collapse to the same
- *  "no lid contribution" branch. Needed wherever something has to clear
- *  the box's real physical envelope rather than just its wall height —
- *  e.g. DrawerBuilder sizing an enclosing sleeve tall enough to actually
- *  contain it (its own `innerH` used to be perimeterHeight alone, which
- *  always undersized the sleeve by at least the base plate's thickness). */
+ *  TOP face), this adds the base plate's own material below v=0. No lid
+ *  mode ever adds anything beyond perimeterHeight: a recessed lid sits
+ *  below the walls' own top edge (the walls form a rim above it); a flush
+ *  lid's own top face lands exactly ON the walls' top edge, its finger
+ *  tabs poking through the lid's own thickness but never past its outer
+ *  face (see PanelBuilder.lidTopEdgePoints); a disabled lid leaves the box
+ *  open at the walls' top edge. All four cases (recessed/flush/disabled/no
+ *  lid at all) collapse to the same "no lid contribution" formula. Needed
+ *  wherever something has to clear the box's real physical envelope
+ *  rather than just its wall height — e.g. DrawerBuilder sizing an
+ *  enclosing sleeve tall enough to actually contain it (its own `innerH`
+ *  used to be perimeterHeight alone, which always undersized the sleeve
+ *  by at least the base plate's thickness). */
 export function outerBoxHeight(grid, project) {
-  const { lid } = project;
-  const flush = lid && lid.enabled && lid.insertHeightMm != null && isLidFlush(grid, project, lid.insertHeightMm);
-  return project.outerThicknessMm + perimeterHeight(grid, project) + (flush ? project.outerThicknessMm : 0);
+  return project.outerThicknessMm + perimeterHeight(grid, project);
 }
 
 /** Total exterior footprint width (X) / depth (Y), outer face to outer
