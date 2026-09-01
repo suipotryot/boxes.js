@@ -49,7 +49,7 @@ function buildInspectedPiece(holeContext) {
 // gets exported, rendered exactly once regardless of which sections below
 // apply to the current piece.
 function renderPieceVisual(piece, holes, onHoleChange) {
-  const svg = pieceToStandaloneSvg(piece, { padding: 8, minSize: 260, showLabels: false });
+  const svg = pieceToStandaloneSvg(piece, { padding: 8, minSize: 320, showLabels: false });
   attachHoleDragOverlay(svg.querySelector('.piece-space'), holes, onHoleChange);
   return el('div', { class: 'inspector-section' }, [
     el('div', { class: 'preview-card piece-visual' }, [svg]),
