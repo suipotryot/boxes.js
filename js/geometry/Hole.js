@@ -28,6 +28,36 @@ export function holeListFor(pieceHoles, pieceId) {
   return (pieceHoles && pieceHoles[pieceId]) || [];
 }
 
+/** Replaces the hole at `index` on `pieceId` with itself merged with
+ *  `patch`, without mutating `pieceHoles` or any of its arrays (undo relies
+ *  on every stored project state being a distinct snapshot). Shared by the
+ *  text-field editor (HoleEditor.js) and the mouse-drag overlay
+ *  (HoleDragOverlay.js) so both commit through identical, tested logic. */
+export function setHoleAt(pieceHoles, pieceId, index, patch) {
+  const list = holeListFor(pieceHoles, pieceId).map((h, i) => (i === index ? { ...h, ...patch } : h));
+  return { ...pieceHoles, [pieceId]: list };
+}
+
+/** A moved copy of `hole`, offset by (dxMm,dyMm) — takes the ORIGINAL hole
+ *  (the one at drag-start), not an already-moved one, so a caller
+ *  recomputing the delta from the drag's start on every pointermove never
+ *  accumulates rounding drift. */
+export function moveHoleBy(hole, dxMm, dyMm) {
+  return { ...hole, xMm: hole.xMm + dxMm, yMm: hole.yMm + dyMm };
+}
+
+/** A resized copy of `hole` whose xMm/yMm corner stays fixed while the
+ *  opposite corner is dragged toward `targetPoint` ({x,y}, in the hole's
+ *  own local mm space) — each axis floors independently at `minSizeMm` so
+ *  dragging past the anchor corner can't invert or zero out the hole. */
+export function resizeHoleToward(hole, targetPoint, minSizeMm) {
+  return {
+    ...hole,
+    widthMm: Math.max(minSizeMm, targetPoint.x - hole.xMm),
+    heightMm: Math.max(minSizeMm, targetPoint.y - hole.yMm),
+  };
+}
+
 export function formatHoleLine(hole) {
   return [hole.xMm, hole.yMm, hole.widthMm, hole.heightMm, hole.radiusMm].join(', ');
 }

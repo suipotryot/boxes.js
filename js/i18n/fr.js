@@ -122,6 +122,9 @@ export const fr = {
   'hole.fieldOrderHint': 'X, Y, L, H, R (mm)',
   'hole.add': '+ Ajouter un trou',
   'hole.delete': 'Supprimer ce trou',
+  'hole.dragHint': 'Astuce : glissez un trou dans l\'aperçu ci-dessus pour le déplacer, ou sa poignée de coin pour le redimensionner, puis affinez ici si besoin.',
+  'hole.dragMoveTooltip': 'Glisser pour déplacer ce trou',
+  'hole.dragResizeTooltip': 'Glisser pour redimensionner ce trou',
 
   // Settings panel
   'settingsPanel.resizeConfirm': 'Ce redimensionnement va faire perdre des personnalisations de segments existants (hauteur, épaisseur ou suppression). Continuer ?',

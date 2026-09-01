@@ -14,7 +14,7 @@
 // rather than duplicated per section.
 import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
-import { DEFAULT_HOLE, maxRadiusMm, holeListFor, formatHoleLine, parseHoleLine } from '../geometry/Hole.js';
+import { DEFAULT_HOLE, maxRadiusMm, holeListFor, formatHoleLine, parseHoleLine, setHoleAt } from '../geometry/Hole.js';
 import { validateHoleInRect, validateWallHole } from '../geometry/HoleValidation.js';
 import { t } from '../i18n/index.js';
 
@@ -71,7 +71,7 @@ export function renderHoleSection(project, pieceId, context, store) {
     ...p,
     pieceHoles: { ...p.pieceHoles, [pieceId]: nextList },
   }));
-  const updateAt = (index, patch) => setList(holeListFor(project.pieceHoles, pieceId).map((h, i) => (i === index ? { ...h, ...patch } : h)));
+  const updateAt = (index, patch) => store.apply((p) => ({ ...p, pieceHoles: setHoleAt(p.pieceHoles, pieceId, index, patch) }));
   const removeAt = (index) => setList(holeListFor(project.pieceHoles, pieceId).filter((_, i) => i !== index));
   const addHole = () => setList([...holes, { ...DEFAULT_HOLE }]);
 
@@ -85,6 +85,8 @@ export function renderHoleSection(project, pieceId, context, store) {
     text: t('hole.fieldOrderHint'),
   });
 
+  const dragHint = el('div', { class: 'hint', text: t('hole.dragHint') });
+
   const items = holes.map((hole, index) => {
     const siblings = holes.filter((_, i) => i !== index);
     return renderOneHole(hole, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
@@ -92,5 +94,5 @@ export function renderHoleSection(project, pieceId, context, store) {
 
   const addBtn = el('button', { class: 'btn', text: t('hole.add'), onClick: addHole });
 
-  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, ...items, addBtn]);
+  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, dragHint, ...items, addBtn]);
 }

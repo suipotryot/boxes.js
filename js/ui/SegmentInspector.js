@@ -16,6 +16,8 @@ import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
 import { buildLid } from '../geometry/LidBuilder.js';
 import { burnCorrect } from '../geometry/BurnCorrection.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
+import { holeListFor, setHoleAt } from '../geometry/Hole.js';
+import { attachHoleDragOverlay } from './HoleDragOverlay.js';
 import { renderGripNotchSection } from './GripNotchEditor.js';
 import { renderHoleSection } from './HoleEditor.js';
 import { t } from '../i18n/index.js';
@@ -46,11 +48,11 @@ function buildInspectedPiece(holeContext) {
 // project.pieceNotches/pieceHoles directly) — what you see here IS what
 // gets exported, rendered exactly once regardless of which sections below
 // apply to the current piece.
-function renderPieceVisual(piece) {
+function renderPieceVisual(piece, holes, onHoleChange) {
+  const svg = pieceToStandaloneSvg(piece, { padding: 8, minSize: 260, showLabels: false });
+  attachHoleDragOverlay(svg.querySelector('.piece-space'), holes, onHoleChange);
   return el('div', { class: 'inspector-section' }, [
-    el('div', { class: 'preview-card piece-visual' }, [
-      pieceToStandaloneSvg(piece, { padding: 8, minSize: 260, showLabels: false }),
-    ]),
+    el('div', { class: 'preview-card piece-visual' }, [svg]),
   ]);
 }
 
@@ -113,7 +115,11 @@ export function renderInspector(project, selected, selectedWallId, store) {
   const wallContext = selectedWallId ? resolveWallRunContext(project, selectedWallId) : null;
   const holeContext = selectedWallId ? resolvePieceHoleContext(project, selectedWallId) : null;
 
-  if (holeContext) sections.push(renderPieceVisual(buildInspectedPiece(holeContext)));
+  if (holeContext) {
+    const holes = holeListFor(project.pieceHoles, selectedWallId);
+    const onHoleChange = (index, patch) => store.apply((p) => ({ ...p, pieceHoles: setHoleAt(p.pieceHoles, selectedWallId, index, patch) }));
+    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange));
+  }
   if (selected) sections.push(renderSegmentFields(project, selected, store));
   if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store));
   if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store));

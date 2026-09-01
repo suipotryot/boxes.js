@@ -117,6 +117,9 @@ export const en = {
   'hole.fieldOrderHint': 'X, Y, W, H, R (mm)',
   'hole.add': '+ Add a hole',
   'hole.delete': 'Delete this hole',
+  'hole.dragHint': 'Tip: drag a hole in the preview above to move it, or its corner handle to resize it, then fine-tune it here if needed.',
+  'hole.dragMoveTooltip': 'Drag to move this hole',
+  'hole.dragResizeTooltip': 'Drag to resize this hole',
 
   // Settings panel
   'settingsPanel.resizeConfirm': 'This resize will discard existing segment customizations (height, thickness, or removal). Continue?',

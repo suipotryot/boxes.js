@@ -278,6 +278,27 @@ h3:first-child { margin-top: 0; }
    sub-section (notches/holes) rendering its own redundant copy. */
 .piece-visual { cursor: default; }
 
+/* Hole drag/resize overlay (HoleDragOverlay.js), drawn on top of the real
+   (burn-corrected) cutout — a dashed "ghost" so it stays visible without
+   hiding the actual hole shape underneath, and a light fill so the whole
+   body (not just the 1px outline) is grabbable. */
+.hole-drag-rect {
+  fill: var(--selected);
+  fill-opacity: 0.12;
+  stroke: var(--selected);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 1.5;
+  cursor: move;
+  touch-action: none;
+}
+.hole-drag-handle {
+  fill: var(--selected);
+  stroke: var(--panel-bg);
+  stroke-width: 0.3;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
 /* Compact list-item row shared by GripNotchEditor.js and HoleEditor.js:
    just the (single, comma-separated) text field and a trash button, no
    per-item border/heading — the field order is explained once, above the

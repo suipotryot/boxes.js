@@ -7,7 +7,7 @@
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { DEFAULT_HOLE, maxRadiusMm, holeListFor, holePolygon, formatHoleLine, parseHoleLine } from '../geometry/Hole.js';
+import { DEFAULT_HOLE, maxRadiusMm, holeListFor, holePolygon, formatHoleLine, parseHoleLine, setHoleAt, moveHoleBy, resizeHoleToward } from '../geometry/Hole.js';
 import { validateHoleInRect, validateWallHole } from '../geometry/HoleValidation.js';
 import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
 import { buildWallPanel, wallPieceId } from '../geometry/PanelBuilder.js';
@@ -113,6 +113,64 @@ test('holeListFor: returns the stored list, or an empty list when absent', () =>
   assert(holeListFor({ id1: list }, 'id1') === list);
   assert(holeListFor({}, 'id1').length === 0);
   assert(holeListFor(undefined, 'id1').length === 0);
+});
+
+// --- setHoleAt / moveHoleBy / resizeHoleToward: mouse-drag editing helpers ---
+// (used by both HoleEditor.js's text field and HoleDragOverlay.js's
+// pointer-drag commit, so both paths go through identical, tested logic)
+
+test('setHoleAt: replaces only the hole at the given index, merging the patch, leaving siblings on the same piece untouched', () => {
+  const a = { xMm: 1, yMm: 1, widthMm: 5, heightMm: 5, radiusMm: 0 };
+  const b = { xMm: 20, yMm: 20, widthMm: 5, heightMm: 5, radiusMm: 0 };
+  const pieceHoles = { pieceA: [a, b] };
+  const next = setHoleAt(pieceHoles, 'pieceA', 1, { xMm: 30 });
+  assert(next.pieceA[0] === a, 'the untouched sibling should be the same object');
+  assert(next.pieceA[1].xMm === 30 && next.pieceA[1].yMm === 20, 'the patched hole should merge, not replace, its fields');
+});
+
+test('setHoleAt: leaves other pieces\' hole lists untouched', () => {
+  const listB = [{ xMm: 1, yMm: 1, widthMm: 5, heightMm: 5, radiusMm: 0 }];
+  const pieceHoles = { pieceA: [{ xMm: 0, yMm: 0, widthMm: 5, heightMm: 5, radiusMm: 0 }], pieceB: listB };
+  const next = setHoleAt(pieceHoles, 'pieceA', 0, { xMm: 9 });
+  assert(next.pieceB === listB, 'a different piece\'s hole list should be the same reference, untouched');
+});
+
+test('setHoleAt: does not mutate the input pieceHoles map or its arrays (undo/redo relies on this)', () => {
+  const original = { pieceA: [{ xMm: 0, yMm: 0, widthMm: 5, heightMm: 5, radiusMm: 0 }] };
+  const snapshot = JSON.parse(JSON.stringify(original));
+  setHoleAt(original, 'pieceA', 0, { xMm: 99 });
+  assert(JSON.stringify(original) === JSON.stringify(snapshot), 'the input object should be unchanged after the call');
+});
+
+test('moveHoleBy: adds the delta to xMm/yMm, leaves widthMm/heightMm/radiusMm unchanged', () => {
+  const hole = { xMm: 10, yMm: 20, widthMm: 30, heightMm: 15, radiusMm: 3 };
+  const moved = moveHoleBy(hole, 5, -2);
+  assertClose(moved.xMm, 15, 1e-9);
+  assertClose(moved.yMm, 18, 1e-9);
+  assert(moved.widthMm === hole.widthMm && moved.heightMm === hole.heightMm && moved.radiusMm === hole.radiusMm);
+});
+
+test('moveHoleBy: applying the same delta twice from the same original hole gives the same result as applying it once (no accumulated drift)', () => {
+  const original = { xMm: 10, yMm: 20, widthMm: 30, heightMm: 15, radiusMm: 0 };
+  const once = moveHoleBy(original, 7, 3);
+  const againFromOriginal = moveHoleBy(original, 7, 3);
+  assert(JSON.stringify(once) === JSON.stringify(againFromOriginal), 'moving from the same original twice with the same delta must be idempotent');
+});
+
+test('resizeHoleToward: grows width/height toward the dragged point, anchor corner (xMm/yMm) never moves', () => {
+  const hole = { xMm: 10, yMm: 20, widthMm: 5, heightMm: 5, radiusMm: 0 };
+  const resized = resizeHoleToward(hole, { x: 40, y: 50 }, 1);
+  assertClose(resized.widthMm, 30, 1e-9);
+  assertClose(resized.heightMm, 30, 1e-9);
+  assertClose(resized.xMm, 10, 1e-9);
+  assertClose(resized.yMm, 20, 1e-9);
+});
+
+test('resizeHoleToward: floors width/height independently at minSizeMm when dragged past the anchor corner', () => {
+  const hole = { xMm: 10, yMm: 20, widthMm: 5, heightMm: 5, radiusMm: 0 };
+  const resized = resizeHoleToward(hole, { x: 8, y: 60 }, 1);
+  assertClose(resized.widthMm, 1, 1e-9, 'dragging past the anchor on x should floor at minSizeMm, not go negative');
+  assertClose(resized.heightMm, 40, 1e-9, 'the other axis should resize normally');
 });
 
 // --- formatHoleLine / parseHoleLine ---
