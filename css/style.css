@@ -72,6 +72,19 @@ h3:first-child { margin-top: 0; }
   align-items: start;
 }
 
+/* Stays in view while the middle column (grid + preview strip, often much
+   taller) scrolls past — .editor-layout's own align-items:start leaves it
+   free to move within its grid cell instead of being stretched full-height,
+   which is what makes sticky positioning have anywhere to go. Capped to the
+   viewport height with its own scrollbar so a piece with many holes/notches
+   doesn't get cut off against the bottom edge while stuck. */
+.inspector-col {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
 .panel {
   background: var(--panel-bg);
   border: 1px solid var(--border);
