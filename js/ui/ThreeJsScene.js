@@ -38,12 +38,17 @@ function pieceGroupName(piece) {
   return isDrawer ? 'manchon' : 'box';
 }
 
-function pieceColor(piece) {
-  const varName = piece.id.startsWith(DRAWER_PREFIX)
-    ? '--drawer'
-    : piece.thicknessGroup === 'outer' ? '--outer' : '--inner';
-  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-}
+// Pseudo-realistic laser-cut plywood look: light beige panel faces, dark
+// burnt-edge sides — the same two colors for every piece, regardless of
+// thickness group or drawer membership (that distinction stays a 2D-grid-
+// editor-only concept, css/style.css's --outer/--inner). Plain hex
+// constants rather than CSS custom properties: nothing here is ever
+// changed at runtime (no theme toggle), so going through
+// getComputedStyle(document.documentElement) would just be DOM dependency
+// for no benefit — and dropping it is what makes this file plain-Node
+// testable (see js/test/threeJsScene.test.js).
+const FACE_COLOR = '#e8dcc0';
+const EDGE_COLOR = '#3a2a1d';
 
 // Shared point-tracing walk: a THREE.Shape (the outer contour) and a
 // THREE.Path (one hole) are built identically — moveTo the first point,
@@ -95,7 +100,7 @@ function placementToMatrix(placement) {
 
 function disposeMesh(mesh) {
   mesh.geometry.dispose();
-  mesh.material.dispose();
+  mesh.material.forEach((m) => m.dispose());
 }
 
 /** Clears and repopulates `scene` with one Mesh per eligible, currently
@@ -131,13 +136,21 @@ export function populateScene(scene, project, { openT = 0, visible = { box: true
     const shape = buildShape(piece.outline);
     shape.holes = piece.holes.map(buildHolePath);
     const geometry = new THREE.ExtrudeGeometry(shape, { depth: piece.thicknessMm, bevelEnabled: false });
-    // DoubleSide: piece.outline winding order isn't guaranteed consistent
-    // across every builder (BasePlateBuilder/PanelBuilder/LidBuilder each
-    // compose their own outline independently) — rather than chase down
-    // and fix winding per piece kind, render both faces so nothing can
-    // ever vanish from a given viewing angle due to backface culling.
-    const material = new THREE.MeshStandardMaterial({ color: pieceColor(piece), side: THREE.DoubleSide });
-    const mesh = new THREE.Mesh(geometry, material);
+    // DoubleSide (on both materials below): piece.outline winding order
+    // isn't guaranteed consistent across every builder
+    // (BasePlateBuilder/PanelBuilder/LidBuilder each compose their own
+    // outline independently) — rather than chase down and fix winding per
+    // piece kind, render both faces so nothing can ever vanish from a
+    // given viewing angle due to backface culling.
+    // ExtrudeGeometry always emits exactly two geometry groups — group 0:
+    // the front+back caps (the panel faces), group 1: the side walls (the
+    // extrusion's edge) — so an array of two materials here maps straight
+    // onto that split with no geometry changes needed.
+    const materials = [
+      new THREE.MeshStandardMaterial({ color: FACE_COLOR, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({ color: EDGE_COLOR, side: THREE.DoubleSide }),
+    ];
+    const mesh = new THREE.Mesh(geometry, materials);
     mesh.matrixAutoUpdate = false;
     mesh.matrix.copy(placementToMatrix(placement));
     scene.add(mesh);
