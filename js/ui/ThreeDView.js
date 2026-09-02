@@ -141,7 +141,7 @@ export function mountThreeDView(container, project) {
       controls.dispose();
       pieceGroup.children.slice().forEach((mesh) => {
         mesh.geometry.dispose();
-        mesh.material.dispose();
+        mesh.material.forEach((m) => m.dispose());
       });
       renderer.dispose();
       clear(container);
