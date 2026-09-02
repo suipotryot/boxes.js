@@ -76,16 +76,9 @@ export const en = {
   // Export
   'export.exportJson': 'Export (JSON)',
   'export.exportSvg': 'Export (SVG)',
+  'export.exportSvgDeepnest': 'Export for Deepnest',
   'export.inProgress': 'Exporting…',
   'export.jsonFileType': 'boxes.js project',
-  'export.noPieces': 'no pieces to export',
-  'export.page': 'page',
-  'export.pages': 'pages',
-  'export.pageSummary': '{thickness}mm: {count} {unit}',
-  'export.hintMain': 'Multi-page SVG export — optimized rectangular packing, no true piece nesting. {summary}.',
-  'export.deepnestHintPrefix': 'For optimal nesting (true interlocking of pieces), import the exported SVG into',
-  'export.deepnestLinkText': 'Deepnest',
-  'export.deepnestHintSuffix': '(free).',
 
   // Inspector (SegmentInspector.js)
   'inspector.state': 'State',

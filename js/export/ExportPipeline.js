@@ -7,7 +7,7 @@
 import { computePieces } from '../geometry/PieceFactory.js';
 import { groupByThickness } from './ThicknessGrouper.js';
 import { packPieces } from './RectPacker.js';
-import { renderSvgPage, svgElementToFileText } from './SvgPageRenderer.js';
+import { renderSvgPage, renderSvgPageForDeepnest, svgElementToFileText } from './SvgPageRenderer.js';
 
 export function sanitizeFilename(name) {
   return (name || 'projet').replace(/[^\w-]+/g, '_');
@@ -35,22 +35,40 @@ export function planExport(project) {
  *  between each — browsers block or warn on several downloads fired from
  *  the same synchronous call stack, so this can't just loop and click
  *  every link back to back. Returns the plan (thickness groups + their
- *  page item lists) so a caller can show a summary afterward. */
-export async function exportProjectSvg(project, { delayMs = 300, labels = false } = {}) {
+ *  page item lists) so a caller can show a summary afterward. Shared by
+ *  exportProjectSvg and exportProjectSvgForDeepnest, which differ only in
+ *  which page-renderer they use (plain enclosing boundary vs. Deepnest's
+ *  separate one) and their filename suffix — the suffix keeps the two from
+ *  overwriting each other's downloads when exported back to back for the
+ *  same project/thickness/page. */
+async function runSvgExport(project, { delayMs, labels, renderPage, filenameSuffix = '' }) {
   const plan = planExport(project);
-  const { widthMm, heightMm } = project.laserBed;
+  const { widthMm, heightMm, spacingMm } = project.laserBed;
 
   for (const { thicknessMm, pages } of plan) {
     for (let i = 0; i < pages.length; i++) {
       const label = `${project.name} — ${thicknessMm}mm — page ${i + 1}/${pages.length}`;
-      const svg = renderSvgPage({ items: pages[i], pageWidthMm: widthMm, pageHeightMm: heightMm, label, showLabels: labels });
-      const filename = `${sanitizeFilename(project.name)}-${thicknessMm}mm-p${i + 1}sur${pages.length}.svg`;
+      const svg = renderPage({ items: pages[i], pageWidthMm: widthMm, pageHeightMm: heightMm, spacingMm, label, showLabels: labels });
+      const filename = `${sanitizeFilename(project.name)}-${thicknessMm}mm-p${i + 1}sur${pages.length}${filenameSuffix}.svg`;
       downloadText(filename, svgElementToFileText(svg));
       await sleep(delayMs);
     }
   }
 
   return plan;
+}
+
+export async function exportProjectSvg(project, { delayMs = 300, labels = false } = {}) {
+  return runSvgExport(project, { delayMs, labels, renderPage: renderSvgPage });
+}
+
+/** Same content as exportProjectSvg (same pieces, pagination, labels), but
+ *  the page-boundary rect sits beside the packed pieces instead of
+ *  enclosing them — see computeDeepnestBoundaryLayout's own comment for
+ *  why: Deepnest's SVG importer otherwise reads the enclosed pieces as
+ *  holes of one compound part instead of a list of separate parts. */
+export async function exportProjectSvgForDeepnest(project, { delayMs = 300, labels = false } = {}) {
+  return runSvgExport(project, { delayMs, labels, renderPage: renderSvgPageForDeepnest, filenameSuffix: '-deepnest' });
 }
 
 function downloadText(filename, text) {

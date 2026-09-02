@@ -1,15 +1,18 @@
-// Multi-page SVG export (M7) — split into a toolbar-mounted button
-// (renderExportButton, next to "Mes projets") and an editor-main hint strip
-// (renderExportHint, page-count summary + Deepnest tip), so the export
-// trigger no longer lives in a "zone" you have to scroll down to find. The
-// "Étiqueter les pièces" toggle itself now lives in SettingsPanel.js's
-// Options section — EditorView still owns the showLabels state, just
-// threads it to more places than before. Also hosts the whole-project JSON
-// export button (renderExportJsonButton) — a different export entirely
-// (the full project state, not cut pieces) but the same toolbar "export"
-// idiom, so it lives alongside the SVG one rather than in its own file.
+// Multi-page SVG export (M7) — a toolbar-mounted button (renderExportButton,
+// next to "Mes projets"), plus renderExportDeepnestButton for a second,
+// Deepnest-oriented variant whose page-boundary rect sits beside the packed
+// pieces instead of enclosing them (see SvgPageRenderer.js's
+// computeDeepnestBoundaryLayout for why: an enclosing rect makes Deepnest's
+// SVG importer read the pieces as holes of one compound part instead of a
+// list of separate parts to nest). The "Étiqueter les pièces" toggle itself
+// now lives in SettingsPanel.js's Options section — EditorView still owns
+// the showLabels state, just threads it to more places than before. Also
+// hosts the whole-project JSON export button (renderExportJsonButton) — a
+// different export entirely (the full project state, not cut pieces) but
+// the same toolbar "export" idiom, so it lives alongside the SVG ones
+// rather than in its own file.
 import { el } from './dom.js';
-import { planExport, exportProjectSvg, sanitizeFilename } from '../export/ExportPipeline.js';
+import { exportProjectSvg, exportProjectSvgForDeepnest, sanitizeFilename } from '../export/ExportPipeline.js';
 import { t } from '../i18n/index.js';
 
 // Prefers the File System Access API's save dialog (lets the user pick
@@ -98,26 +101,25 @@ export function renderExportButton(project, showLabels) {
   return button;
 }
 
-/** Lightweight, button-free hint block: page-count-per-thickness summary
- *  and the Deepnest external-link tip. */
-export function renderExportHint(project) {
-  const plan = planExport(project);
-  const summary = plan.length
-    ? plan.map((g) => t('export.pageSummary', {
-      thickness: g.thicknessMm,
-      count: g.pages.length,
-      unit: g.pages.length > 1 ? t('export.pages') : t('export.page'),
-    })).join(' · ')
-    : t('export.noPieces');
-
-  const deepnestHint = el('span', { class: 'hint' }, [
-    `${t('export.deepnestHintPrefix')} `,
-    el('a', { href: 'https://deepnest.io/', target: '_blank', rel: 'noopener', text: t('export.deepnestLinkText') }),
-    ` ${t('export.deepnestHintSuffix')}`,
-  ]);
-
-  return el('div', { class: 'export-hint' }, [
-    el('span', { class: 'hint', text: t('export.hintMain', { summary }) }),
-    deepnestHint,
-  ]);
+/**
+ * @param {object} project
+ * @param {boolean} showLabels same idiom/value as renderExportButton — keeps
+ *   this export an honest representation of the live preview.
+ */
+export function renderExportDeepnestButton(project, showLabels) {
+  const button = el('button', {
+    class: 'btn',
+    text: t('export.exportSvgDeepnest'),
+    onClick: async () => {
+      button.disabled = true;
+      button.textContent = t('export.inProgress');
+      try {
+        await exportProjectSvgForDeepnest(project, { labels: showLabels });
+      } finally {
+        button.disabled = false;
+        button.textContent = t('export.exportSvgDeepnest');
+      }
+    },
+  });
+  return button;
 }

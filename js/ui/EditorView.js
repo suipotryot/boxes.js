@@ -6,7 +6,7 @@ import { el, clear } from './dom.js';
 import { renderEditorSvg } from './EditorRenderer.js';
 import { renderInspector } from './SegmentInspector.js';
 import { renderSettingsPanel } from './SettingsPanel.js';
-import { renderExportButton, renderExportHint, renderExportJsonButton } from './ExportView.js';
+import { renderExportButton, renderExportDeepnestButton, renderExportJsonButton } from './ExportView.js';
 import { mountThreeDView } from './ThreeDView.js';
 import { homeIcon } from './fields.js';
 import { t } from '../i18n/index.js';
@@ -146,6 +146,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
         onBackToList ? el('button', { class: 'btn', onClick: onBackToList }, [homeIcon(), t('editor.backToList')]) : null,
         renderExportJsonButton(project),
         renderExportButton(project, showLabels),
+        renderExportDeepnestButton(project, showLabels),
       ]),
       el('div', { class: 'toolbar-group view-toggle' }, [
         el('button', { class: viewMode === '2d' ? 'btn active' : 'btn', onClick: () => setViewMode('2d'), text: t('editor.view2dTab') }),
@@ -169,7 +170,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
 
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection, showLabels, toggleLabels)]),
-      el('div', { class: 'editor-main' }, [toolbar, renderDimensionsHint(project), renderExportHint(project), editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall)]),
+      el('div', { class: 'editor-main' }, [toolbar, renderDimensionsHint(project), editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall)]),
       el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store)]),
     ]));
   }

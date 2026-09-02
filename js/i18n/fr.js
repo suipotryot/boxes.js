@@ -81,16 +81,9 @@ export const fr = {
   // Export
   'export.exportJson': 'Exporter (JSON)',
   'export.exportSvg': 'Exporter (SVG)',
+  'export.exportSvgDeepnest': 'Exporter pour Deepnest',
   'export.inProgress': 'Export en cours…',
   'export.jsonFileType': 'Projet JSON',
-  'export.noPieces': 'aucune pièce à exporter',
-  'export.page': 'page',
-  'export.pages': 'pages',
-  'export.pageSummary': '{thickness}mm : {count} {unit}',
-  'export.hintMain': 'Export SVG multi-pages — empaquetage rectangulaire optimisé, pas d’imbrication réelle des pièces. {summary}.',
-  'export.deepnestHintPrefix': 'Pour un nesting optimal (imbrication réelle des pièces), importer le SVG exporté dans',
-  'export.deepnestLinkText': 'Deepnest',
-  'export.deepnestHintSuffix': '(gratuit).',
 
   // Inspector (SegmentInspector.js)
   'inspector.state': 'État',
