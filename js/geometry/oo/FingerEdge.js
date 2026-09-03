@@ -32,28 +32,6 @@ function extendSegmentsToTips(segs) {
   return result;
 }
 
-/** Forces the FIRST and LAST segment to 'finger' UNCONDITIONALLY,
- *  regardless of their own actual kind — distinct from extendSegmentsToTips
- *  above (which only merges when the adjacent segment already IS a
- *  finger). Used only for a flush lid's own free edge (PanelBuilder.
- *  lidTopEdgePoints' `atEnd` rule): the wall's two physical extremities
- *  must always reach the lid's own top face there, even on a phase where
- *  the comb's own first/last alternating segment happens to be a 'space'
- *  (this is NOT hypothetical — verified empirically: an 'h' run always has
- *  startWithFinger=false, so BOTH its own margin-adjacent segments are
- *  'space', meaning extendSegmentsToTips would leave both physical ends
- *  flush there — but the lid still needs to reach them). Without this,
- *  the free edge would dip below the lid's top face right at the corner
- *  it shares with this run's own end-comb — the exact class of bug that
- *  originally motivated this refactor (see the plan's own Contexte). */
-function forceEndsToFinger(segs) {
-  if (segs.length === 0) return segs;
-  const result = segs.slice();
-  result[0] = { ...result[0], kind: 'finger' };
-  result[result.length - 1] = { ...result[result.length - 1], kind: 'finger' };
-  return result;
-}
-
 /** Tiles [0, lengthMm] the same way FingerJoint.fingerEdgePath alone
  *  would, EXCEPT split into independent portions around each of
  *  `exclusions` ({uStart,uEnd}[], already sorted) — a plain flush strip
@@ -96,10 +74,22 @@ export class FingerEdge extends Edge {
     this.startWithFinger = startWithFinger;
     this.mateThicknessMm = mateThicknessMm; // the MATE's own thickness, never this edge's own
     this.extendToTips = extendToTips;
-    // Unconditional variant of extendToTips — see forceEndsToFinger's own
-    // comment. Mutually meaningful together (a lid-flush case never also
-    // needs extendToTips — see Assembly.js's own wiring) but not mutually
-    // exclusive here; forceEndsToFinger simply runs after extendToTips.
+    // Unconditional variant of extendToTips — see intervalValue's own
+    // override below for why it's implemented as a boundary-aware value
+    // override rather than a segment-kind relabel (this class's own first
+    // attempt, which turned out to disagree with the old code on a real,
+    // if microscopic, floating-point-degenerate interval — verified
+    // against PanelBuilder.lidTopEdgePoints directly before settling on
+    // this version). Used only for a flush lid's own free edge: the
+    // wall's two physical extremities must always reach the lid's own top
+    // face there, even on a phase where the comb's own first/last
+    // alternating segment happens to be a 'space' (an 'h' run always has
+    // startWithFinger=false, so BOTH its own margin-adjacent segments are
+    // 'space' — extendToTips alone would leave both physical ends flush).
+    // Without this, the free edge would dip below the lid's top face
+    // right at the corner it shares with this run's own end-comb — the
+    // exact class of bug that originally motivated this refactor (see the
+    // plan's own Contexte).
     this.forceEnds = forceEnds;
     // Mid-run "no teeth here" zones (a T/X junction crossing THIS edge's
     // own length partway along it) — see tileWithExclusions above. Empty
@@ -121,7 +111,6 @@ export class FingerEdge extends Edge {
   segments() {
     let segs = tileWithExclusions(this.lengthMm, this.fingerJoint, this.startWithFinger, this.exclusions);
     if (this.extendToTips) segs = extendSegmentsToTips(segs);
-    if (this.forceEnds) segs = forceEndsToFinger(segs);
     return segs;
   }
 
@@ -133,5 +122,20 @@ export class FingerEdge extends Edge {
     const seg = this.segments().find((s) => u > s.start && u < s.start + s.length);
     const protrusion = seg && seg.kind === 'finger' ? this.mateThicknessMm : 0;
     return this.baselineMm + this.signMm * protrusion;
+  }
+
+  /** With forceEnds, ANY interval touching this edge's own true physical
+   *  extremity (uStart<=eps or uEnd>=lengthMm-eps) reaches the full tip
+   *  value unconditionally — mirrors lidTopEdgePoints' own `atEnd` check
+   *  exactly, including for a boundary that only exists as a
+   *  floating-point-degenerate sliver (see this class's own header
+   *  comment on why that's a real, verified case and not just a
+   *  theoretical nicety). Every other interval falls back to the normal
+   *  per-segment lookup, unchanged. */
+  intervalValue(mid, uStart, uEnd) {
+    if (this.forceEnds && (uStart <= 1e-9 || uEnd >= this.lengthMm - 1e-9)) {
+      return this.baselineMm + this.signMm * this.mateThicknessMm;
+    }
+    return super.intervalValue(mid, uStart, uEnd);
   }
 }

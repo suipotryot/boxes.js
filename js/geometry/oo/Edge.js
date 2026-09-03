@@ -35,7 +35,25 @@ export class Edge {
     throw new Error('Edge.baseValueAt must be implemented by a subclass');
   }
 
-  /** This edge's full trace: baseValueAt()/ownBoundaries() fused with
+  /** This interval's own value (before fragment overrides) — defaults to
+   *  baseValueAt(mid), which is all any subclass normally needs. Takes
+   *  the interval's own [uStart,uEnd) too (not just its midpoint) so a
+   *  subclass can make a genuinely boundary-aware decision when required
+   *  — see FingerEdge's own override and its header comment for why that
+   *  turned out to matter for more than just the exact u=0/u=lengthMm
+   *  points (a real, verified-against-the-old-code case: two boundaries
+   *  meant to represent the same position, computed via different
+   *  arithmetic paths, can land a few floating-point ULPs apart, creating
+   *  a genuine but microscopic extra interval — deciding its value from
+   *  the RAW segment it falls in, exactly like the interval on either
+   *  side of it, is what the original code actually does; a per-segment
+   *  relabeling trick (this class's own first attempt) does not, since it
+   *  changes what "the raw segment" IS for that sliver too). */
+  intervalValue(mid, _uStart, _uEnd) {
+    return this.baseValueAt(mid);
+  }
+
+  /** This edge's full trace: intervalValue()/ownBoundaries() fused with
    *  `fragments`, fragments taking priority over the base value wherever
    *  they apply. Replaces the "boundary Set, sort, midpoint lookup"
    *  skeleton that used to be reimplemented independently in
@@ -59,7 +77,7 @@ export class Edge {
         for (const p of fragment.points) pts.push(p);
         continue;
       }
-      const y = fragment ? fragment.depth : this.baseValueAt(mid);
+      const y = fragment ? fragment.depth : this.intervalValue(mid, uStart, uEnd);
       pts.push({ u: uStart, y }, { u: uEnd, y });
     }
     return pts;

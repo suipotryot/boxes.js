@@ -104,9 +104,13 @@ test('forceEndsToFinger: unconditionally reaches the tip at BOTH ends, even when
   // 'space' (verified empirically against fingerEdgePath directly before
   // writing this) — extendToTips would do nothing here; forceEnds must
   // still reach the tip regardless.
+  // forceEnds lives in intervalValue (boundary-aware: needs uStart/uEnd,
+  // not just a single u), so it's exercised via points(), not
+  // baseValueAt(u) directly — see Edge.js's own comment on why.
   const edge = new FingerEdge({ lengthMm: 100, fingerJoint: fj, startWithFinger: false, mateThicknessMm: 5, forceEndsToFinger: true });
-  assertClose(edge.baseValueAt(0.01), 5, 1e-9, 'the very start should reach the full tip even though startWithFinger=false leaves it space-adjacent');
-  assertClose(edge.baseValueAt(99.99), 5, 1e-9, 'the very end should too');
+  const pts = edge.points();
+  assertClose(pts[0].y, 5, 1e-9, 'the very start should reach the full tip even though startWithFinger=false leaves it space-adjacent');
+  assertClose(pts[pts.length - 1].y, 5, 1e-9, 'the very end should too');
 });
 
 test('forceEndsToFinger matches PanelBuilder.lidTopEdgePoints\' own `atEnd` rule exactly — including the h-run case (startWithFinger=false) where the plain comb phase would NOT naturally reach the tip', () => {
