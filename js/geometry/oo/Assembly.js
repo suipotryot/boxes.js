@@ -1,16 +1,19 @@
-// Shared construction logic behind Box and (later) Drawer: reads a Grid +
-// Project and builds every Panel/Divider + the BasePlate/Lid — the OO
-// replacement for PieceFactory.computePieces' orchestration plus
-// PanelBuilder/BasePlateBuilder/LidBuilder's own per-piece decisions.
+// Shared construction logic behind Box and Drawer: reads a Grid + Project
+// and builds every Panel/Divider + the BasePlate/Lid — the OO replacement
+// for PieceFactory.computePieces' orchestration plus the now-retired
+// PanelBuilder/BasePlateBuilder/LidBuilder/DrawerBuilder's own per-piece
+// decisions.
 //
-// Deliberately a single concrete build(), never overridden — DrawerBuilder
-// today already proves a synthetic 1-cell grid needs no special-casing
-// here at all, it just calls the exact same builders; a future Drawer
-// class differs only in how ITS OWN grid gets synthesized before this
+// Deliberately a single concrete build(), never overridden — the old
+// DrawerBuilder already proved a synthetic 1-cell grid needs no
+// special-casing here at all, it just called the exact same builders;
+// Drawer differs only in how ITS OWN grid gets synthesized before this
 // method runs (see the plan's own "construire() est unique" analysis).
-import { enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, isLidFlush } from '../../model/GridQuery.js';
+import {
+  enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, isLidFlush,
+  heightProfile, heightAt, junctionExclusionRanges, wallPieceId,
+} from '../../model/GridQuery.js';
 import { isOuterSegment } from '../../model/Grid.js';
-import { heightProfile, heightAt, junctionExclusionRanges, wallPieceId, bottomCombSegments } from '../PanelBuilder.js';
 import { Notch } from './Notch.js';
 import { Hole } from './Hole.js';
 import { fingerEdgePath } from '../FingerJoint.js';
@@ -79,6 +82,21 @@ function maxMateThickness(mates, project) {
   return mates.length ? Math.max(...mates.map((m) => resolveThickness(m, project))) : 0;
 }
 
+/** `run`'s own bottom-edge tooth tiling — a throwaway FingerEdge's own
+ *  segments(), which is provably the exact same tiling as the retired
+ *  PanelBuilder.bottomCombSegments (verified directly against it in
+ *  ooFingerEdge.test.js before this replaced the last standalone caller):
+ *  same tileWithExclusions algorithm, same fingerEdgePath underneath.
+ *  mateThicknessMm/baselineMm/signMm are irrelevant here — only the
+ *  segment boundaries/kinds are used, never this throwaway edge's own
+ *  points(). */
+function combSegmentsFor(run, grid, project) {
+  return new FingerEdge({
+    lengthMm: run.length, fingerJoint: project.fingerJoint, startWithFinger: run.kind === 'v',
+    mateThicknessMm: 0, exclusions: junctionExclusionRanges(run, grid, project),
+  }).segments();
+}
+
 function buildWallPiece(run, grid, project) {
   const spans = heightProfile(run, grid, project);
   const fj = project.fingerJoint;
@@ -138,7 +156,7 @@ function buildWallPiece(run, grid, project) {
   // own tabs use (OuterBoundary), so a hole can never drift out of sync
   // with the tab meant to sit in it.
   const lidHoles = lidActive && !lidFlush
-    ? MortiseHole.manyFromFingerSegments(bottomCombSegments(run, grid, project), {
+    ? MortiseHole.manyFromFingerSegments(combSegmentsFor(run, grid, project), {
         axis: 'x', centerMm: lid.insertHeightMm + project.outerThicknessMm / 2, thicknessMm: project.outerThicknessMm,
       })
     : [];
@@ -195,7 +213,7 @@ function buildBasePlate(grid, project) {
   const innerRuns = runs.filter((run) => !isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
 
   const holes = innerRuns.flatMap((run) => {
-    const segs = bottomCombSegments(run, grid, project);
+    const segs = combSegmentsFor(run, grid, project);
     const thicknessMm = resolveThickness(run.seg, project);
     return run.kind === 'v'
       ? MortiseHole.manyFromFingerSegments(segs, { axis: 'y', centerMm: xAt(grid, project, run.c), thicknessMm, offsetMm: yAt(grid, project, run.rStart) })

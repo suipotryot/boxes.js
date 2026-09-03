@@ -9,9 +9,8 @@
 // validateHoleInRect is generic to any flat rectangular piece region (base
 // plate, lid, and their drawer equivalents, all a fixed W×D rectangle);
 // validateWallHole wraps it for a wall edge, whose local height can vary
-// along its length. See NotchValidation.js's own comment on reusing
-// PanelBuilder.js's pure heightProfile/heightAt during the migration.
-import { heightProfile, heightAt } from '../PanelBuilder.js';
+// along its length.
+import { heightProfile, heightAt } from '../../model/GridQuery.js';
 import { t } from '../../i18n/index.js';
 
 const MIN_EDGE_MARGIN_MM = 2;

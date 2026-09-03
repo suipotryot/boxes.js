@@ -1,12 +1,6 @@
 // Pure validation for a Notch — surfaced as a warning + "ajuster
 // automatiquement" button in the UI, never a silent clamp.
-//
-// Imports heightProfile/junctionExclusionRanges from the OLD, still-live
-// PanelBuilder.js: these are pure functions of (run, grid, project) with no
-// dependency on the procedural builder pipeline itself, so they're safe to
-// reuse as-is during the migration — they'll move once PanelBuilder.js is
-// retired (see the plan's migration sequence), not duplicated here now.
-import { heightProfile, junctionExclusionRanges } from '../PanelBuilder.js';
+import { heightProfile, junctionExclusionRanges } from '../../model/GridQuery.js';
 import { t } from '../../i18n/index.js';
 
 /** @param {object[]} [siblings] the piece's OTHER notches (not this one),
