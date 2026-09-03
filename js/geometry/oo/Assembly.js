@@ -70,7 +70,17 @@ function crossingData(run, grid, project, spans) {
     } else if (crossing.kind === 'stem') {
       const stemStartWithFinger = run.kind === 'h'; // matches the old mortiseHoles' own convention
       for (const stemSeg of crossing.stems) {
-        const segs = fingerEdgePath(resolveHeight(stemSeg, project), project.fingerJoint, stemStartWithFinger);
+        // Capped by the THROUGH piece's own local height at this exact u
+        // (heightAt(spans, u), same helper the 'crossing' branch above
+        // already uses) — never just the stem's own resolved height. A
+        // stem taller than the through piece is locally reduced to here
+        // would otherwise poke a mortise hole past the through piece's own
+        // edge. No /2 here (unlike crossingNotchDepth): a mortise hole
+        // passes all the way through the receiving piece's thickness
+        // (handled separately via thicknessMm), it isn't a symmetric
+        // half-lap shared between two interlocking pieces.
+        const stemHeight = Math.min(resolveHeight(stemSeg, project), heightAt(spans, u));
+        const segs = fingerEdgePath(stemHeight, project.fingerJoint, stemStartWithFinger);
         mortiseHoles.push(...MortiseHole.manyFromFingerSegments(segs, { axis: 'y', centerMm: u, thicknessMm: resolveThickness(stemSeg, project) }));
       }
     }
