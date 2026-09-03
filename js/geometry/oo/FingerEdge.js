@@ -33,12 +33,25 @@ function extendSegmentsToTips(segs) {
 }
 
 export class FingerEdge extends Edge {
-  constructor({ lengthMm, fingerJoint, startWithFinger, mateThicknessMm, extendToTips = false, fragments }) {
+  constructor({
+    lengthMm, fingerJoint, startWithFinger, mateThicknessMm, extendToTips = false,
+    baselineMm = 0, signMm = 1, fragments,
+  }) {
     super(lengthMm, fragments);
     this.fingerJoint = fingerJoint; // {fingerMm, spaceMm, marginMm, playMm} — shared project-wide setting
     this.startWithFinger = startWithFinger;
     this.mateThicknessMm = mateThicknessMm; // the MATE's own thickness, never this edge's own
     this.extendToTips = extendToTips;
+    // Where a Panel places this edge decides the final coordinate this
+    // edge's own "0 or mateThicknessMm" value needs to land at — e.g. a
+    // wall's bottom edge protrudes DOWN from y=0 (baselineMm=0, signMm=-1)
+    // while its right end protrudes OUTWARD past x=lengthMm
+    // (baselineMm=lengthMm, signMm=+1). Keeping this in the Edge's own
+    // construction (decided once, by whichever role the caller is
+    // building it for) keeps Panel.outline() itself a single uniform
+    // per-slot rule instead of 4 independently hand-signed edge builders.
+    this.baselineMm = baselineMm;
+    this.signMm = signMm;
   }
 
   segments() {
@@ -52,6 +65,7 @@ export class FingerEdge extends Edge {
 
   baseValueAt(u) {
     const seg = this.segments().find((s) => u > s.start && u < s.start + s.length);
-    return seg && seg.kind === 'finger' ? this.mateThicknessMm : 0;
+    const protrusion = seg && seg.kind === 'finger' ? this.mateThicknessMm : 0;
+    return this.baselineMm + this.signMm * protrusion;
   }
 }
