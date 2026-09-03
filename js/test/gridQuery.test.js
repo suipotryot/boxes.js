@@ -4,7 +4,7 @@
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent, toggleWall } from '../model/Grid.js';
-import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateLid } from '../model/GridQuery.js';
 import { createDefaultProject } from '../state/Project.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
@@ -159,13 +159,42 @@ test('outerBoxHeight is the base plate plus the perimeter wall height, with no l
   assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'outerThicknessMm + perimeterHeight, lid disabled by default');
 });
 
-test('outerBoxHeight is unchanged by a flush lid — its own tabs land exactly on the lid\'s outer face, never past it', () => {
+test('outerBoxHeight is unchanged by a recessed lid, even at the top of its valid range (its rim just shrinks to nothing)', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [100]);
   project.outerThicknessMm = 3;
   project.outerHeightMm = 40;
-  project.lid = { enabled: true, insertHeightMm: 40 - 3 }; // flush: lidTopFace === perimeterHeight
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 40 - 3 }; // top of validateLid's own range
   assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'same as the no-lid case: outerThicknessMm + perimeterHeight');
+});
+
+test('outerBoxHeight is unchanged by a recessed lid when project.lid.mode is missing (backward compatibility with projects saved before mode existed)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [100]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.lid = { enabled: true, insertHeightMm: 10 }; // no `mode` field at all
+  assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'missing mode defaults to recessed, which adds nothing');
+});
+
+test('outerBoxHeight adds one outerThicknessMm for an onTop lid — it rests on the walls and adds its own material above them, like the base plate does below', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [100]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null };
+  assertClose(outerBoxHeight(project.grid, project), 46, 1e-9, 'outerThicknessMm (base) + perimeterHeight + outerThicknessMm (lid)');
+});
+
+test('validateLid still governs a recessed lid\'s valid insertion-height range, unaffected by the onTop mode\'s existence', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [100]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  const { ok, min, max } = validateLid(project.grid, project, 37);
+  assert(ok, 'insertHeightMm=37 (perimeterHeight-outerThicknessMm) should be the top of the valid recessed range');
+  assertClose(min, 0, 1e-9);
+  assertClose(max, 37, 1e-9);
 });
 
 // junctionKindAt: the additive, endpoint-aware generalization of

@@ -94,13 +94,23 @@ test('an interior h-divider (r=1) centers its thickness on the grid line, unlike
   assertVec(placement.wAxis, { x: 0, y: 1, z: 0 }, 'interior dividers extrude toward +Y by convention');
 });
 
-test('the lid placement sits flat at outerThicknessMm + insertHeightMm above the base plate, same orientation as the base plate', () => {
+test('a recessed lid placement sits flat at outerThicknessMm + insertHeightMm above the base plate, same orientation as the base plate', () => {
   const project = fixtureProject();
-  project.lid = { enabled: true, insertHeightMm: 30 };
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 30 };
   const lid = computePieces(project).find((p) => p.id === 'lid');
   assert(lid, 'expected a lid piece once project.lid is enabled');
   const placement = computePiecePlacement3D(project.grid, project, lid);
   assertVec(placement.origin, { x: 0, y: 0, z: 3 + 30 }, 'origin.z = outerThicknessMm + insertHeightMm');
+  assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'flat, same orientation as the base plate');
+});
+
+test('an onTop lid placement sits flat at outerThicknessMm + perimeterHeight (its insertHeightMm is always implicit, never read from project.lid)', () => {
+  const project = fixtureProject(); // grid=[50,50]x[50,50], outerHeightMm defaults to 50 (createDefaultProject)
+  project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null };
+  const lid = computePieces(project).find((p) => p.id === 'lid');
+  assert(lid, 'expected a lid piece once project.lid is enabled');
+  const placement = computePiecePlacement3D(project.grid, project, lid);
+  assertVec(placement.origin, { x: 0, y: 0, z: 3 + 50 }, 'origin.z = outerThicknessMm + perimeterHeight, not any stored insertHeightMm');
   assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'flat, same orientation as the base plate');
 });
 
@@ -139,6 +149,17 @@ test('a drawer wall placement resolves against the SLEEVE\'s own grid/project (n
   // Local placement (sleeve's own frame): origin (0,0,baseZ=drawer.thicknessMm=3), extrudes outward (-X) same as any c=0 outer wall.
   assertVec(placement.origin, { x: offset.x, y: offset.y, z: 3 + offset.z }, 'origin: sleeve-local origin + computeDrawerOffset');
   assertVec(placement.wAxis, { x: -1, y: 0, z: 0 }, 'extrudes outward, same convention as the main box\'s own c=0 wall');
+});
+
+test('a drawer lid rests exactly playMm above the main box\'s own top — the sleeve\'s own onTop lid, translated by computeDrawerOffset', () => {
+  const project = fixtureProject(); // outerThicknessMm 3, outerHeightMm 50 (default) => main box top at world Z=53
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+  const drawerLid = computePieces(project).find((p) => p.id === 'drawer:lid');
+  assert(drawerLid, 'expected a drawer:lid piece — the sleeve always has an onTop lid');
+  const placement = computePiecePlacement3D(project.grid, project, drawerLid);
+  const offset = computeDrawerOffset(project);
+  assertVec(placement.origin, { x: offset.x, y: offset.y, z: 54 }, 'sleeve-local origin (0,0) + computeDrawerOffset, z = main box top (53) + drawer.playMm (1)');
+  assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'flat, same orientation as the base plate');
 });
 
 test('toWorld combines a placement and a local point via the basis + origin', () => {

@@ -10,7 +10,7 @@
 // Drawer differs only in how ITS OWN grid gets synthesized before this
 // method runs (see the plan's own "construire() est unique" analysis).
 import {
-  enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, isLidFlush,
+  enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, lidMode,
   heightProfile, heightAt, junctionExclusionRanges, wallPieceId,
 } from '../../model/GridQuery.js';
 import { isOuterSegment } from '../../model/Grid.js';
@@ -27,17 +27,18 @@ import { BasePlate } from './BasePlate.js';
 import { Lid } from './Lid.js';
 import { outerBoundarySide } from './OuterBoundary.js';
 
-/** Whether/how `run` joints with a fixed lid — mirrors buildWallPanel's
- *  own `lidActive`/`lidFlush` exactly: a lid only ever joints with OUTER
- *  runs (an interior divider's own geometry is entirely unaffected by
- *  it — GridQuery.validateLid guarantees the lid always clears every
- *  divider, so there's structurally nothing for it to joint against
- *  there). */
-function lidState(run, grid, project) {
+/** Whether/how `run` joints with a fixed lid — a lid only ever joints with
+ *  OUTER runs (an interior divider's own geometry is entirely unaffected
+ *  by it — GridQuery.validateLid guarantees a recessed lid always clears
+ *  every divider, so there's structurally nothing for it to joint against
+ *  there). `mode` is only meaningful when `active`; 'onTop' needs no
+ *  insertHeightMm at all (it's always implicitly perimeterHeight), so
+ *  unlike 'recessed' it doesn't require one to be set. */
+function lidState(run, project) {
   const lid = project.lid;
-  const active = !!lid && lid.enabled && lid.insertHeightMm != null && run.seg.thicknessGroup === 'outer';
-  const flush = active && isLidFlush(grid, project, lid.insertHeightMm);
-  return { active, flush, lid };
+  const mode = lidMode(project);
+  const active = !!lid && lid.enabled && run.seg.thicknessGroup === 'outer' && (mode === 'onTop' || lid.insertHeightMm != null);
+  return { active, mode, lid };
 }
 
 /** Every mid-run junction along `run`'s own length, split into what it
@@ -116,10 +117,12 @@ export function buildWallPiece(run, grid, project) {
   const protrusionA = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.aPoint[0], run.aPoint[1]), project);
   const protrusionB = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.bPoint[0], run.bPoint[1]), project);
   const { crossingFragments, mortiseHoles } = crossingData(run, grid, project, spans);
-  const { active: lidActive, flush: lidFlush, lid } = lidState(run, grid, project);
+  const { active: lidActive, mode, lid } = lidState(run, project);
+  const lidOnTop = lidActive && mode === 'onTop';
+  const lidRecessed = lidActive && mode === 'recessed';
   const pieceId = wallPieceId(run);
-  // Always targets the free/top edge, regardless of lid state (a lid-flush
-  // top edge still solders these in — see buildWallPanel's own
+  // Always targets the free/top edge, regardless of lid state (an onTop
+  // lid's own top edge still solders these in — see buildWallPanel's own
   // gripOverrides wiring, passed into lidTopEdgePoints too, not just
   // freeEdgePoints). Each notch's own local height is read at ITS OWN
   // center, so a stepped-height run still resolves correctly per notch.
@@ -136,20 +139,30 @@ export function buildWallPiece(run, grid, project) {
     lengthMm: spans[spans.length - 1].height, fingerJoint: fj, startWithFinger,
     mateThicknessMm: protrusionB, extendToTips, baselineMm: run.length, signMm: 1,
   });
-  // A flush lid replaces the free edge entirely for an outer run (its own
-  // comb, forced to reach both physical tips regardless of comb phase —
-  // see FingerEdge.forceEndsToFinger's own comment on why that's
-  // unconditional, not extendToTips' conditional merge). Otherwise (no
-  // lid, disabled, or recessed) the free edge stays a plain SmoothEdge,
-  // unaffected — a recessed lid joints via holes instead (below), never
-  // through the free edge itself.
-  const topEdge = lidFlush
+  // An onTop lid replaces the free edge entirely for an outer run: the
+  // wall ADDS fingers beyond its own nominal spans[0].height (baseline at
+  // the wall's own true top edge, signMm pointing away from the wall's
+  // body, mateThicknessMm reaching into the lid's own territory) —
+  // exactly mirroring bottomEdge's own relationship with the base plate,
+  // never carving into the wall's own existing height budget the way the
+  // now-retired "flush" case used to. Deliberately no forceEndsToFinger
+  // here, matching bottomEdge (which never used it either): the Lid's own
+  // corner points are already snapped independently of either side's comb
+  // phase (see outerBoundaryOutline's topLeft/topRight etc.) — forcing
+  // this edge's own physical tips to 'finger' regardless of their real
+  // phase would protrude the wall's corner into space the Lid's own
+  // (independently-snapped) corner never receded to make room for,
+  // producing exactly the malformed corner shapes the old "flush" case
+  // had. Otherwise (no lid, disabled, or recessed) the free edge stays a
+  // plain SmoothEdge, unaffected — a recessed lid joints via holes instead
+  // (below), never through the free edge itself.
+  const topEdge = lidOnTop
     ? new FingerEdge({
         lengthMm: run.length, fingerJoint: fj, startWithFinger,
-        mateThicknessMm: project.outerThicknessMm, forceEndsToFinger: true,
-        baselineMm: spans[0].height - project.outerThicknessMm, signMm: 1,
+        mateThicknessMm: project.outerThicknessMm,
+        baselineMm: spans[0].height, signMm: 1,
         exclusions: junctionExclusionRanges(run, grid, project),
-        fragments: gripFragments,
+        fragments: run.kind === 'v' ? [...crossingFragments, ...gripFragments] : gripFragments,
       })
     : new SmoothEdge({
         lengthMm: run.length, heightProfile: spans,
@@ -160,12 +173,13 @@ export function buildWallPiece(run, grid, project) {
     mateThicknessMm: protrusionA, extendToTips, baselineMm: 0, signMm: -1,
   });
 
-  // A RECESSED lid (active but not flush) pokes its own tabs into a row
-  // of enclosed holes mid-height on the wall's face instead — one hole
-  // per 'finger' segment of the SAME bottomCombSegments tiling the lid's
-  // own tabs use (OuterBoundary), so a hole can never drift out of sync
-  // with the tab meant to sit in it.
-  const lidHoles = lidActive && !lidFlush
+  // A RECESSED lid pokes its own tabs into a row of enclosed holes
+  // mid-height on the wall's face instead — one hole per 'finger' segment
+  // of the SAME bottomCombSegments tiling the lid's own tabs use
+  // (OuterBoundary), so a hole can never drift out of sync with the tab
+  // meant to sit in it. An onTop lid never needs holes — it joints through
+  // the free edge itself (above).
+  const lidHoles = lidRecessed
     ? MortiseHole.manyFromFingerSegments(combSegmentsFor(run, grid, project), {
         axis: 'x', centerMm: lid.insertHeightMm + project.outerThicknessMm / 2, thicknessMm: project.outerThicknessMm,
       })
@@ -184,7 +198,7 @@ export function buildWallPiece(run, grid, project) {
 
 /** The 4 compass sides + margins for BasePlate/Lid's own outerBoundarySide
  *  assembly — shared between the two, `protrude` is the only thing that
- *  differs (a flush lid is geometrically the base plate's mirror image). */
+ *  differs (an onTop lid is geometrically the base plate's mirror image). */
 function buildBoundarySides(grid, project, protrude) {
   const cols = grid.sx.length, rows = grid.sy.length;
   const widthMm = xAt(grid, project, cols);
@@ -238,9 +252,13 @@ export function buildBasePlate(grid, project) {
 
 export function buildLid(grid, project) {
   const { lid } = project;
-  if (!lid || !lid.enabled || lid.insertHeightMm == null) return null;
-  const flush = isLidFlush(grid, project, lid.insertHeightMm);
-  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, !flush);
+  const mode = lidMode(project);
+  if (!lid || !lid.enabled || (mode === 'recessed' && lid.insertHeightMm == null)) return null;
+  // Recessed: the lid's own tabs poke OUT into the walls' mid-height holes
+  // (protrude:true). onTop: the lid mirrors the base plate exactly
+  // (protrude:false) — the walls' own added fingers (buildWallPiece) do
+  // the same job bottomEdge/BasePlate already do below.
+  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, mode === 'recessed');
   return new Lid({
     thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins,
     holes: Hole.listFor(project.pieceHoles, 'lid'),

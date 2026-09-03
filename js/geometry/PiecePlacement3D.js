@@ -20,7 +20,7 @@
 // (perimeter) wall extrudes its thickness entirely OUTWARD from the
 // compartment boundary; an interior divider extrudes CENTERED on the grid
 // line (half each side) — see isOuterSegment.
-import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, lidMode } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
 import { Drawer, DRAWER_PREFIX, OPEN_SIDE } from './oo/Drawer.js';
 
@@ -54,7 +54,11 @@ function computeLocalPlacement(grid, project, pieceId, piece) {
   if (piece.kind === 'basePlate') return identityPlacement();
   if (piece.kind === 'lid') {
     const placement = identityPlacement();
-    placement.origin.z = baseZ + project.lid.insertHeightMm;
+    // onTop has no insertHeightMm of its own — its bottom face always
+    // rests exactly at the walls' own top edge (see GridQuery.outerBoxHeight
+    // and Assembly.buildLid).
+    const insertHeightMm = lidMode(project) === 'onTop' ? perimeterHeight(grid, project) : project.lid.insertHeightMm;
+    placement.origin.z = baseZ + insertHeightMm;
     return placement;
   }
   if (piece.kind !== 'wall') {
@@ -149,12 +153,12 @@ export function toWorld(placement, local) {
 // playMm (the base plate's own material, drawer.thicknessMm, sits below
 // v=0; the empty air gap above that, up to the main box's own floor, is
 // what's left: playMm). The identical playMm gap at the TOP falls out for
-// free from this same anchor, but only because sleeveH itself (see
-// Drawer.sleeveContext) already includes an extra +drawer.thicknessMm term
-// to account for the sleeve's own flush lid eating that same thickness out
-// of its underside — this function doesn't need to know that, it only
-// needs the bottom anchor above; verified directly by computing both
-// boxes' real world-space Z bounds (not just derived algebraically).
+// free from this same anchor: the sleeve's own onTop lid rests exactly at
+// the walls' own nominal top (sleeveH, in sleeve-local v-units), which
+// Drawer.sleeveContext sizes as innerH + 2*playMm with no extra term
+// needed — this function doesn't need to know that, it only needs the
+// bottom anchor above; verified directly by computing both boxes' real
+// world-space Z bounds (not just derived algebraically).
 export function computeDrawerOffset(project) {
   const { drawer, outerThicknessMm } = project;
   const mainMin = -outerThicknessMm;
