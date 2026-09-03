@@ -4,10 +4,10 @@
 // exercising every lower-level piece (Edge/Panel/HalfLapNotch/MortiseHole/
 // BasePlate) together rather than in isolation.
 //
-// Now covers the fixed lid (flush and recessed) and grip notches too — see
-// FingerEdge's forceEndsToFinger, Assembly's lidState/buildLid, and
-// Assembly's gripFragments wiring (Notch.toEdgeFragment). Deliberately
-// still scoped WITHOUT the drawer — its own real increment.
+// Now covers the fixed lid (flush and recessed), grip notches, and the
+// drawer too — see FingerEdge's forceEndsToFinger, Assembly's
+// lidState/buildLid, Assembly's gripFragments wiring, and Drawer.js. Full
+// feature parity with computePieces as of this file.
 import { test, assert, run } from './testHarness.js';
 import { createGrid, setSegmentHeight } from '../model/Grid.js';
 import { createDefaultProject, createM2ExampleProject } from '../state/Project.js';
@@ -183,6 +183,56 @@ test('matches computePieces exactly with two disjoint grip notches on the same w
       { widthMm: 20, depthMm: 10, offsetMm: 100, radiusMm: 10 },
     ],
   };
+
+  const old = computePieces(project);
+  const mine = Box.fromProject(project).allPiecesBurnCorrected();
+  assertSamePieceSet(old, mine);
+});
+
+test('matches computePieces exactly for a box with a drawer (open right)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+
+  const old = computePieces(project);
+  const mine = Box.fromProject(project).allPiecesBurnCorrected();
+  assertSamePieceSet(old, mine);
+});
+
+test('matches computePieces exactly for a drawer open on a different side (top)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.drawer = { enabled: true, playMm: 1.5, thicknessMm: 4, openSide: 'top' };
+
+  const old = computePieces(project);
+  const mine = Box.fromProject(project).allPiecesBurnCorrected();
+  assertSamePieceSet(old, mine);
+});
+
+test('matches computePieces exactly for a drawer with a grip notch on one of its OWN walls (the DRAWER_PREFIX remap)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+  project.pieceNotches = { 'drawer:wall-h-0-0': [{ widthMm: 20, depthMm: 5, offsetMm: 10, radiusMm: 2 }] };
+
+  const old = computePieces(project);
+  const mine = Box.fromProject(project).allPiecesBurnCorrected();
+  assertSamePieceSet(old, mine);
+});
+
+test('matches computePieces exactly for a box with BOTH a lid and a drawer together', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.lid = { enabled: true, insertHeightMm: 40 - 3 };
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'left' };
 
   const old = computePieces(project);
   const mine = Box.fromProject(project).allPiecesBurnCorrected();
