@@ -12,6 +12,7 @@ import { enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveH
 import { isOuterSegment } from '../../model/Grid.js';
 import { heightProfile, heightAt, junctionExclusionRanges, wallPieceId, bottomCombSegments } from '../PanelBuilder.js';
 import { Notch } from './Notch.js';
+import { Hole } from './Hole.js';
 import { fingerEdgePath } from '../FingerJoint.js';
 import { FingerEdge } from './FingerEdge.js';
 import { SmoothEdge } from './SmoothEdge.js';
@@ -149,7 +150,7 @@ function buildWallPiece(run, grid, project) {
     thicknessGroup: run.seg.thicknessGroup,
     thicknessMm: resolveThickness(run.seg, project),
     bottomEdge, rightEdge, topEdge, leftEdge,
-    holes: [...mortiseHoles, ...lidHoles],
+    holes: [...mortiseHoles, ...lidHoles, ...Hole.listFor(project.pieceHoles, pieceId)],
   });
 }
 
@@ -201,7 +202,10 @@ function buildBasePlate(grid, project) {
       : MortiseHole.manyFromFingerSegments(segs, { axis: 'x', centerMm: yAt(grid, project, run.r), thicknessMm, offsetMm: xAt(grid, project, run.cStart) });
   });
 
-  return new BasePlate({ thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins, holes });
+  return new BasePlate({
+    thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins,
+    holes: [...holes, ...Hole.listFor(project.pieceHoles, 'base-plate')],
+  });
 }
 
 function buildLid(grid, project) {
@@ -209,7 +213,10 @@ function buildLid(grid, project) {
   if (!lid || !lid.enabled || lid.insertHeightMm == null) return null;
   const flush = isLidFlush(grid, project, lid.insertHeightMm);
   const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, !flush);
-  return new Lid({ thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins });
+  return new Lid({
+    thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins,
+    holes: Hole.listFor(project.pieceHoles, 'lid'),
+  });
 }
 
 export class Assembly {

@@ -239,4 +239,40 @@ test('matches computePieces exactly for a box with BOTH a lid and a drawer toget
   assertSamePieceSet(old, mine);
 });
 
+test('matches computePieces exactly with user-placed Hole instances on the base plate, lid, a wall, AND a divider all at once', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [100]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+  project.outerHeightMm = 40;
+  project.innerHeightMm = 35;
+  project.lid = { enabled: true, insertHeightMm: 40 - 3 };
+  project.pieceHoles = {
+    'base-plate': [{ xMm: 20, yMm: 20, widthMm: 20, heightMm: 15, radiusMm: 0 }],
+    lid: [{ xMm: 25, yMm: 25, widthMm: 15, heightMm: 15, radiusMm: 3 }],
+    'wall-h-0-0': [{ xMm: 20, yMm: 5, widthMm: 20, heightMm: 10, radiusMm: 0 }],
+    'wall-v-1-0': [{ xMm: 10, yMm: 5, widthMm: 15, heightMm: 10, radiusMm: 2 }],
+  };
+
+  const old = computePieces(project);
+  const mine = Box.fromProject(project).allPiecesBurnCorrected();
+  assertSamePieceSet(old, mine);
+});
+
+test('matches computePieces exactly with user-placed Hole instances on the drawer\'s OWN base plate and wall (the DRAWER_PREFIX remap)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+  project.pieceHoles = {
+    'drawer:base-plate': [{ xMm: 15, yMm: 15, widthMm: 20, heightMm: 20, radiusMm: 0 }],
+    'drawer:wall-h-0-0': [{ xMm: 20, yMm: 10, widthMm: 20, heightMm: 10, radiusMm: 0 }],
+  };
+
+  const old = computePieces(project);
+  const mine = Box.fromProject(project).allPiecesBurnCorrected();
+  assertSamePieceSet(old, mine);
+});
+
 run();
