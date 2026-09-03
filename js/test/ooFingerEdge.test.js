@@ -8,7 +8,7 @@ import { createDefaultProject } from '../state/Project.js';
 import { enumerateWallRuns } from '../model/GridQuery.js';
 import { FingerEdge } from '../geometry/oo/FingerEdge.js';
 import { fingerEdgePath } from '../geometry/FingerJoint.js';
-import { bottomCombSegments, junctionExclusionRanges } from '../geometry/PanelBuilder.js';
+import { bottomCombSegments, junctionExclusionRanges, lidTopEdgePoints, heightProfile } from '../geometry/PanelBuilder.js';
 
 const fj = { fingerMm: 20, spaceMm: 20, marginMm: 5, playMm: 0 };
 
@@ -97,6 +97,39 @@ test('exclusions: segments() matches bottomCombSegments exactly on a real 2x2 gr
   // proving this isn't a vacuous check.
   const plain = fingerEdgePath(run.length, project.fingerJoint, run.kind === 'v');
   assert(JSON.stringify(plain) !== JSON.stringify(expected), 'sanity check: the plain whole-length comb must actually differ from the portioned one in this scenario');
+});
+
+test('forceEndsToFinger: unconditionally reaches the tip at BOTH ends, even when the comb\'s own first/last segment is a space, not a finger', () => {
+  // startWithFinger=false makes the first/last alternating segment
+  // 'space' (verified empirically against fingerEdgePath directly before
+  // writing this) — extendToTips would do nothing here; forceEnds must
+  // still reach the tip regardless.
+  const edge = new FingerEdge({ lengthMm: 100, fingerJoint: fj, startWithFinger: false, mateThicknessMm: 5, forceEndsToFinger: true });
+  assertClose(edge.baseValueAt(0.01), 5, 1e-9, 'the very start should reach the full tip even though startWithFinger=false leaves it space-adjacent');
+  assertClose(edge.baseValueAt(99.99), 5, 1e-9, 'the very end should too');
+});
+
+test('forceEndsToFinger matches PanelBuilder.lidTopEdgePoints\' own `atEnd` rule exactly — including the h-run case (startWithFinger=false) where the plain comb phase would NOT naturally reach the tip', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  const wallRun = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+
+  const spans = heightProfile(wallRun, project.grid, project);
+  const height = spans[spans.length - 1].height;
+  const protrusion = project.outerThicknessMm;
+  const old = lidTopEdgePoints(wallRun, project.grid, project, height, []);
+
+  const edge = new FingerEdge({
+    lengthMm: wallRun.length, fingerJoint: project.fingerJoint, startWithFinger: wallRun.kind === 'v',
+    mateThicknessMm: protrusion, forceEndsToFinger: true, baselineMm: height - protrusion, signMm: 1,
+    exclusions: junctionExclusionRanges(wallRun, project.grid, project),
+  });
+  const mine = edge.points().map((p) => ({ x: p.u, y: p.y }));
+
+  const sortedRounded = (pts) => pts.map((p) => `${p.x.toFixed(6)},${p.y.toFixed(6)}`).sort();
+  assert(JSON.stringify(sortedRounded(old)) === JSON.stringify(sortedRounded(mine)), 'should match lidTopEdgePoints exactly, point-for-point');
 });
 
 run();

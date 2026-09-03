@@ -8,7 +8,7 @@
 // here at all, it just calls the exact same builders; a future Drawer
 // class differs only in how ITS OWN grid gets synthesized before this
 // method runs (see the plan's own "construire() est unique" analysis).
-import { enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint } from '../../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, isLidFlush } from '../../model/GridQuery.js';
 import { isOuterSegment } from '../../model/Grid.js';
 import { heightProfile, heightAt, junctionExclusionRanges, wallPieceId, bottomCombSegments } from '../PanelBuilder.js';
 import { fingerEdgePath } from '../FingerJoint.js';
@@ -19,7 +19,21 @@ import { Divider } from './Divider.js';
 import { HalfLapNotch } from './HalfLapNotch.js';
 import { MortiseHole } from './MortiseHole.js';
 import { BasePlate } from './BasePlate.js';
+import { Lid } from './Lid.js';
 import { outerBoundarySide } from './OuterBoundary.js';
+
+/** Whether/how `run` joints with a fixed lid — mirrors buildWallPanel's
+ *  own `lidActive`/`lidFlush` exactly: a lid only ever joints with OUTER
+ *  runs (an interior divider's own geometry is entirely unaffected by
+ *  it — GridQuery.validateLid guarantees the lid always clears every
+ *  divider, so there's structurally nothing for it to joint against
+ *  there). */
+function lidState(run, grid, project) {
+  const lid = project.lid;
+  const active = !!lid && lid.enabled && lid.insertHeightMm != null && run.seg.thicknessGroup === 'outer';
+  const flush = active && isLidFlush(grid, project, lid.insertHeightMm);
+  return { active, flush, lid };
+}
 
 /** Every mid-run junction along `run`'s own length, split into what it
  *  means for THIS run: an X crossing contributes a HalfLapNotch fragment
@@ -72,6 +86,7 @@ function buildWallPiece(run, grid, project) {
   const protrusionA = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.aPoint[0], run.aPoint[1]), project);
   const protrusionB = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.bPoint[0], run.bPoint[1]), project);
   const { crossingFragments, mortiseHoles } = crossingData(run, grid, project, spans);
+  const { active: lidActive, flush: lidFlush, lid } = lidState(run, grid, project);
 
   const bottomEdge = new FingerEdge({
     lengthMm: run.length, fingerJoint: fj, startWithFinger,
@@ -83,14 +98,39 @@ function buildWallPiece(run, grid, project) {
     lengthMm: spans[spans.length - 1].height, fingerJoint: fj, startWithFinger,
     mateThicknessMm: protrusionB, extendToTips, baselineMm: run.length, signMm: 1,
   });
-  const topEdge = new SmoothEdge({
-    lengthMm: run.length, heightProfile: spans,
-    fragments: run.kind === 'v' ? crossingFragments : [],
-  });
+  // A flush lid replaces the free edge entirely for an outer run (its own
+  // comb, forced to reach both physical tips regardless of comb phase —
+  // see FingerEdge.forceEndsToFinger's own comment on why that's
+  // unconditional, not extendToTips' conditional merge). Otherwise (no
+  // lid, disabled, or recessed) the free edge stays a plain SmoothEdge,
+  // unaffected — a recessed lid joints via holes instead (below), never
+  // through the free edge itself.
+  const topEdge = lidFlush
+    ? new FingerEdge({
+        lengthMm: run.length, fingerJoint: fj, startWithFinger,
+        mateThicknessMm: project.outerThicknessMm, forceEndsToFinger: true,
+        baselineMm: spans[0].height - project.outerThicknessMm, signMm: 1,
+        exclusions: junctionExclusionRanges(run, grid, project),
+      })
+    : new SmoothEdge({
+        lengthMm: run.length, heightProfile: spans,
+        fragments: run.kind === 'v' ? crossingFragments : [],
+      });
   const leftEdge = new FingerEdge({
     lengthMm: spans[0].height, fingerJoint: fj, startWithFinger,
     mateThicknessMm: protrusionA, extendToTips, baselineMm: 0, signMm: -1,
   });
+
+  // A RECESSED lid (active but not flush) pokes its own tabs into a row
+  // of enclosed holes mid-height on the wall's face instead — one hole
+  // per 'finger' segment of the SAME bottomCombSegments tiling the lid's
+  // own tabs use (OuterBoundary), so a hole can never drift out of sync
+  // with the tab meant to sit in it.
+  const lidHoles = lidActive && !lidFlush
+    ? MortiseHole.manyFromFingerSegments(bottomCombSegments(run, grid, project), {
+        axis: 'x', centerMm: lid.insertHeightMm + project.outerThicknessMm / 2, thicknessMm: project.outerThicknessMm,
+      })
+    : [];
 
   const PanelClass = run.seg.thicknessGroup === 'outer' ? Panel : Divider;
   return new PanelClass({
@@ -99,7 +139,7 @@ function buildWallPiece(run, grid, project) {
     thicknessGroup: run.seg.thicknessGroup,
     thicknessMm: resolveThickness(run.seg, project),
     bottomEdge, rightEdge, topEdge, leftEdge,
-    holes: mortiseHoles,
+    holes: [...mortiseHoles, ...lidHoles],
   });
 }
 
@@ -154,6 +194,14 @@ function buildBasePlate(grid, project) {
   return new BasePlate({ thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins, holes });
 }
 
+function buildLid(grid, project) {
+  const { lid } = project;
+  if (!lid || !lid.enabled || lid.insertHeightMm == null) return null;
+  const flush = isLidFlush(grid, project, lid.insertHeightMm);
+  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, !flush);
+  return new Lid({ thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins });
+}
+
 export class Assembly {
   constructor(grid, project) {
     this.grid = grid;
@@ -166,6 +214,7 @@ export class Assembly {
   build() {
     this.panels = enumerateWallRuns(this.grid, this.project).map((run) => buildWallPiece(run, this.grid, this.project));
     this.basePlate = buildBasePlate(this.grid, this.project);
+    this.lid = buildLid(this.grid, this.project);
     return this;
   }
 

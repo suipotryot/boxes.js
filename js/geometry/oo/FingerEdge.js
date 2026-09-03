@@ -32,6 +32,28 @@ function extendSegmentsToTips(segs) {
   return result;
 }
 
+/** Forces the FIRST and LAST segment to 'finger' UNCONDITIONALLY,
+ *  regardless of their own actual kind — distinct from extendSegmentsToTips
+ *  above (which only merges when the adjacent segment already IS a
+ *  finger). Used only for a flush lid's own free edge (PanelBuilder.
+ *  lidTopEdgePoints' `atEnd` rule): the wall's two physical extremities
+ *  must always reach the lid's own top face there, even on a phase where
+ *  the comb's own first/last alternating segment happens to be a 'space'
+ *  (this is NOT hypothetical — verified empirically: an 'h' run always has
+ *  startWithFinger=false, so BOTH its own margin-adjacent segments are
+ *  'space', meaning extendSegmentsToTips would leave both physical ends
+ *  flush there — but the lid still needs to reach them). Without this,
+ *  the free edge would dip below the lid's top face right at the corner
+ *  it shares with this run's own end-comb — the exact class of bug that
+ *  originally motivated this refactor (see the plan's own Contexte). */
+function forceEndsToFinger(segs) {
+  if (segs.length === 0) return segs;
+  const result = segs.slice();
+  result[0] = { ...result[0], kind: 'finger' };
+  result[result.length - 1] = { ...result[result.length - 1], kind: 'finger' };
+  return result;
+}
+
 /** Tiles [0, lengthMm] the same way FingerJoint.fingerEdgePath alone
  *  would, EXCEPT split into independent portions around each of
  *  `exclusions` ({uStart,uEnd}[], already sorted) — a plain flush strip
@@ -67,13 +89,18 @@ function tileWithExclusions(lengthMm, fingerJoint, startWithFinger, exclusions) 
 export class FingerEdge extends Edge {
   constructor({
     lengthMm, fingerJoint, startWithFinger, mateThicknessMm, extendToTips = false,
-    baselineMm = 0, signMm = 1, exclusions = [], fragments,
+    forceEndsToFinger: forceEnds = false, baselineMm = 0, signMm = 1, exclusions = [], fragments,
   }) {
     super(lengthMm, fragments);
     this.fingerJoint = fingerJoint; // {fingerMm, spaceMm, marginMm, playMm} — shared project-wide setting
     this.startWithFinger = startWithFinger;
     this.mateThicknessMm = mateThicknessMm; // the MATE's own thickness, never this edge's own
     this.extendToTips = extendToTips;
+    // Unconditional variant of extendToTips — see forceEndsToFinger's own
+    // comment. Mutually meaningful together (a lid-flush case never also
+    // needs extendToTips — see Assembly.js's own wiring) but not mutually
+    // exclusive here; forceEndsToFinger simply runs after extendToTips.
+    this.forceEnds = forceEnds;
     // Mid-run "no teeth here" zones (a T/X junction crossing THIS edge's
     // own length partway along it) — see tileWithExclusions above. Empty
     // for an edge with nothing crossing it (or one tiled along a height
@@ -92,8 +119,10 @@ export class FingerEdge extends Edge {
   }
 
   segments() {
-    const segs = tileWithExclusions(this.lengthMm, this.fingerJoint, this.startWithFinger, this.exclusions);
-    return this.extendToTips ? extendSegmentsToTips(segs) : segs;
+    let segs = tileWithExclusions(this.lengthMm, this.fingerJoint, this.startWithFinger, this.exclusions);
+    if (this.extendToTips) segs = extendSegmentsToTips(segs);
+    if (this.forceEnds) segs = forceEndsToFinger(segs);
+    return segs;
   }
 
   ownBoundaries() {
