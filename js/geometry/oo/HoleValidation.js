@@ -1,23 +1,17 @@
-// Pure validation for a user-placed hole (Hole.js) — surfaced as a warning
-// + "ajuster automatiquement" button in the UI, same pattern as
-// GripNotchValidation. Two rules only, exactly what the user asked for:
-// at least MIN_EDGE_MARGIN_MM from the piece's own NOMINAL (untoothed)
-// rectangle on every side, and no overlap between two holes on the same
-// piece. Deliberately does NOT check overlap against structural cuts
-// (mortise holes, divider finger holes, X-crossing notches, grip
-// notches) — out of scope, not asked for.
+// Pure validation for a user-placed Hole — surfaced as a warning +
+// "ajuster automatiquement" button in the UI, same pattern as
+// NotchValidation. Two rules only: at least MIN_EDGE_MARGIN_MM from the
+// piece's own NOMINAL (untoothed) rectangle on every side, and no overlap
+// between two holes on the same piece. Deliberately does NOT check overlap
+// against structural cuts (mortise holes, divider finger holes, crossing
+// notches, grip notches) — out of scope, not asked for.
 //
-// validateHoleInRect is generic to any flat rectangular piece region
-// (base plate, lid, and their drawer equivalents, all a fixed W×D
-// rectangle); validateWallHole wraps it for a wall run, whose local
-// height can vary along its length (heightProfile/heightAt, imported
-// from PanelBuilder.js exactly as GripNotchValidation.js already does).
-import { heightProfile, heightAt } from './PanelBuilder.js';
-import { maxRadiusMm } from './Hole.js';
-// See GripNotchValidation.js's own comment on this same import: a
-// deliberate exception to geometry/'s usual zero-UI-dependency rule, since
-// these messages are rendered verbatim in HoleEditor.js.
-import { t } from '../i18n/index.js';
+// validateHoleInRect is generic to any flat rectangular piece region (base
+// plate, lid, and their drawer equivalents, all a fixed W×D rectangle);
+// validateWallHole wraps it for a wall edge, whose local height can vary
+// along its length.
+import { heightProfile, heightAt } from '../../model/GridQuery.js';
+import { t } from '../../i18n/index.js';
 
 const MIN_EDGE_MARGIN_MM = 2;
 
@@ -28,7 +22,7 @@ export function validateHoleInRect(rectWidthMm, rectHeightMm, hole, siblings = [
   if (!(widthMm > 0)) problems.push(t('validation.hole.xPositive'));
   if (!(heightMm > 0)) problems.push(t('validation.hole.yPositive'));
 
-  const radiusCap = maxRadiusMm(hole);
+  const radiusCap = hole.maxRadiusMm();
   if ((hole.radiusMm || 0) > radiusCap + 1e-9) {
     problems.push(t('validation.hole.radiusTooBig', { cap: radiusCap.toFixed(1) }));
   }

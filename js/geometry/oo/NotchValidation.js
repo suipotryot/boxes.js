@@ -1,27 +1,14 @@
-// Pure validation for a grip notch (GripNotch.js) — surfaced as a warning +
-// "ajuster automatiquement" button in the UI, never a silent clamp, same
-// pattern as GridQuery.validateLid. A separate file from GripNotch.js (not
-// merged into it) to avoid a module cycle: PanelBuilder.js imports
-// GripNotch.js (pure math, no deps), while this file imports FROM
-// PanelBuilder.js (heightProfile/junctionExclusionRanges) — keeping the
-// graph one-directional.
-import { heightProfile, junctionExclusionRanges } from './PanelBuilder.js';
-import { maxRadiusMm } from './GripNotch.js';
-// A rare dependency from geometry/ (otherwise pure math, no UI/state
-// imports) on the i18n singleton — these problem messages are shown
-// verbatim in GripNotchEditor.js, so they need to be in the active
-// locale too. t() defaults to 'fr' until something calls setActiveLocale
-// (AppShell.js, at startup), which is also why the existing French-text
-// assertions in js/test/gripNotch.test.js keep passing unmodified: that
-// test never touches locale, so it only ever sees the 'fr' dictionary.
-import { t } from '../i18n/index.js';
+// Pure validation for a Notch — surfaced as a warning + "ajuster
+// automatiquement" button in the UI, never a silent clamp.
+import { heightProfile, junctionExclusionRanges } from '../../model/GridQuery.js';
+import { t } from '../../i18n/index.js';
 
-/** @param {object[]} [siblings] the piece's OTHER grip notches (not this
- *  one), for the pairwise-overlap check below — a piece can now have
- *  several (GripNotch.notchListFor), and two overlapping ranges would
- *  otherwise silently pick an arbitrary winner in PanelBuilder's
- *  boundarySet+override lookup rather than erroring. */
-export function validateGripNotch(run, grid, project, notch, siblings = []) {
+/** @param {object[]} [siblings] the piece's OTHER notches (not this one),
+ *  for the pairwise-overlap check below — a piece can have several
+ *  (Notch.listFor), and two overlapping ranges would otherwise silently
+ *  pick an arbitrary winner in Edge.points()'s boundary+override lookup
+ *  rather than erroring. */
+export function validateNotch(run, grid, project, notch, siblings = []) {
   if (!notch) return { ok: true, problems: [] };
 
   const problems = [];
@@ -32,7 +19,7 @@ export function validateGripNotch(run, grid, project, notch, siblings = []) {
   if (!(depthMm > 0)) problems.push(t('validation.depthPositive'));
   if (!(offsetMm >= 0)) problems.push(t('validation.offsetNotNegative'));
 
-  const radiusCap = maxRadiusMm(notch);
+  const radiusCap = notch.maxRadiusMm();
   if ((notch.radiusMm || 0) > radiusCap + 1e-9) {
     problems.push(t('validation.notch.radiusTooBig', { cap: radiusCap.toFixed(1) }));
   }

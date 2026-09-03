@@ -10,9 +10,8 @@ import { renderExportButton, renderExportDeepnestButton, renderExportJsonButton 
 import { mountThreeDView } from './ThreeDView.js';
 import { homeIcon } from './fields.js';
 import { t } from '../i18n/index.js';
-import { computePieces } from '../geometry/PieceFactory.js';
-import { wallPieceId } from '../geometry/PanelBuilder.js';
-import { runAt, outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
+import { Box } from '../geometry/oo/Box.js';
+import { runAt, wallPieceId, outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
 
 // Which preview piece (if any) corresponds to the currently-selected grid
@@ -40,7 +39,7 @@ function renderDimensionsHint(project) {
 }
 
 function renderPreviewStrip(project, selectedWallId, showLabels, onSelectWall) {
-  const pieces = computePieces(project);
+  const pieces = Box.fromProject(project).allPiecesBurnCorrected();
   const cards = pieces.map((piece) => {
     const svg = pieceToStandaloneSvg(piece, { padding: 4, minSize: 40, showLabels });
     const highlighted = piece.id === selectedWallId;

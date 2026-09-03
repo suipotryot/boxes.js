@@ -193,6 +193,137 @@ export function crossingAt(grid, wallKind, pointC, pointR) {
   return { type: stems.length ? 'stems' : 'none', stems };
 }
 
+/** Classifies the physical relationship at a grid point ALONG a run's own
+ *  axis, covering both an interior point (the run continues past it on
+ *  both sides — enumerateWallRuns/interiorCrossings' own domain) and the
+ *  run's own endpoint (aPoint/bPoint, where the run terminates) with one
+ *  consistent vocabulary, since a caller building a Panel/Box needs one
+ *  answer regardless of which kind of point it's looking at:
+ *   - 'crossing': (interior only) the run continues AND a perpendicular
+ *     piece passes fully through too (X) — both pieces need a half-lap
+ *     notch, symmetric, computed from the touching heights (see the plan's
+ *     "croisement en X" section — deliberately NOT the same relationship
+ *     as 'corner' below, which needs a live reference-free but genuinely
+ *     different treatment).
+ *   - 'stem': either (a) at an interior point, one or two perpendicular
+ *     pieces merely end here (T) — THIS run needs a mortise hole for each
+ *     tenon; or (b) at this run's OWN endpoint, a perpendicular piece
+ *     continues fully through — THIS run's own end is the one that
+ *     terminates, needing an ordinary end-comb received as mortise holes
+ *     in the continuing piece. Both cases mean "this run's edge here is
+ *     the one that gets holes cut into some OTHER piece," which is why
+ *     they share one name despite coming from opposite crossingAt types.
+ *   - 'corner': only possible at this run's own endpoint — one or two
+ *     perpendicular pieces ALSO terminate here (nothing continues past
+ *     this point in either direction) — every piece meeting here needs
+ *     its own comb teeth stretched to the physical tip, a symmetric
+ *     interleaving joint (see BordureDentée's `étendreAuxPointes`).
+ *   - 'none': nothing present in the perpendicular direction (an open
+ *     end, e.g. a user-disabled side of an enclosing sleeve).
+ *  `atOwnEnd` must be true when (pointC,pointR) is this run's own aPoint
+ *  or bPoint, false for any interior point. Purely additive: reuses
+ *  crossingAt's own lookup unchanged, adds no new stored data. */
+export function junctionKindAt(grid, wallKind, pointC, pointR, atOwnEnd) {
+  const crossing = crossingAt(grid, wallKind, pointC, pointR);
+  const kind = atOwnEnd
+    ? { through: 'stem', stems: 'corner', none: 'none' }[crossing.type]
+    : { through: 'crossing', stems: 'stem', none: 'none' }[crossing.type];
+  return { kind, seg: crossing.seg, segs: crossing.segs, stems: crossing.stems };
+}
+
+/** A wall run's piece id — the one stable place this format is defined,
+ *  so anything that needs to find a run's own piece again later (e.g. the
+ *  editor highlighting the preview piece for whatever grid line is
+ *  currently selected, via runAt) never has to re-derive or duplicate the
+ *  format itself. Relocated here from the now-retired PanelBuilder.js at
+ *  the OO-refactor's cutover step — a pure function of `run` alone, with
+ *  no dependency on the rest of that file's procedural pipeline. */
+export function wallPieceId(run) {
+  return `wall-${run.kind}-${run.aPoint[0]}-${run.aPoint[1]}`;
+}
+
+/** Per-cell resolved height along a run's own u axis, ascending. Even a
+ *  perfectly uniform run gets exactly one span here. Relocated from
+ *  PanelBuilder.js (see wallPieceId's own note on why). */
+export function heightProfile(run, grid, project) {
+  const spans = [];
+  if (run.kind === 'v') {
+    for (let r = run.rStart; r <= run.rEnd; r++) {
+      spans.push({
+        uStart: yAt(grid, project, r) - yAt(grid, project, run.rStart),
+        uEnd: yAt(grid, project, r + 1) - yAt(grid, project, run.rStart),
+        height: resolveHeight(grid.vWalls[run.c][r], project),
+      });
+    }
+  } else {
+    for (let c = run.cStart; c <= run.cEnd; c++) {
+      spans.push({
+        uStart: xAt(grid, project, c) - xAt(grid, project, run.cStart),
+        uEnd: xAt(grid, project, c + 1) - xAt(grid, project, run.cStart),
+        height: resolveHeight(grid.hWalls[c][run.r], project),
+      });
+    }
+  }
+  return spans;
+}
+
+/** The height in effect at position `u` within `spans` (heightProfile's
+ *  own output). At an exact span boundary, resolves to the SHORTER of the
+ *  two touching spans, not arbitrarily "the one before" — a notch/hole
+ *  check is only physically sound working from the more conservative
+ *  height on offer at that exact point. Relocated from PanelBuilder.js. */
+export function heightAt(spans, u, epsilon = 1e-9) {
+  let min = Infinity;
+  for (const s of spans) if (u >= s.uStart - epsilon && u <= s.uEnd + epsilon) min = Math.min(min, s.height);
+  return min === Infinity ? spans[spans.length - 1].height : min;
+}
+
+function maxThicknessAmong(mates, project) {
+  return mates.length ? Math.max(...mates.map((m) => resolveThickness(m, project))) : 0;
+}
+
+// Every mid-run junction along `run`'s own length (X or T alike) — the
+// interior counterpart to perpendicularMatesAtPoint (which covers a run's
+// own two ENDpoints). Never includes the run's own endpoints themselves.
+function interiorCrossings(run, grid, project) {
+  const results = [];
+  if (run.kind === 'v') {
+    for (let r = run.rStart + 1; r <= run.rEnd; r++) {
+      const info = crossingAt(grid, 'v', run.c, r);
+      if (info.type === 'none') continue;
+      results.push({ u: yAt(grid, project, r) - yAt(grid, project, run.rStart), ...info });
+    }
+  } else {
+    for (let c = run.cStart + 1; c <= run.cEnd; c++) {
+      const info = crossingAt(grid, 'h', c, run.r);
+      if (info.type === 'none') continue;
+      results.push({ u: xAt(grid, project, c) - xAt(grid, project, run.cStart), ...info });
+    }
+  }
+  return results;
+}
+
+function crossingExclusionRange(crossing, project) {
+  if (crossing.type === 'through') {
+    const halfWidth = resolveThickness(crossing.seg, project) / 2;
+    return { uStart: crossing.u - halfWidth, uEnd: crossing.u + halfWidth };
+  }
+  const halfWidth = maxThicknessAmong(crossing.stems, project) / 2;
+  return { uStart: crossing.u - halfWidth, uEnd: crossing.u + halfWidth };
+}
+
+/** Every interior crossing's own exclusion range along a run's length,
+ *  sorted ascending — the set of "no teeth/no label here" zones a run's
+ *  length gets split around (X or T alike). Relocated from PanelBuilder.js
+ *  (see wallPieceId's own note); still exported under the same name for
+ *  GripNotchValidation/oo/NotchValidation and Assembly's own use. */
+export function junctionExclusionRanges(run, grid, project) {
+  return interiorCrossings(run, grid, project)
+    .filter((c) => c.type !== 'none')
+    .map((c) => crossingExclusionRange(c, project))
+    .sort((a, b) => a.uStart - b.uStart);
+}
+
 export function tallestInnerHeight(grid, project) {
   let max = 0;
   for (const col of grid.vWalls) for (const seg of col) if (seg.present && seg.thicknessGroup === 'inner') max = Math.max(max, resolveHeight(seg, project));

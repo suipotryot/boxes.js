@@ -3,8 +3,8 @@
 // its correctness at corners, T junctions, and X crossings is what keeps
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, assertClose, run } from './testHarness.js';
-import { createGrid, setSegmentHeight, toggleWall } from '../model/Grid.js';
-import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
+import { createGrid, setSegmentHeight, setSegmentPresent, toggleWall } from '../model/Grid.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
 import { createDefaultProject } from '../state/Project.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
@@ -166,6 +166,52 @@ test('outerBoxHeight is unchanged by a flush lid — its own tabs land exactly o
   project.outerHeightMm = 40;
   project.lid = { enabled: true, insertHeightMm: 40 - 3 }; // flush: lidTopFace === perimeterHeight
   assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'same as the no-lid case: outerThicknessMm + perimeterHeight');
+});
+
+// junctionKindAt: the additive, endpoint-aware generalization of
+// crossingAt — one vocabulary (crossing/stem/corner/none) for both a run's
+// interior points and its own two endpoints. Reuses the exact same grid
+// fixtures as the crossingAt/perpendicularMatesAtPoint tests above.
+
+test('junctionKindAt at an interior point: an X crossing is "crossing", a T junction is "stem"', () => {
+  const grid = createGrid([90, 130], [70, 100]);
+  const crossing = junctionKindAt(grid, 'v', 1, 1, false);
+  assert(crossing.kind === 'crossing', `expected 'crossing' at the X crossing, got '${crossing.kind}'`);
+
+  const tGrid = createGrid([80, 80], [100]);
+  const stem = junctionKindAt(tGrid, 'h', 1, 0, false);
+  assert(stem.kind === 'stem', `expected 'stem' at a T junction, got '${stem.kind}'`);
+  assert(stem.stems.length === 1);
+});
+
+test('junctionKindAt at a run\'s own endpoint: a box corner (two outer walls terminating together) is "corner"', () => {
+  const grid = createGrid([150], [100]);
+  // top-left corner: the left wall's ('v', c=0) own top end (its aPoint).
+  const corner = junctionKindAt(grid, 'v', 0, 0, true);
+  assert(corner.kind === 'corner', `expected 'corner' at a box corner, got '${corner.kind}'`);
+});
+
+test('junctionKindAt at a run\'s own endpoint: a divider ending into a continuing perpendicular wall\'s face is "stem" (inverted from crossingAt\'s own "through")', () => {
+  const grid = createGrid([80, 80], [100]); // divider at c=1, T junction against the top/bottom edges
+  // the divider's own aPoint (1,0): the top edge is ONE continuous run
+  // there (crossingAt itself reports 'through'), but from the DIVIDER's
+  // own end perspective, it's the divider that terminates — a stem, not
+  // a corner — the whole reason 'through' and 'stem' swap meaning between
+  // an interior point and an endpoint.
+  const end = junctionKindAt(grid, 'v', 1, 0, true);
+  assert(end.kind === 'stem', `expected 'stem' (the divider's own end butting into the continuous top edge), got '${end.kind}'`);
+});
+
+test('junctionKindAt: "none" when nothing is present in the perpendicular direction, at both an interior point and an endpoint', () => {
+  let grid = createGrid([150], [50, 50]);
+  grid = toggleWall(grid, 'h', 0, 1); // remove the interior horizontal divider
+  const interior = junctionKindAt(grid, 'v', 0, 1, false);
+  assert(interior.kind === 'none', `expected 'none' at an interior point with nothing perpendicular, got '${interior.kind}'`);
+
+  let openGrid = createGrid([150], [100]);
+  openGrid = setSegmentPresent(openGrid, 'h', 0, 0, false); // disable the whole top wall (an open side, like a drawer sleeve)
+  const end = junctionKindAt(openGrid, 'v', 0, 0, true);
+  assert(end.kind === 'none', `expected 'none' at an endpoint with nothing perpendicular (open side), got '${end.kind}'`);
 });
 
 run();

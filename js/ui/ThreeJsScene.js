@@ -8,9 +8,9 @@
 // call, so unlike the Zdog version, no separate per-face bookkeeping
 // module is needed anymore.
 import * as THREE from 'three';
-import { computePieces } from '../geometry/PieceFactory.js';
-import { computePiecePlacement3D, translatePlacement } from '../geometry/PiecePlacement3D.js';
-import { DRAWER_PREFIX, computeDrawerSlideVector } from '../geometry/DrawerBuilder.js';
+import { Box } from '../geometry/oo/Box.js';
+import { computePiecePlacement3D, translatePlacement, computeDrawerSlideVector } from '../geometry/PiecePlacement3D.js';
+import { DRAWER_PREFIX } from '../geometry/oo/Drawer.js';
 
 // base plate, every wall run, and the lid — the same kinds computePieces()
 // itself groups drawer sleeve pieces under too (see PiecePlacement3D.js,
@@ -124,7 +124,7 @@ export function populateScene(scene, project, { openT = 0, visible = { box: true
   });
 
   const slideVector = project.drawer?.enabled ? computeDrawerSlideVector(project.grid, project, openT) : ZERO_VECTOR;
-  const pieces = computePieces(project).filter((p) => SUPPORTED_KINDS.has(p.kind));
+  const pieces = Box.fromProject(project).allPiecesBurnCorrected().filter((p) => SUPPORTED_KINDS.has(p.kind));
 
   for (const piece of pieces) {
     const group = pieceGroupName(piece);

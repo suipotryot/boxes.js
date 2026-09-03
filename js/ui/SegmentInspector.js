@@ -11,12 +11,11 @@ import { el } from './dom.js';
 import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
 import { resolveWallRunContext, resolvePieceHoleContext } from '../geometry/PieceContext.js';
-import { buildWallPanel } from '../geometry/PanelBuilder.js';
-import { buildBasePlate } from '../geometry/BasePlateBuilder.js';
-import { buildLid } from '../geometry/LidBuilder.js';
+import { buildWallPiece, buildBasePlate, buildLid } from '../geometry/oo/Assembly.js';
 import { burnCorrect } from '../geometry/BurnCorrection.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
-import { holeListFor, setHoleAt } from '../geometry/Hole.js';
+import { Cutout } from '../geometry/oo/Cutout.js';
+import { Hole } from '../geometry/oo/Hole.js';
 import { attachHoleDragOverlay } from './HoleDragOverlay.js';
 import { renderGripNotchSection } from './GripNotchEditor.js';
 import { renderHoleSection } from './HoleEditor.js';
@@ -35,12 +34,12 @@ function kindLabel(kind) {
 // which have no wall run at all. Keying this off wallContext instead would
 // silently produce no preview for those two pieces.
 function buildInspectedPiece(holeContext) {
-  const raw = holeContext.kind === 'wall'
-    ? buildWallPanel(holeContext.run, holeContext.grid, holeContext.project, true)
+  const panel = holeContext.kind === 'wall'
+    ? buildWallPiece(holeContext.run, holeContext.grid, holeContext.project)
     : holeContext.rawId === 'base-plate'
       ? buildBasePlate(holeContext.grid, holeContext.project)
       : buildLid(holeContext.grid, holeContext.project);
-  return burnCorrect(raw, holeContext.project.burnMm);
+  return burnCorrect(panel.toPiece(), holeContext.project.burnMm);
 }
 
 // Built from the REAL pipeline, folding in every notch/hole currently
@@ -116,8 +115,11 @@ export function renderInspector(project, selected, selectedWallId, store) {
   const holeContext = selectedWallId ? resolvePieceHoleContext(project, selectedWallId) : null;
 
   if (holeContext) {
-    const holes = holeListFor(project.pieceHoles, selectedWallId);
-    const onHoleChange = (index, patch) => store.apply((p) => ({ ...p, pieceHoles: setHoleAt(p.pieceHoles, selectedWallId, index, patch) }));
+    const holes = Hole.listFor(project.pieceHoles, selectedWallId);
+    const onHoleChange = (index, patch) => store.apply((p) => ({
+      ...p,
+      pieceHoles: { ...p.pieceHoles, [selectedWallId]: Cutout.replaceAt(Hole.listFor(p.pieceHoles, selectedWallId), index, patch) },
+    }));
     sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange));
   }
   if (selected) sections.push(renderSegmentFields(project, selected, store));
