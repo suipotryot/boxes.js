@@ -9,7 +9,7 @@ import { test, assert, run } from './testHarness.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
 import { enumerateWallRuns } from '../model/GridQuery.js';
-import { buildWallPanel, heightProfile } from '../geometry/PanelBuilder.js';
+import { buildWallPanel, heightProfile, junctionExclusionRanges } from '../geometry/PanelBuilder.js';
 import { Panel } from '../geometry/oo/Panel.js';
 import { SmoothEdge } from '../geometry/oo/SmoothEdge.js';
 import { FingerEdge } from '../geometry/oo/FingerEdge.js';
@@ -37,6 +37,7 @@ function buildPanel(run, grid, project, { fragments = [] } = {}) {
   const bottomEdge = new FingerEdge({
     lengthMm: run.length, fingerJoint: fj, startWithFinger,
     mateThicknessMm: project.outerThicknessMm, baselineMm: 0, signMm: -1,
+    exclusions: junctionExclusionRanges(run, grid, project),
   });
   const rightEdge = new FingerEdge({
     lengthMm: spans[spans.length - 1].height, fingerJoint: fj, startWithFinger,
@@ -83,6 +84,18 @@ test('outline(): matches buildWallPanel exactly for an interior divider (no tip-
   project.outerHeightMm = 40;
   project.innerHeightMm = 35;
   const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'v' && r.c === 1);
+
+  const old = buildWallPanel(run, project.grid, project, true);
+  const mine = buildPanel(run, project.grid, project).outline();
+  assert(sameOutline(old.outline, mine));
+});
+
+test('outline(): matches buildWallPanel exactly for an outer wall with a mid-run T-junction stem (a divider touching it mid-span) — the exact gap exclusions were added to close', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([90, 130], [70, 100]); // 2x2 grid
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
 
   const old = buildWallPanel(run, project.grid, project, true);
   const mine = buildPanel(run, project.grid, project).outline();

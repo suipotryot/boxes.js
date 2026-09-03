@@ -32,16 +32,53 @@ function extendSegmentsToTips(segs) {
   return result;
 }
 
+/** Tiles [0, lengthMm] the same way FingerJoint.fingerEdgePath alone
+ *  would, EXCEPT split into independent portions around each of
+ *  `exclusions` ({uStart,uEnd}[], already sorted) — a plain flush strip
+ *  at each exclusion itself, each stretch between/around them getting its
+ *  own centered/maximal comb. Ported from PanelBuilder.bottomCombSegments:
+ *  a run touched mid-length by a T/X junction reads as several short
+ *  independent combs, not one long comb that happens to skip a bit — so a
+ *  junction never has a tooth landing on or straddling it. */
+function tileWithExclusions(lengthMm, fingerJoint, startWithFinger, exclusions) {
+  if (exclusions.length === 0) return fingerEdgePath(lengthMm, fingerJoint, startWithFinger);
+
+  const segs = [];
+  let cursor = 0;
+  for (const ex of exclusions) {
+    const exStart = Math.max(ex.uStart, cursor);
+    const exEnd = Math.max(ex.uEnd, exStart);
+    if (exStart > cursor) {
+      for (const s of fingerEdgePath(exStart - cursor, fingerJoint, startWithFinger)) {
+        segs.push({ start: cursor + s.start, length: s.length, kind: s.kind });
+      }
+    }
+    if (exEnd > exStart) segs.push({ start: exStart, length: exEnd - exStart, kind: 'flush' });
+    cursor = exEnd;
+  }
+  if (lengthMm > cursor) {
+    for (const s of fingerEdgePath(lengthMm - cursor, fingerJoint, startWithFinger)) {
+      segs.push({ start: cursor + s.start, length: s.length, kind: s.kind });
+    }
+  }
+  return segs;
+}
+
 export class FingerEdge extends Edge {
   constructor({
     lengthMm, fingerJoint, startWithFinger, mateThicknessMm, extendToTips = false,
-    baselineMm = 0, signMm = 1, fragments,
+    baselineMm = 0, signMm = 1, exclusions = [], fragments,
   }) {
     super(lengthMm, fragments);
     this.fingerJoint = fingerJoint; // {fingerMm, spaceMm, marginMm, playMm} — shared project-wide setting
     this.startWithFinger = startWithFinger;
     this.mateThicknessMm = mateThicknessMm; // the MATE's own thickness, never this edge's own
     this.extendToTips = extendToTips;
+    // Mid-run "no teeth here" zones (a T/X junction crossing THIS edge's
+    // own length partway along it) — see tileWithExclusions above. Empty
+    // for an edge with nothing crossing it (or one tiled along a height
+    // axis, e.g. a wall's own end edges, which never have this).
+    this.exclusions = exclusions;
     // Where a Panel places this edge decides the final coordinate this
     // edge's own "0 or mateThicknessMm" value needs to land at — e.g. a
     // wall's bottom edge protrudes DOWN from y=0 (baselineMm=0, signMm=-1)
@@ -55,7 +92,7 @@ export class FingerEdge extends Edge {
   }
 
   segments() {
-    const segs = fingerEdgePath(this.lengthMm, this.fingerJoint, this.startWithFinger);
+    const segs = tileWithExclusions(this.lengthMm, this.fingerJoint, this.startWithFinger, this.exclusions);
     return this.extendToTips ? extendSegmentsToTips(segs) : segs;
   }
 

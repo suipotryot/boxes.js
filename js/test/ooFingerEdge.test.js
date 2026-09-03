@@ -3,8 +3,12 @@
 // key simplification: two FingerEdge instances facing each other need no
 // reference to one another (see FingerEdge.js's own header comment).
 import { test, assert, assertClose, run } from './testHarness.js';
+import { createGrid } from '../model/Grid.js';
+import { createDefaultProject } from '../state/Project.js';
+import { enumerateWallRuns } from '../model/GridQuery.js';
 import { FingerEdge } from '../geometry/oo/FingerEdge.js';
 import { fingerEdgePath } from '../geometry/FingerJoint.js';
+import { bottomCombSegments, junctionExclusionRanges } from '../geometry/PanelBuilder.js';
 
 const fj = { fingerMm: 20, spaceMm: 20, marginMm: 5, playMm: 0 };
 
@@ -65,6 +69,34 @@ test('complementary phase: two FingerEdge instances with opposite startWithFinge
     const mateValue = mate.baseValueAt(mid);
     assert(!(myValue > 0 && mateValue > 0), `at u=${mid}, both sides protrude simultaneously (myValue=${myValue}, mateValue=${mateValue}) — they'd collide instead of interlocking`);
   }
+});
+
+test('exclusions: without any, segments() is unaffected (default empty array preserves the plain-tiling behavior)', () => {
+  const edge = new FingerEdge({ lengthMm: 222, fingerJoint: fj, startWithFinger: false, mateThicknessMm: 3 });
+  assert(JSON.stringify(edge.segments()) === JSON.stringify(fingerEdgePath(222, fj, false)));
+});
+
+test('exclusions: segments() matches bottomCombSegments exactly on a real 2x2 grid outer wall with a mid-run T junction — the exact gap this test suite previously missed (a divider touching an outer wall mid-span)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([90, 130], [70, 100]); // 2x2: the top outer wall gets a T-junction stem mid-run
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+
+  const expected = bottomCombSegments(run, project.grid, project);
+  const exclusions = junctionExclusionRanges(run, project.grid, project);
+  assert(exclusions.length > 0, 'sanity check: this scenario should actually have a mid-run exclusion to portion around');
+
+  const edge = new FingerEdge({
+    lengthMm: run.length, fingerJoint: project.fingerJoint, startWithFinger: run.kind === 'v',
+    mateThicknessMm: project.outerThicknessMm, exclusions,
+  });
+  assert(JSON.stringify(edge.segments()) === JSON.stringify(expected), 'portioned tiling should match bottomCombSegments exactly, not just a plain whole-length comb');
+
+  // And confirm a PLAIN (no-exclusions) comb would have been WRONG here —
+  // proving this isn't a vacuous check.
+  const plain = fingerEdgePath(run.length, project.fingerJoint, run.kind === 'v');
+  assert(JSON.stringify(plain) !== JSON.stringify(expected), 'sanity check: the plain whole-length comb must actually differ from the portioned one in this scenario');
 });
 
 run();
