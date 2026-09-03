@@ -1,19 +1,12 @@
-// MortiseHole: verified directly against buildWallPanel's own (still-live,
-// unchanged) T-junction output — mortiseHoles isn't exported, so this
-// reconstructs it via a direct FingerJoint.fingerEdgePath call (the same
-// "generated from the mate's own dents(), never recomputed independently"
-// principle from the plan) and checks the resulting holes match exactly.
+// MortiseHole: a rectangular hole generated straight from a stem's own
+// finger-tiled end comb (one hole per 'finger' segment), so a hole can
+// never drift out of sync with the tenon meant to sit in it. Equivalence
+// against buildWallPanel's own T-junction output was also verified
+// extensively during migration; once the old pipeline was deleted at
+// cutover, that comparison lost its oracle and was retired along with it.
 import { test, assert, run } from './testHarness.js';
-import { createGrid } from '../model/Grid.js';
-import { createDefaultProject } from '../state/Project.js';
-import { enumerateWallRuns, junctionKindAt, xAt } from '../model/GridQuery.js';
-import { buildWallPanel } from '../geometry/PanelBuilder.js';
 import { fingerEdgePath } from '../geometry/FingerJoint.js';
 import { MortiseHole } from '../geometry/oo/MortiseHole.js';
-
-function sortedRounded(poly) {
-  return poly.map((p) => `${p.x.toFixed(6)},${p.y.toFixed(6)}`).sort().join('|');
-}
 
 test('polygon(): wound bottom-left -> bottom-right -> top-right -> top-left, matching Hole\'s own convention', () => {
   const hole = new MortiseHole({ xMm: 10, yMm: 20, widthMm: 5, heightMm: 8 });
@@ -44,34 +37,6 @@ test('manyFromFingerSegments (axis=\'x\', the base-plate divider-hole case): tra
     assert(h.yMm === 20 - 1 && h.heightMm === 2, 'the thickness band should be centered on centerMm in Y');
     assert(h.xMm >= 100, 'the tiling origin should be shifted by offsetMm');
   }
-});
-
-test('manyFromFingerSegments: matches buildWallPanel\'s own mortise holes exactly, on a real T-junction grid', () => {
-  const project = createDefaultProject();
-  project.grid = createGrid([80, 80], [100]); // T junction: divider at c=1 meets the top/bottom outer edges
-  project.outerThicknessMm = 3;
-  project.innerThicknessMm = 2;
-  project.outerHeightMm = 40;
-  project.innerHeightMm = 35;
-
-  const throughRun = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
-  const old = buildWallPanel(throughRun, project.grid, project, true);
-
-  const uAtCrossing = xAt(project.grid, project, 1) - xAt(project.grid, project, throughRun.cStart);
-  const crossing = junctionKindAt(project.grid, 'h', 1, 0, false);
-  assert(crossing.kind === 'stem' && crossing.stems.length === 1, 'sanity check: this should be a single-stem T junction');
-
-  const stemSeg = crossing.stems[0];
-  const stemHeight = project.innerHeightMm; // resolveHeight-equivalent: no per-segment override here
-  const stemThickness = project.innerThicknessMm;
-  const stemStartWithFinger = throughRun.kind === 'h'; // matches the old mortiseHoles' own convention
-  const segs = fingerEdgePath(stemHeight, project.fingerJoint, stemStartWithFinger);
-  const holes = MortiseHole.manyFromFingerSegments(segs, { centerMm: uAtCrossing, thicknessMm: stemThickness });
-
-  assert(holes.length === old.holes.length, `expected ${old.holes.length} holes, got ${holes.length}`);
-  const oldSet = old.holes.map(sortedRounded).sort();
-  const mineSet = holes.map((h) => sortedRounded(h.polygon())).sort();
-  assert(JSON.stringify(oldSet) === JSON.stringify(mineSet), 'the generated mortise holes should match buildWallPanel\'s own point-for-point');
 });
 
 run();

@@ -4,7 +4,7 @@
 // testable) and the actual download side effects (exportProjectSvg, needs
 // a browser), same separation this app already keeps elsewhere between
 // pure geometry/state and DOM-touching UI code.
-import { computePieces } from '../geometry/PieceFactory.js';
+import { Box } from '../geometry/oo/Box.js';
 import { groupByThickness } from './ThicknessGrouper.js';
 import { packPieces } from './RectPacker.js';
 import { renderSvgPage, renderSvgPageForDeepnest, svgElementToFileText } from './SvgPageRenderer.js';
@@ -22,7 +22,7 @@ function sleep(ms) {
  *  committing to actual downloads, and is unit-testable without a
  *  browser (computePieces/groupByThickness/packPieces are all pure). */
 export function planExport(project) {
-  const pieces = computePieces(project);
+  const pieces = Box.fromProject(project).allPiecesBurnCorrected();
   const groups = groupByThickness(pieces);
   const { widthMm, heightMm, spacingMm } = project.laserBed;
   return groups.map(({ thicknessMm, pieces }) => ({

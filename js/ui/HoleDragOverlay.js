@@ -18,7 +18,6 @@
 // No store/project/pieceId knowledge here — the caller supplies the raw
 // hole list and a plain (index, patch) => void commit callback.
 import { svgEl } from './dom.js';
-import { moveHoleBy, resizeHoleToward } from '../geometry/Hole.js';
 import { t } from '../i18n/index.js';
 
 const MIN_HOLE_SIZE_MM = 1;
@@ -71,8 +70,8 @@ function renderOneHole(group, hole, onCommit) {
     const p = toLocalPoint(group, clientX, clientY);
     if (!p) return null;
     return dragKind === 'move'
-      ? moveHoleBy(startHole, p.x - startPoint.x, p.y - startPoint.y)
-      : resizeHoleToward(startHole, { x: p.x, y: p.y }, MIN_HOLE_SIZE_MM);
+      ? startHole.movedBy(p.x - startPoint.x, p.y - startPoint.y)
+      : startHole.resizedToward({ x: p.x, y: p.y }, MIN_HOLE_SIZE_MM);
   }
 
   function applyLive(next) {

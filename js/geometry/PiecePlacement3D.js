@@ -20,10 +20,15 @@
 // (perimeter) wall extrudes its thickness entirely OUTWARD from the
 // compartment boundary; an interior divider extrudes CENTERED on the grid
 // line (half each side) — see isOuterSegment.
-import { enumerateWallRuns, xAt, yAt } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
-import { wallPieceId } from './PanelBuilder.js';
-import { buildSleeveContext, computeDrawerOffset, DRAWER_PREFIX } from './DrawerBuilder.js';
+import { Drawer, DRAWER_PREFIX, OPEN_SIDE } from './oo/Drawer.js';
+
+// Which of OPEN_SIDE's two names per axis sits at the grid's own c=0/r=0
+// (minimum) end, vs the c=cols/r=rows (maximum) end — needed by both
+// computeDrawerOffset and computeDrawerSlideVector below to know which
+// direction is "toward the opening".
+const OPEN_AT_MIN = new Set(['top', 'left']);
 
 function identityPlacement() {
   return {
@@ -93,7 +98,7 @@ export function computePiecePlacement3D(grid, project, piece) {
     return computeLocalPlacement(grid, project, piece.id, piece);
   }
 
-  const { sleeveGrid, sleeveProject } = buildSleeveContext(grid, project);
+  const { grid: sleeveGrid, project: sleeveProject } = Drawer.sleeveContext({ grid, project });
   const rawId = piece.id.slice(DRAWER_PREFIX.length);
   const local = computeLocalPlacement(sleeveGrid, sleeveProject, rawId, piece);
   return translatePlacement(local, computeDrawerOffset(project));
@@ -122,4 +127,58 @@ export function toWorld(placement, local) {
     y: origin.y + local.x * uAxis.y + local.y * vAxis.y + local.z * wAxis.y,
     z: origin.z + local.x * uAxis.z + local.y * vAxis.z + local.z * wAxis.z,
   };
+}
+
+// World-space translation that positions the sleeve built by Drawer (whose
+// own pieces are otherwise placed in their own local frame, starting at
+// their own (0,0,0), exactly like the main box) against the main box:
+// playMm clearance on every side the sleeve stays closed on, flush (0
+// clearance) on the open side, so the two boxes' cavities actually line up
+// once both are placed in the SAME 3D world space.
+//
+// X/Y: every main-box piece already sits directly in the xAt/yAt frame
+// with no translation of its own — the outer wall's own material is what
+// pushes a coordinate as far as -outerThicknessMm, so that IS the main
+// box's own true minimum X/Y face (see computeLocalPlacement above), not 0.
+//
+// Z: baseZ (=drawer.thicknessMm, the sleeve's own outerThicknessMm) is the
+// world Z of the sleeve's own "v=0" convention (a wall's own bottom mating
+// edge) — the reference sleeveH (Drawer.sleeveContext) is measured from.
+// Anchoring the sleeve's v=0 a full (drawer.thicknessMm + playMm) below the
+// main box's own floor (z=0) is what keeps the BOTTOM clearance exactly
+// playMm (the base plate's own material, drawer.thicknessMm, sits below
+// v=0; the empty air gap above that, up to the main box's own floor, is
+// what's left: playMm). The identical playMm gap at the TOP falls out for
+// free from this same anchor, but only because sleeveH itself (see
+// Drawer.sleeveContext) already includes an extra +drawer.thicknessMm term
+// to account for the sleeve's own flush lid eating that same thickness out
+// of its underside — this function doesn't need to know that, it only
+// needs the bottom anchor above; verified directly by computing both
+// boxes' real world-space Z bounds (not just derived algebraically).
+export function computeDrawerOffset(project) {
+  const { drawer, outerThicknessMm } = project;
+  const mainMin = -outerThicknessMm;
+  const closed = mainMin - drawer.playMm;
+  const { axis } = OPEN_SIDE[drawer.openSide];
+  const openAtMin = OPEN_AT_MIN.has(drawer.openSide);
+  return {
+    x: axis === 'x' ? (openAtMin ? mainMin : closed) : closed,
+    y: axis === 'y' ? (openAtMin ? mainMin : closed) : closed,
+    z: -(drawer.thicknessMm + drawer.playMm),
+  };
+}
+
+// Translation that slides the MAIN box (never the sleeve, which stays put)
+// along the open axis, away from the closed side, by `openT` (0 = closed/
+// nested, 1 = fully clear of the sleeve — its own extent on that axis) —
+// the 3D preview's "open the drawer" slider. Pure UI-driven positioning,
+// not a placement this module itself needs to know about; the caller
+// (ThreeJsScene.js) adds this on top of every non-sleeve piece's own
+// placement via translatePlacement above.
+export function computeDrawerSlideVector(grid, project, openT) {
+  const { drawer } = project;
+  const { axis } = OPEN_SIDE[drawer.openSide];
+  const sign = OPEN_AT_MIN.has(drawer.openSide) ? -1 : 1;
+  const distance = (axis === 'x' ? outerBoxWidth(grid, project) : outerBoxDepth(grid, project)) * openT * sign;
+  return { x: axis === 'x' ? distance : 0, y: axis === 'y' ? distance : 0, z: 0 };
 }

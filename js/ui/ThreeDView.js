@@ -8,7 +8,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { el, clear } from './dom.js';
 import { t } from '../i18n/index.js';
 import { outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
-import { buildSleeveContext, computeDrawerOffset } from '../geometry/DrawerBuilder.js';
+import { Drawer } from '../geometry/oo/Drawer.js';
+import { computeDrawerOffset } from '../geometry/PiecePlacement3D.js';
 import { populateScene } from './ThreeJsScene.js';
 
 /**
@@ -178,9 +179,8 @@ function approximateBounds(grid, project, offset = { x: 0, y: 0, z: 0 }) {
 function fitView(camera, controls, project) {
   const bounds = approximateBounds(project.grid, project);
 
-  const sleeveCtx = buildSleeveContext(project.grid, project);
-  if (sleeveCtx) {
-    const { sleeveGrid, sleeveProject } = sleeveCtx;
+  if (project.drawer?.enabled) {
+    const { grid: sleeveGrid, project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
     const sleeveBounds = approximateBounds(sleeveGrid, sleeveProject, computeDrawerOffset(project));
     bounds.min.min(sleeveBounds.min);
     bounds.max.max(sleeveBounds.max);

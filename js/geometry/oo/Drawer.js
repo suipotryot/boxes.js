@@ -19,7 +19,7 @@ import { Assembly } from './Assembly.js';
 // (kind, c, r) of the outer segment to remove for each side of the
 // sleeve's own 1x1 grid, plus which axis ('x' = width/sx, 'y' = depth/sy)
 // that side sits on.
-const OPEN_SIDE = {
+export const OPEN_SIDE = {
   top: { kind: 'h', c: 0, r: 0, axis: 'y' },
   bottom: { kind: 'h', c: 0, r: 1, axis: 'y' },
   right: { kind: 'v', c: 1, r: 0, axis: 'x' },

@@ -18,16 +18,17 @@
 // of SegmentInspector's panel, not duplicated here.
 import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
-import { DEFAULT_GRIP_NOTCH, maxRadiusMm, notchListFor, formatNotchLine, parseNotchLine } from '../geometry/GripNotch.js';
-import { validateGripNotch } from '../geometry/GripNotchValidation.js';
+import { Cutout } from '../geometry/oo/Cutout.js';
+import { Notch, DEFAULT_NOTCH } from '../geometry/oo/Notch.js';
+import { validateNotch } from '../geometry/oo/NotchValidation.js';
 import { t } from '../i18n/index.js';
 
 function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   const lineField = el('label', { class: 'field' }, [
     el('input', {
-      type: 'text', value: formatNotchLine(notch),
+      type: 'text', value: notch.toTextLine(),
       onChange: (evt) => {
-        const parsed = parseNotchLine(evt.target.value);
+        const parsed = Notch.fromTextLine(evt.target.value);
         if (!parsed) { evt.target.classList.add('invalid-input'); return; } // texte illisible : ni perdu, ni appliqué tel quel
         evt.target.classList.remove('invalid-input');
         onUpdate(parsed);
@@ -42,7 +43,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
 
   const row = el('div', { class: 'compact-item-row' }, [lineField, trashBtn]);
 
-  const validation = validateGripNotch(context.run, context.grid, context.project, notch, siblings);
+  const validation = validateNotch(context.run, context.grid, context.project, notch, siblings);
   const warning = !validation.ok ? el('div', { class: 'field' }, [
     ...validation.problems.map((msg) => el('span', { class: 'warning', text: msg })),
     el('button', {
@@ -51,7 +52,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
         const widthMm = Math.max(1, Math.min(notch.widthMm, validation.maxWidthMm));
         const depthMm = Math.min(notch.depthMm, Math.max(1, validation.localHeight - 1));
         const offsetMm = Math.min(Math.max(notch.offsetMm, 0), Math.max(0, context.run.length - widthMm));
-        const radiusMm = Math.min(notch.radiusMm, maxRadiusMm({ widthMm, depthMm }));
+        const radiusMm = Math.min(notch.radiusMm, notch.withChanges({ widthMm, depthMm }).maxRadiusMm());
         onUpdate({ widthMm, offsetMm, depthMm, radiusMm });
       },
     }),
@@ -61,15 +62,15 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
 }
 
 export function renderGripNotchSection(project, pieceId, context, store) {
-  const notches = notchListFor(project.pieceNotches, pieceId);
+  const notches = Notch.listFor(project.pieceNotches, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
     ...p,
     pieceNotches: { ...p.pieceNotches, [pieceId]: nextList },
   }));
-  const updateAt = (index, patch) => setList(notchListFor(project.pieceNotches, pieceId).map((n, i) => (i === index ? { ...n, ...patch } : n)));
-  const removeAt = (index) => setList(notchListFor(project.pieceNotches, pieceId).filter((_, i) => i !== index));
-  const addNotch = () => setList([...notches, { ...DEFAULT_GRIP_NOTCH }]);
+  const updateAt = (index, patch) => setList(Cutout.replaceAt(Notch.listFor(project.pieceNotches, pieceId), index, patch));
+  const removeAt = (index) => setList(Notch.listFor(project.pieceNotches, pieceId).filter((_, i) => i !== index));
+  const addNotch = () => setList([...notches, new Notch(DEFAULT_NOTCH)]);
 
   const sectionLabel = el('div', { class: 'field-label' }, [
     t('notch.title'),

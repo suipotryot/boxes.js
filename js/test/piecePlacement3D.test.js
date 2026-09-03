@@ -7,9 +7,12 @@
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { computePieces } from './../geometry/PieceFactory.js';
-import { computePiecePlacement3D, toWorld, translatePlacement } from '../geometry/PiecePlacement3D.js';
-import { computeDrawerOffset } from '../geometry/DrawerBuilder.js';
+import { Box } from '../geometry/oo/Box.js';
+import { computePiecePlacement3D, toWorld, translatePlacement, computeDrawerOffset } from '../geometry/PiecePlacement3D.js';
+
+function computePieces(project) {
+  return Box.fromProject(project).allPiecesBurnCorrected();
+}
 
 // Same fixture as gridQuery.test.js's xAt/yAt scenario: xAt(...,1) = 51
 // (50 + half the 2mm divider).

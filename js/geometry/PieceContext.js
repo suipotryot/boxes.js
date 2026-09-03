@@ -8,21 +8,25 @@
 // Doubles as the "is this even a wall?" gate for free: enumerateWallRuns
 // never produces a run for the base plate or lid ids, so this returns null
 // for those without any separate kind check.
-import { enumerateWallRuns, xAt, yAt } from '../model/GridQuery.js';
-import { wallPieceId } from './PanelBuilder.js';
-import { buildSleeveContext, DRAWER_PREFIX } from './DrawerBuilder.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId } from '../model/GridQuery.js';
+import { Drawer, DRAWER_PREFIX } from './oo/Drawer.js';
 
 // Shared by resolveWallRunContext and resolvePieceHoleContext below: both
 // need the same "which grid/project does this id's own DRAWER_PREFIX (if
 // any) point at" resolution, just to build a different-shaped context
-// afterward.
+// afterward. Drawer.sleeveContext itself doesn't check drawer.enabled (its
+// only real caller, Box.build(), already gates on that before ever
+// constructing a Drawer) — so this checks it explicitly, to still resolve
+// to null gracefully for a stale drawer-prefixed id after the drawer gets
+// disabled, exactly like the rest of this function already did.
 function resolveGridContext(project, pieceId) {
   const isDrawer = pieceId.startsWith(DRAWER_PREFIX);
   const rawId = isDrawer ? pieceId.slice(DRAWER_PREFIX.length) : pieceId;
 
   if (!isDrawer) return { rawId, grid: project.grid, runProject: project };
-  const ctx = buildSleeveContext(project.grid, project);
-  return ctx ? { rawId, grid: ctx.sleeveGrid, runProject: ctx.sleeveProject } : null;
+  if (!project.drawer || !project.drawer.enabled) return null;
+  const { grid, project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
+  return { rawId, grid, runProject: sleeveProject };
 }
 
 export function resolveWallRunContext(project, pieceId) {

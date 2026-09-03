@@ -14,8 +14,9 @@
 // rather than duplicated per section.
 import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
-import { DEFAULT_HOLE, maxRadiusMm, holeListFor, formatHoleLine, parseHoleLine, setHoleAt } from '../geometry/Hole.js';
-import { validateHoleInRect, validateWallHole } from '../geometry/HoleValidation.js';
+import { Cutout } from '../geometry/oo/Cutout.js';
+import { Hole, DEFAULT_HOLE } from '../geometry/oo/Hole.js';
+import { validateHoleInRect, validateWallHole } from '../geometry/oo/HoleValidation.js';
 import { t } from '../i18n/index.js';
 
 function validateHole(context, hole, siblings) {
@@ -27,9 +28,9 @@ function validateHole(context, hole, siblings) {
 function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
   const lineField = el('label', { class: 'field' }, [
     el('input', {
-      type: 'text', value: formatHoleLine(hole),
+      type: 'text', value: hole.toTextLine(),
       onChange: (evt) => {
-        const parsed = parseHoleLine(evt.target.value);
+        const parsed = Hole.fromTextLine(evt.target.value);
         if (!parsed) { evt.target.classList.add('invalid-input'); return; } // texte illisible : ni perdu, ni appliqué tel quel
         evt.target.classList.remove('invalid-input');
         onUpdate(parsed);
@@ -52,10 +53,10 @@ function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
       onClick: () => {
         const widthMm = Math.max(1, Math.min(hole.widthMm, validation.maxWidthMm));
         const heightMm = Math.max(1, Math.min(hole.heightMm, validation.maxHeightMm));
-        const refit = validateHole(context, { ...hole, widthMm, heightMm }, siblings);
+        const refit = validateHole(context, hole.withChanges({ widthMm, heightMm }), siblings);
         const xMm = Math.min(Math.max(hole.xMm, refit.minXMm), refit.maxXMm);
         const yMm = Math.min(Math.max(hole.yMm, refit.minYMm), refit.maxYMm);
-        const radiusMm = Math.min(hole.radiusMm, maxRadiusMm({ widthMm, heightMm }));
+        const radiusMm = Math.min(hole.radiusMm, hole.withChanges({ widthMm, heightMm }).maxRadiusMm());
         onUpdate({ xMm, yMm, widthMm, heightMm, radiusMm });
       },
     }),
@@ -65,15 +66,15 @@ function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
 }
 
 export function renderHoleSection(project, pieceId, context, store) {
-  const holes = holeListFor(project.pieceHoles, pieceId);
+  const holes = Hole.listFor(project.pieceHoles, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
     ...p,
     pieceHoles: { ...p.pieceHoles, [pieceId]: nextList },
   }));
-  const updateAt = (index, patch) => store.apply((p) => ({ ...p, pieceHoles: setHoleAt(p.pieceHoles, pieceId, index, patch) }));
-  const removeAt = (index) => setList(holeListFor(project.pieceHoles, pieceId).filter((_, i) => i !== index));
-  const addHole = () => setList([...holes, { ...DEFAULT_HOLE }]);
+  const updateAt = (index, patch) => setList(Cutout.replaceAt(Hole.listFor(project.pieceHoles, pieceId), index, patch));
+  const removeAt = (index) => setList(Hole.listFor(project.pieceHoles, pieceId).filter((_, i) => i !== index));
+  const addHole = () => setList([...holes, new Hole(DEFAULT_HOLE)]);
 
   const sectionLabel = el('div', { class: 'field-label' }, [
     t('hole.title'),

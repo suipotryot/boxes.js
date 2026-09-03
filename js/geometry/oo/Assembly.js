@@ -97,7 +97,7 @@ function combSegmentsFor(run, grid, project) {
   }).segments();
 }
 
-function buildWallPiece(run, grid, project) {
+export function buildWallPiece(run, grid, project) {
   const spans = heightProfile(run, grid, project);
   const fj = project.fingerJoint;
   const startWithFinger = run.kind === 'v';
@@ -207,7 +207,7 @@ function buildBoundarySides(grid, project, protrude) {
   return { sides, widthMm, depthMm, margins };
 }
 
-function buildBasePlate(grid, project) {
+export function buildBasePlate(grid, project) {
   const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, false);
   const runs = enumerateWallRuns(grid, project);
   const innerRuns = runs.filter((run) => !isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
@@ -226,7 +226,7 @@ function buildBasePlate(grid, project) {
   });
 }
 
-function buildLid(grid, project) {
+export function buildLid(grid, project) {
   const { lid } = project;
   if (!lid || !lid.enabled || lid.insertHeightMm == null) return null;
   const flush = isLidFlush(grid, project, lid.insertHeightMm);
