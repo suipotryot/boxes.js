@@ -193,6 +193,44 @@ export function crossingAt(grid, wallKind, pointC, pointR) {
   return { type: stems.length ? 'stems' : 'none', stems };
 }
 
+/** Classifies the physical relationship at a grid point ALONG a run's own
+ *  axis, covering both an interior point (the run continues past it on
+ *  both sides — enumerateWallRuns/interiorCrossings' own domain) and the
+ *  run's own endpoint (aPoint/bPoint, where the run terminates) with one
+ *  consistent vocabulary, since a caller building a Panel/Box needs one
+ *  answer regardless of which kind of point it's looking at:
+ *   - 'crossing': (interior only) the run continues AND a perpendicular
+ *     piece passes fully through too (X) — both pieces need a half-lap
+ *     notch, symmetric, computed from the touching heights (see the plan's
+ *     "croisement en X" section — deliberately NOT the same relationship
+ *     as 'corner' below, which needs a live reference-free but genuinely
+ *     different treatment).
+ *   - 'stem': either (a) at an interior point, one or two perpendicular
+ *     pieces merely end here (T) — THIS run needs a mortise hole for each
+ *     tenon; or (b) at this run's OWN endpoint, a perpendicular piece
+ *     continues fully through — THIS run's own end is the one that
+ *     terminates, needing an ordinary end-comb received as mortise holes
+ *     in the continuing piece. Both cases mean "this run's edge here is
+ *     the one that gets holes cut into some OTHER piece," which is why
+ *     they share one name despite coming from opposite crossingAt types.
+ *   - 'corner': only possible at this run's own endpoint — one or two
+ *     perpendicular pieces ALSO terminate here (nothing continues past
+ *     this point in either direction) — every piece meeting here needs
+ *     its own comb teeth stretched to the physical tip, a symmetric
+ *     interleaving joint (see BordureDentée's `étendreAuxPointes`).
+ *   - 'none': nothing present in the perpendicular direction (an open
+ *     end, e.g. a user-disabled side of an enclosing sleeve).
+ *  `atOwnEnd` must be true when (pointC,pointR) is this run's own aPoint
+ *  or bPoint, false for any interior point. Purely additive: reuses
+ *  crossingAt's own lookup unchanged, adds no new stored data. */
+export function junctionKindAt(grid, wallKind, pointC, pointR, atOwnEnd) {
+  const crossing = crossingAt(grid, wallKind, pointC, pointR);
+  const kind = atOwnEnd
+    ? { through: 'stem', stems: 'corner', none: 'none' }[crossing.type]
+    : { through: 'crossing', stems: 'stem', none: 'none' }[crossing.type];
+  return { kind, seg: crossing.seg, segs: crossing.segs, stems: crossing.stems };
+}
+
 export function tallestInnerHeight(grid, project) {
   let max = 0;
   for (const col of grid.vWalls) for (const seg of col) if (seg.present && seg.thicknessGroup === 'inner') max = Math.max(max, resolveHeight(seg, project));
