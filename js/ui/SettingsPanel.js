@@ -44,13 +44,24 @@ function collapsibleSection(openSections, onToggleSection, key, title, children)
   }, [el('summary', { text: title }), ...children]);
 }
 
+function lidModeLabels() {
+  return { recessed: t('settingsPanel.lidModeRecessed'), onTop: t('settingsPanel.lidModeOnTop') };
+}
+
 // Fixed lid only (see the plan's 2026-08-20 scope cut — no floating
-// variant): a checkbox plus its insertion height, with the pure
-// GridQuery.validateLid() check surfaced directly rather than silently
-// clamped — an out-of-range height shows why, and offers a one-click fix
-// instead of correcting it behind the user's back.
+// variant): a checkbox, a mode choice, and — only in 'recessed' mode — its
+// insertion height, with the pure GridQuery.validateLid() check surfaced
+// directly rather than silently clamped — an out-of-range height shows
+// why, and offers a one-click fix instead of correcting it behind the
+// user's back. 'onTop' shows no height field at all: its own insertion
+// height is always implicit (the walls' own nominal top), never a value
+// to pick — offering a number there would invite exactly the kind of
+// "one forbidden value in the middle of a range" confusion this mode
+// split was introduced to avoid (see the plan's own account of the
+// now-retired "flush" special case).
 function lidSection(project, store, openSections, onToggleSection) {
   const { lid, grid } = project;
+  const mode = lid.mode ?? 'recessed';
 
   const enabledRow = el('label', { class: 'field lid-enabled' }, [
     el('input', {
@@ -63,6 +74,21 @@ function lidSection(project, store, openSections, onToggleSection) {
 
   if (!lid.enabled) {
     return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow]);
+  }
+
+  const modeField = el('div', { class: 'field' }, [
+    el('span', { class: 'field-label' }, [t('settingsPanel.lidMode'), infoIcon(t('settingsPanel.lidModeHelp'))]),
+    el('div', { class: 'radio-group' }, Object.entries(lidModeLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
+      el('input', {
+        type: 'radio', name: 'lid-mode', value, checked: mode === value,
+        onChange: () => store.apply((p) => ({ ...p, lid: { ...p.lid, mode: value } })),
+      }),
+      el('span', { text: ` ${label}` }),
+    ]))),
+  ]);
+
+  if (mode === 'onTop') {
+    return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, modeField]);
   }
 
   const validation = validateLid(grid, project, lid.insertHeightMm);
@@ -94,7 +120,7 @@ function lidSection(project, store, openSections, onToggleSection) {
     }),
   ]) : null;
 
-  return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, heightField, warning]);
+  return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, modeField, heightField, warning]);
 }
 
 // The "Étiqueter les pièces" toggle — controls both the live preview

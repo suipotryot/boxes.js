@@ -64,21 +64,24 @@ export class Drawer extends Assembly {
     const { kind, c, r, axis } = OPEN_SIDE[drawer.openSide];
     const sleeveW = innerW + (axis === 'x' ? 1 : 2) * drawer.playMm;
     const sleeveD = innerD + (axis === 'y' ? 1 : 2) * drawer.playMm;
-    // base & lid always present, never the open side — plus a full extra
-    // drawer.thicknessMm beyond "2*playMm on top of the main box's own
-    // real height": the sleeve's own lid (always flush) sits with its
-    // BOTTOM face one thickness BELOW this line, so without this term the
-    // sleeve's own lid would eat into the clearance meant for the main
-    // box's own top (see the original DrawerBuilder's own comment on this
-    // exact term, verified against real world-space Z bounds there).
-    const sleeveH = innerH + 2 * drawer.playMm + drawer.thicknessMm;
+    // base & an onTop lid always present, never the open side — playMm
+    // clearance both below the main box's own floor and above its own top.
+    // Unlike the old flush lid (which sat WITHIN the walls' own top
+    // thicknessMm, requiring sleeveH to budget an extra +drawer.thicknessMm
+    // just to keep that same clearance), an onTop lid rests ON the walls'
+    // own nominal top and adds its own material above THAT (see
+    // GridQuery.outerBoxHeight) — so sleeveH itself needs no such
+    // adjustment: the walls' own nominal top already IS where the main
+    // box's own top clearance line sits, verified directly against real
+    // world-space Z bounds (computePiecePlacement3D/computeDrawerOffset).
+    const sleeveH = innerH + 2 * drawer.playMm;
 
     const sleeveGrid = setSegmentPresent(createGrid([sleeveW], [sleeveD]), kind, c, r, false);
     const sleeveProject = {
       ...project,
       outerThicknessMm: drawer.thicknessMm,
       outerHeightMm: sleeveH,
-      lid: { enabled: true, insertHeightMm: sleeveH - drawer.thicknessMm }, // always flush
+      lid: { enabled: true, mode: 'onTop', insertHeightMm: null },
       pieceNotches: unprefixed(project.pieceNotches, DRAWER_PREFIX),
       pieceHoles: unprefixed(project.pieceHoles, DRAWER_PREFIX),
     };
