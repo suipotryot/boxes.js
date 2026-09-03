@@ -11,6 +11,7 @@
 import { enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, isLidFlush } from '../../model/GridQuery.js';
 import { isOuterSegment } from '../../model/Grid.js';
 import { heightProfile, heightAt, junctionExclusionRanges, wallPieceId, bottomCombSegments } from '../PanelBuilder.js';
+import { Notch } from './Notch.js';
 import { fingerEdgePath } from '../FingerJoint.js';
 import { FingerEdge } from './FingerEdge.js';
 import { SmoothEdge } from './SmoothEdge.js';
@@ -87,6 +88,14 @@ function buildWallPiece(run, grid, project) {
   const protrusionB = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.bPoint[0], run.bPoint[1]), project);
   const { crossingFragments, mortiseHoles } = crossingData(run, grid, project, spans);
   const { active: lidActive, flush: lidFlush, lid } = lidState(run, grid, project);
+  const pieceId = wallPieceId(run);
+  // Always targets the free/top edge, regardless of lid state (a lid-flush
+  // top edge still solders these in — see buildWallPanel's own
+  // gripOverrides wiring, passed into lidTopEdgePoints too, not just
+  // freeEdgePoints). Each notch's own local height is read at ITS OWN
+  // center, so a stepped-height run still resolves correctly per notch.
+  const gripFragments = Notch.listFor(project.pieceNotches, pieceId)
+    .map((notch) => notch.toEdgeFragment(heightAt(spans, notch.offsetMm + notch.widthMm / 2)));
 
   const bottomEdge = new FingerEdge({
     lengthMm: run.length, fingerJoint: fj, startWithFinger,
@@ -111,10 +120,11 @@ function buildWallPiece(run, grid, project) {
         mateThicknessMm: project.outerThicknessMm, forceEndsToFinger: true,
         baselineMm: spans[0].height - project.outerThicknessMm, signMm: 1,
         exclusions: junctionExclusionRanges(run, grid, project),
+        fragments: gripFragments,
       })
     : new SmoothEdge({
         lengthMm: run.length, heightProfile: spans,
-        fragments: run.kind === 'v' ? crossingFragments : [],
+        fragments: run.kind === 'v' ? [...crossingFragments, ...gripFragments] : gripFragments,
       });
   const leftEdge = new FingerEdge({
     lengthMm: spans[0].height, fingerJoint: fj, startWithFinger,
@@ -134,7 +144,7 @@ function buildWallPiece(run, grid, project) {
 
   const PanelClass = run.seg.thicknessGroup === 'outer' ? Panel : Divider;
   return new PanelClass({
-    id: wallPieceId(run),
+    id: pieceId,
     kind: 'wall',
     thicknessGroup: run.seg.thicknessGroup,
     thicknessMm: resolveThickness(run.seg, project),
