@@ -25,14 +25,24 @@ test('polygon(): wound bottom-left -> bottom-right -> top-right -> top-left, mat
   assert(poly[3].x === 10 && poly[3].y === 28, 'top-left fourth');
 });
 
-test('manyFromFingerSegments: one hole per finger segment only, centered on centerMm, width = stem thickness', () => {
+test('manyFromFingerSegments (axis=\'y\', the T-junction case): one hole per finger segment only, centered on centerMm, width = stem thickness', () => {
   const fj = { fingerMm: 10, spaceMm: 10, marginMm: 5, playMm: 0 };
   const segs = fingerEdgePath(50, fj, true);
   const fingerCount = segs.filter((s) => s.kind === 'finger').length;
-  const holes = MortiseHole.manyFromFingerSegments(segs, 100, 3);
+  const holes = MortiseHole.manyFromFingerSegments(segs, { centerMm: 100, thicknessMm: 3 });
   assert(holes.length === fingerCount, `expected exactly one hole per finger segment (${fingerCount}), got ${holes.length}`);
   for (const h of holes) {
     assert(h.xMm === 100 - 1.5 && h.widthMm === 3, 'each hole should be centered on centerMm with the stem\'s own thickness as width');
+  }
+});
+
+test('manyFromFingerSegments (axis=\'x\', the base-plate divider-hole case): transposed — tiling along X, thickness band in Y, offsetMm shifts the tiling origin', () => {
+  const fj = { fingerMm: 10, spaceMm: 10, marginMm: 5, playMm: 0 };
+  const segs = fingerEdgePath(50, fj, true);
+  const holes = MortiseHole.manyFromFingerSegments(segs, { axis: 'x', centerMm: 20, thicknessMm: 2, offsetMm: 100 });
+  for (const h of holes) {
+    assert(h.yMm === 20 - 1 && h.heightMm === 2, 'the thickness band should be centered on centerMm in Y');
+    assert(h.xMm >= 100, 'the tiling origin should be shifted by offsetMm');
   }
 });
 
@@ -56,7 +66,7 @@ test('manyFromFingerSegments: matches buildWallPanel\'s own mortise holes exactl
   const stemThickness = project.innerThicknessMm;
   const stemStartWithFinger = throughRun.kind === 'h'; // matches the old mortiseHoles' own convention
   const segs = fingerEdgePath(stemHeight, project.fingerJoint, stemStartWithFinger);
-  const holes = MortiseHole.manyFromFingerSegments(segs, uAtCrossing, stemThickness);
+  const holes = MortiseHole.manyFromFingerSegments(segs, { centerMm: uAtCrossing, thicknessMm: stemThickness });
 
   assert(holes.length === old.holes.length, `expected ${old.holes.length} holes, got ${holes.length}`);
   const oldSet = old.holes.map(sortedRounded).sort();
