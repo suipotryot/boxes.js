@@ -13,7 +13,7 @@
 import { heightProfile, heightAt } from '../../model/GridQuery.js';
 import { t } from '../../i18n/index.js';
 
-const MIN_EDGE_MARGIN_MM = 2;
+export const MIN_EDGE_MARGIN_MM = 2;
 
 export function validateHoleInRect(rectWidthMm, rectHeightMm, hole, siblings = []) {
   const problems = [];
@@ -51,15 +51,28 @@ export function validateHoleInRect(rectWidthMm, rectHeightMm, hole, siblings = [
   };
 }
 
-export function validateWallHole(run, grid, project, hole, siblings = []) {
+/** A hole's local height on a wall whose height profile can step along its
+ *  length (e.g. a T-junction stub of a different height) — shared by
+ *  validateWallHole and the hole-alignment "center/distribute on Y"
+ *  buttons, which need the same containing-span lookup to know what
+ *  height to align against. `containingSpan` is null when the hole's own
+ *  x-span straddles a height change (validateWallHole turns that into an
+ *  explicit problem; callers that don't validate can just use `height`,
+ *  which still falls back to `heightAt` at the hole's own xMm). */
+export function wallHoleSpan(run, grid, project, hole) {
   const spans = heightProfile(run, grid, project);
   const { xMm, widthMm } = hole;
   const xEnd = xMm + widthMm;
   const containingSpan = spans.find((s) => s.uStart <= xMm + 1e-6 && s.uEnd >= xEnd - 1e-6);
-  const localHeight = containingSpan ? containingSpan.height : heightAt(spans, xMm);
+  const height = containingSpan ? containingSpan.height : heightAt(spans, xMm);
+  return { height, containingSpan };
+}
+
+export function validateWallHole(run, grid, project, hole, siblings = []) {
+  const { height: localHeight, containingSpan } = wallHoleSpan(run, grid, project, hole);
 
   const result = validateHoleInRect(run.length, localHeight, hole, siblings);
-  if (!containingSpan && widthMm > 0) {
+  if (!containingSpan && hole.widthMm > 0) {
     result.ok = false;
     result.problems = [...result.problems, t('validation.hole.crossesHeightChange')];
   }

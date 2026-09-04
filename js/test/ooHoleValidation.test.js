@@ -7,7 +7,7 @@ import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
 import { enumerateWallRuns } from '../model/GridQuery.js';
 import { Hole } from '../geometry/oo/Hole.js';
-import { validateHoleInRect, validateWallHole } from '../geometry/oo/HoleValidation.js';
+import { validateHoleInRect, validateWallHole, wallHoleSpan } from '../geometry/oo/HoleValidation.js';
 
 function baseProject() {
   const project = createDefaultProject();
@@ -62,6 +62,14 @@ test('validateWallHole: rejects a hole that would poke past the wall\'s own loca
   const run2 = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
   const tooTall = validateWallHole(run2, project.grid, project, new Hole({ xMm: 20, yMm: 10, widthMm: 30, heightMm: 45, radiusMm: 0 }));
   assert(!tooTall.ok, 'a hole reaching past the wall\'s own local height (50mm) minus the 2mm margin should be rejected');
+});
+
+test('wallHoleSpan: a hole entirely inside a constant-height zone reports that height as its containing span', () => {
+  const project = baseProject(); // outerHeightMm = 50, single cell, no interior dividers -> one constant span
+  const run2 = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+  const { height, containingSpan } = wallHoleSpan(run2, project.grid, project, new Hole({ xMm: 20, yMm: 10, widthMm: 30, heightMm: 15, radiusMm: 0 }));
+  assert(height === 50, `expected the wall's own outer height (50), got ${height}`);
+  assert(containingSpan != null, 'a hole fully inside one span should resolve a containing span');
 });
 
 run();

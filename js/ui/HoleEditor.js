@@ -16,7 +16,8 @@ import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { Hole, DEFAULT_HOLE } from '../geometry/oo/Hole.js';
-import { validateHoleInRect, validateWallHole } from '../geometry/oo/HoleValidation.js';
+import { validateHoleInRect, validateWallHole, wallHoleSpan } from '../geometry/oo/HoleValidation.js';
+import { centerHolesOnX, centerHolesOnY, distributeHolesOnX, distributeHolesOnY } from '../geometry/oo/HoleAlignment.js';
 import { t } from '../i18n/index.js';
 
 function validateHole(context, hole, siblings) {
@@ -88,6 +89,22 @@ export function renderHoleSection(project, pieceId, context, store) {
 
   const dragHint = el('div', { class: 'hint', text: t('hole.dragHint') });
 
+  const availableWidthMm = context.kind === 'flat' ? context.widthMm : context.run.length;
+  // On a wall, local height can step along its length (a T-junction stub),
+  // so each hole centers against ITS OWN local height rather than a value
+  // shared across the group — consistent with centering treating every
+  // hole independently (see HoleAlignment.js).
+  const availableHeightMm = context.kind === 'flat'
+    ? context.heightMm
+    : (h) => wallHoleSpan(context.run, context.grid, context.project, h).height;
+
+  const alignRow = el('div', { class: 'button-row' }, [
+    el('button', { class: 'btn', text: t('hole.centerX'), disabled: holes.length < 1, onClick: () => setList(centerHolesOnX(holes, availableWidthMm)) }),
+    el('button', { class: 'btn', text: t('hole.centerY'), disabled: holes.length < 1, onClick: () => setList(centerHolesOnY(holes, availableHeightMm)) }),
+    el('button', { class: 'btn', text: t('hole.distributeX'), disabled: holes.length < 3, onClick: () => setList(distributeHolesOnX(holes)) }),
+    el('button', { class: 'btn', text: t('hole.distributeY'), disabled: holes.length < 3, onClick: () => setList(distributeHolesOnY(holes)) }),
+  ]);
+
   const items = holes.map((hole, index) => {
     const siblings = holes.filter((_, i) => i !== index);
     return renderOneHole(hole, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
@@ -95,5 +112,5 @@ export function renderHoleSection(project, pieceId, context, store) {
 
   const addBtn = el('button', { class: 'btn', text: t('hole.add'), onClick: addHole });
 
-  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, dragHint, ...items, addBtn]);
+  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }

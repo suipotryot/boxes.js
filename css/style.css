@@ -315,6 +315,17 @@ h3:first-child { margin-top: 0; }
    just the (single, comma-separated) text field and a trash button, no
    per-item border/heading — the field order is explained once, above the
    whole list, instead of repeated per row. */
+/* Row of same-weight action buttons (hole alignment: center/distribute on
+   X/Y) — unlike .compact-item-row, no field grows to fill the space, so
+   the buttons just wrap onto a new line in a narrow sidebar instead of
+   being squeezed. */
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
 .compact-item { margin-bottom: 0.6rem; }
 .compact-item-row {
   display: flex;
