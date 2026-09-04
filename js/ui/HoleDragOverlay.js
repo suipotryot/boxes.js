@@ -15,8 +15,17 @@
 // local mm space, already accounting for the rotation and for the CSS
 // max-width:100% scaling applied to the SVG.
 //
+// Only ONE hole (at most) is ever "selected" at a time — see
+// EditorView.js's `selectedCutout` — and only that one shows its dashed
+// move-rect + resize handle; the rest render an invisible-but-clickable hit
+// rect, so a piece with many holes stays readable. A plain click on a
+// not-yet-selected hole only selects it (see renderOneHole's own comment
+// for why that can't also start a drag in the same gesture); dragging only
+// ever acts on the already-selected one.
+//
 // No store/project/pieceId knowledge here — the caller supplies the raw
-// hole list and a plain (index, patch) => void commit callback.
+// hole list, which index (if any) is selected, and plain
+// (index) => void / (index, patch) => void select/commit callbacks.
 import { svgEl } from './dom.js';
 import { t } from '../i18n/index.js';
 
@@ -49,18 +58,21 @@ function positionHandle(handle, hole, size) {
   handle.setAttribute('y', hole.yMm + hole.heightMm - size / 2);
 }
 
-function renderOneHole(group, hole, onCommit) {
+function renderOneHole(group, hole, isSelected, onSelect, onCommit) {
   const rect = svgEl('rect', {
-    class: 'hole-drag-rect',
+    class: isSelected ? 'hole-drag-rect selected' : 'hole-drag-rect',
     x: hole.xMm, y: hole.yMm, width: hole.widthMm, height: hole.heightMm,
-  }, [svgEl('title', {}, [t('hole.dragMoveTooltip')])]);
+  }, [svgEl('title', {}, [t(isSelected ? 'hole.dragMoveTooltip' : 'hole.selectTooltip')])]);
 
-  const size = handleSizeFor(hole);
-  const handle = svgEl('rect', {
+  // Only the selected hole gets a resize handle at all — not just hidden
+  // via CSS, genuinely absent from the DOM, so an unselected hole can
+  // never be resized before it's selected.
+  const size = isSelected ? handleSizeFor(hole) : null;
+  const handle = isSelected ? svgEl('rect', {
     class: 'hole-drag-handle',
     width: size, height: size,
-  }, [svgEl('title', {}, [t('hole.dragResizeTooltip')])]);
-  positionHandle(handle, hole, size);
+  }, [svgEl('title', {}, [t('hole.dragResizeTooltip')])]) : null;
+  if (handle) positionHandle(handle, hole, size);
 
   let dragKind = null; // 'move' | 'resize', set for the duration of one gesture
   let startPoint = null;
@@ -79,7 +91,7 @@ function renderOneHole(group, hole, onCommit) {
     rect.setAttribute('y', next.yMm);
     rect.setAttribute('width', next.widthMm);
     rect.setAttribute('height', next.heightMm);
-    positionHandle(handle, next, size);
+    if (handle) positionHandle(handle, next, size);
   }
 
   function beginDrag(kind) {
@@ -109,21 +121,38 @@ function renderOneHole(group, hole, onCommit) {
   }
 
   for (const el of [rect, handle]) {
+    if (!el) continue;
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
   }
-  rect.addEventListener('pointerdown', beginDrag('move'));
-  handle.addEventListener('pointerdown', beginDrag('resize'));
+  rect.addEventListener('pointerdown', (evt) => {
+    evt.stopPropagation();
+    // Not yet selected: this click only selects it — a full render()
+    // follows synchronously (see EditorView.js's selectCutout), which tears
+    // down and rebuilds this whole SVG, so starting a drag in the same
+    // gesture would just grab an element about to be replaced. A second,
+    // separate click-drag (now that it's selected and has a real move-rect
+    // style) performs the actual move — see this file's own header comment.
+    if (!isSelected) { onSelect(); return; }
+    beginDrag('move')(evt);
+  });
+  if (handle) handle.addEventListener('pointerdown', (evt) => { evt.stopPropagation(); beginDrag('resize')(evt); });
 
   return svgEl('g', { class: 'hole-drag-group' }, [rect, handle]);
 }
 
 /** Appends one interactive overlay per hole into `group` (the `.piece-space`
- *  element from SvgPath.pieceToStandaloneSvg). `onHoleChange(index, patch)`
- *  is called exactly once per completed drag gesture (on pointerup), never
- *  during the drag itself. */
-export function attachHoleDragOverlay(group, holes, onHoleChange) {
+ *  element from SvgPath.pieceToStandaloneSvg). `selectedIndex` (or null) is
+ *  the index of the ONE hole currently selected — only that one gets its
+ *  visible drag-rect style and a resize handle; the rest render an
+ *  invisible-but-clickable hit-rect (see css/style.css's `.selected`
+ *  modifier) so they stay selectable without cluttering the preview.
+ *  `onSelect(index)` is called on a plain click on a not-yet-selected hole.
+ *  `onHoleChange(index, patch)` is called exactly once per completed drag
+ *  gesture (on pointerup) on the ALREADY-selected hole, never during the
+ *  drag itself. */
+export function attachHoleDragOverlay(group, holes, selectedIndex, onSelect, onHoleChange) {
   holes.forEach((hole, index) => {
-    group.appendChild(renderOneHole(group, hole, (patch) => onHoleChange(index, patch)));
+    group.appendChild(renderOneHole(group, hole, index === selectedIndex, () => onSelect(index), (patch) => onHoleChange(index, patch)));
   });
 }

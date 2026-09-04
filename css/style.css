@@ -287,51 +287,51 @@ h3:first-child { margin-top: 0; }
 }
 /* Single piece preview at the top of the inspector (SegmentInspector.js) —
    shared by whatever's selected, wall or flat piece, instead of each
-   sub-section (notches/holes) rendering its own redundant copy. */
-.piece-visual { cursor: default; }
+   sub-section (notches/holes) rendering its own redundant copy. This reuses
+   `.preview-card` for its layout/border (see below) but, unlike an actual
+   preview-strip card, isn't itself clickable — only its hole/notch overlay
+   rects are — so it needs `cursor: default` to win over `.preview-card`'s
+   own `cursor: pointer`. Same specificity (one class each) would let
+   source order decide arbitrarily; the compound selector guarantees it. */
+.preview-card.piece-visual { cursor: default; }
 
-/* Hole drag/resize overlay (HoleDragOverlay.js), drawn on top of the real
-   (burn-corrected) cutout — a dashed "ghost" so it stays visible without
-   hiding the actual hole shape underneath, and a light fill so the whole
-   body (not just the 1px outline) is grabbable. */
-.hole-drag-rect {
+/* Hole/notch drag/resize overlay (HoleDragOverlay.js/NotchDragOverlay.js),
+   drawn on top of the real (burn-corrected) cutout. Only one hole OR notch
+   is ever "selected" at a time (SegmentInspector.js/EditorView.js) — the
+   rect for every OTHER one is still present (it's what a click lands on to
+   select it) but invisible: `fill: transparent` rather than `none`, since
+   an SVG shape with fill:none does NOT receive pointer events over its
+   interior, only transparent ones still do. `cursor: pointer` hints
+   "clickable" for those. The `.selected` modifier restores the dashed
+   "ghost" look (so it stays visible without hiding the actual hole/notch
+   shape underneath) plus the move cursor, exactly like the old
+   always-visible style. The resize handle only ever exists in the DOM for
+   the selected one (see those files), so it needs no such toggle. */
+.hole-drag-rect, .notch-drag-rect {
+  fill: transparent;
+  stroke: none;
+  cursor: pointer;
+  touch-action: none;
+}
+.hole-drag-rect.selected, .notch-drag-rect.selected {
   fill: var(--selected);
   fill-opacity: 0.12;
   stroke: var(--selected);
   stroke-width: 0.5;
   stroke-dasharray: 2 1.5;
   cursor: move;
-  touch-action: none;
 }
-.hole-drag-handle {
+.hole-drag-handle, .notch-drag-handle {
   fill: var(--selected);
   stroke: var(--panel-bg);
   stroke-width: 0.3;
-  cursor: nwse-resize;
   touch-action: none;
 }
-
-/* Notch drag/resize overlay (NotchDragOverlay.js) — same ghost-rect look as
-   the hole overlay above; the handle sits at the notch's top-right corner
-   (it grows toward the top-right, away from its edge-anchored bottom-left
-   corner), the opposite diagonal from a hole's handle, hence the opposite
-   resize cursor. */
-.notch-drag-rect {
-  fill: var(--selected);
-  fill-opacity: 0.12;
-  stroke: var(--selected);
-  stroke-width: 0.5;
-  stroke-dasharray: 2 1.5;
-  cursor: move;
-  touch-action: none;
-}
-.notch-drag-handle {
-  fill: var(--selected);
-  stroke: var(--panel-bg);
-  stroke-width: 0.3;
-  cursor: nesw-resize;
-  touch-action: none;
-}
+.hole-drag-handle { cursor: nwse-resize; }
+/* The notch handle sits at the notch's top-right corner (it grows toward
+   the top-right, away from its edge-anchored bottom-left corner) — the
+   opposite diagonal from a hole's handle, hence the opposite cursor. */
+.notch-drag-handle { cursor: nesw-resize; }
 
 /* Compact list-item row shared by GripNotchEditor.js and HoleEditor.js:
    just the (single, comma-separated) text field and a trash button, no

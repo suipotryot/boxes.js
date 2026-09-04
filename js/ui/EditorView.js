@@ -74,6 +74,15 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   // notch editor shows up for an ordinary wall click as well, not just a
   // preview-card click.
   let selectedWallId = null;
+  // Which single hole OR notch (never both) is currently selected in the
+  // piece preview, `{kind:'hole'|'notch', index}` or null — ephemeral UI
+  // state, same footing as `selected`/`selectedWallId` above, never stored
+  // in `project`. Drives which cutout's drag-rect/handle is visible in
+  // SegmentInspector.js's piece visual and which one the "Centrer" buttons
+  // act on. Reset whenever the selected segment/piece changes (below),
+  // since a leftover index would otherwise point at an unrelated piece's
+  // cutout list.
+  let selectedCutout = null;
   // Off by default — labels are most useful right before a final export,
   // not while experimenting with the layout.
   let showLabels = false;
@@ -101,6 +110,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   function select(next) {
     selected = next;
     selectedWallId = selectedPieceId(store.project, next);
+    selectedCutout = null;
     render();
   }
 
@@ -111,6 +121,12 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     // piece has no grid segment to show fields for anyway.
     selectedWallId = pieceId;
     selected = null;
+    selectedCutout = null;
+    render();
+  }
+
+  function selectCutout(next) {
+    selectedCutout = next;
     render();
   }
 
@@ -170,7 +186,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection, showLabels, toggleLabels)]),
       el('div', { class: 'editor-main' }, [toolbar, renderDimensionsHint(project), editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall)]),
-      el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store)]),
+      el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store, selectedCutout, selectCutout)]),
     ]));
   }
 

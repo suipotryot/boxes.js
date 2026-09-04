@@ -62,7 +62,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
-export function renderGripNotchSection(project, pieceId, context, store) {
+export function renderGripNotchSection(project, pieceId, context, store, selectedIndex) {
   const notches = Notch.listFor(project.pieceNotches, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
@@ -85,8 +85,17 @@ export function renderGripNotchSection(project, pieceId, context, store) {
 
   const dragHint = el('div', { class: 'hint', text: t('notch.dragHint') });
 
+  // Centrer acts on the ONE selected notch only (see SegmentInspector.js's
+  // selectedCutout) — mirrors HoleEditor.js's own alignRow. Distribuer is
+  // unaffected by selection: it needs the whole group.
   const alignRow = el('div', { class: 'button-row' }, [
-    el('button', { class: 'btn', text: t('notch.center'), disabled: notches.length < 1, onClick: () => setList(centerNotches(notches, context.run.length)) }),
+    el('button', {
+      class: 'btn', text: t('notch.center'), disabled: selectedIndex == null,
+      onClick: () => {
+        const [centered] = centerNotches([notches[selectedIndex]], context.run.length);
+        updateAt(selectedIndex, { offsetMm: centered.offsetMm });
+      },
+    }),
     el('button', { class: 'btn', text: t('notch.distribute'), disabled: notches.length < 3, onClick: () => setList(distributeNotches(notches)) }),
   ]);
 

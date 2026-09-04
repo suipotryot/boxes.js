@@ -105,7 +105,8 @@ export const en = {
   'notch.delete': 'Delete this notch',
   'notch.center': 'Center',
   'notch.distribute': 'Distribute',
-  'notch.dragHint': 'Tip: drag a notch in the preview above to move it along the edge, or its corner handle to resize it, then fine-tune it here if needed.',
+  'notch.dragHint': 'Tip: click a notch in the preview above to select it, then drag it to move it along the edge (or its corner handle to resize it) — fine-tune it here if needed.',
+  'notch.selectTooltip': 'Click to select this notch',
   'notch.dragMoveTooltip': 'Drag to move this notch',
   'notch.dragResizeTooltip': 'Drag to resize this notch',
 
@@ -119,7 +120,8 @@ export const en = {
   'hole.distributeX': 'Distribute on X',
   'hole.distributeY': 'Distribute on Y',
   'hole.delete': 'Delete this hole',
-  'hole.dragHint': 'Tip: drag a hole in the preview above to move it, or its corner handle to resize it, then fine-tune it here if needed.',
+  'hole.dragHint': 'Tip: click a hole in the preview above to select it, then drag it to move it (or its corner handle to resize it) — fine-tune it here if needed.',
+  'hole.selectTooltip': 'Click to select this hole',
   'hole.dragMoveTooltip': 'Drag to move this hole',
   'hole.dragResizeTooltip': 'Drag to resize this hole',
 

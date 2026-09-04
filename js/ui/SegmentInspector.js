@@ -50,13 +50,17 @@ function buildInspectedPiece(holeContext) {
 // project.pieceNotches/pieceHoles directly) — what you see here IS what
 // gets exported, rendered exactly once regardless of which sections below
 // apply to the current piece.
-function renderPieceVisual(piece, holes, onHoleChange, notches, onNotchChange, wallContext) {
+function renderPieceVisual(piece, holes, onHoleChange, notches, onNotchChange, wallContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout) {
   const svg = pieceToStandaloneSvg(piece, { padding: 8, minSize: 380, showLabels: false });
   const pieceSpace = svg.querySelector('.piece-space');
-  attachHoleDragOverlay(pieceSpace, holes, onHoleChange);
+  // A pointerdown that reaches the group itself (never a cutout's own rect,
+  // which stops propagation) means the piece's own body or empty space was
+  // clicked — clear the selection.
+  pieceSpace.addEventListener('pointerdown', () => onSelectCutout(null));
+  attachHoleDragOverlay(pieceSpace, holes, holeSelectedIndex, (index) => onSelectCutout({ kind: 'hole', index }), onHoleChange);
   if (wallContext) {
     const spans = heightProfile(wallContext.run, wallContext.grid, wallContext.project);
-    attachNotchDragOverlay(pieceSpace, notches, spans, onNotchChange);
+    attachNotchDragOverlay(pieceSpace, notches, spans, notchSelectedIndex, (index) => onSelectCutout({ kind: 'notch', index }), onNotchChange);
   }
   return el('div', { class: 'inspector-section' }, [
     el('div', { class: 'preview-card piece-visual' }, [svg]),
@@ -116,11 +120,19 @@ function renderSegmentFields(project, selected, store) {
   ]);
 }
 
-export function renderInspector(project, selected, selectedWallId, store) {
+export function renderInspector(project, selected, selectedWallId, store, selectedCutout, onSelectCutout) {
   const sections = [];
 
   const wallContext = selectedWallId ? resolveWallRunContext(project, selectedWallId) : null;
   const holeContext = selectedWallId ? resolvePieceHoleContext(project, selectedWallId) : null;
+
+  // Null (not -1) when nothing of that kind is selected, or the selection
+  // is stale (e.g. the selected hole was deleted from under it) — a simple
+  // bounds guard rather than tracking index shifts. Declared here (not
+  // inside the `if (holeContext)` block below) since renderGripNotchSection
+  // is reached through its own, separate `if (wallContext)`.
+  let holeSelectedIndex = null;
+  let notchSelectedIndex = null;
 
   if (holeContext) {
     const holes = Hole.listFor(project.pieceHoles, selectedWallId);
@@ -133,11 +145,13 @@ export function renderInspector(project, selected, selectedWallId, store) {
       ...p,
       pieceNotches: { ...p.pieceNotches, [selectedWallId]: Cutout.replaceAt(Notch.listFor(p.pieceNotches, selectedWallId), index, patch) },
     }));
-    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, notches, onNotchChange, wallContext));
+    holeSelectedIndex = selectedCutout && selectedCutout.kind === 'hole' && selectedCutout.index < holes.length ? selectedCutout.index : null;
+    notchSelectedIndex = selectedCutout && selectedCutout.kind === 'notch' && selectedCutout.index < notches.length ? selectedCutout.index : null;
+    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, notches, onNotchChange, wallContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout));
   }
   if (selected) sections.push(renderSegmentFields(project, selected, store));
-  if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store));
-  if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store));
+  if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store, notchSelectedIndex));
+  if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store, holeSelectedIndex));
 
   if (!sections.length) {
     return el('div', { class: 'inspector empty' }, [

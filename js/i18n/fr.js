@@ -110,7 +110,8 @@ export const fr = {
   'notch.delete': 'Supprimer cette encoche',
   'notch.center': 'Centrer',
   'notch.distribute': 'Distribuer',
-  'notch.dragHint': 'Astuce : glissez une encoche dans l\'aperçu ci-dessus pour la déplacer le long du bord, ou sa poignée de coin pour la redimensionner, puis affinez ici si besoin.',
+  'notch.dragHint': 'Astuce : cliquez une encoche dans l\'aperçu ci-dessus pour la sélectionner, puis glissez-la pour la déplacer le long du bord (ou sa poignée de coin pour la redimensionner) — affinez ici si besoin.',
+  'notch.selectTooltip': 'Cliquer pour sélectionner cette encoche',
   'notch.dragMoveTooltip': 'Glisser pour déplacer cette encoche',
   'notch.dragResizeTooltip': 'Glisser pour redimensionner cette encoche',
 
@@ -124,7 +125,8 @@ export const fr = {
   'hole.distributeX': 'Distribuer sur X',
   'hole.distributeY': 'Distribuer sur Y',
   'hole.delete': 'Supprimer ce trou',
-  'hole.dragHint': 'Astuce : glissez un trou dans l\'aperçu ci-dessus pour le déplacer, ou sa poignée de coin pour le redimensionner, puis affinez ici si besoin.',
+  'hole.dragHint': 'Astuce : cliquez un trou dans l\'aperçu ci-dessus pour le sélectionner, puis glissez-le pour le déplacer (ou sa poignée de coin pour le redimensionner) — affinez ici si besoin.',
+  'hole.selectTooltip': 'Cliquer pour sélectionner ce trou',
   'hole.dragMoveTooltip': 'Glisser pour déplacer ce trou',
   'hole.dragResizeTooltip': 'Glisser pour redimensionner ce trou',
 

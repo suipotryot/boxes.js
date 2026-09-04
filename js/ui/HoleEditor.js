@@ -66,7 +66,7 @@ function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
   return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
-export function renderHoleSection(project, pieceId, context, store) {
+export function renderHoleSection(project, pieceId, context, store, selectedIndex) {
   const holes = Hole.listFor(project.pieceHoles, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
@@ -98,9 +98,27 @@ export function renderHoleSection(project, pieceId, context, store) {
     ? context.heightMm
     : (h) => wallHoleSpan(context.run, context.grid, context.project, h).height;
 
+  // Centrer acts on the ONE selected hole only (see SegmentInspector.js's
+  // selectedCutout) — reusing centerHolesOnX/Y on a single-element array
+  // needs no change to those functions, since centering is already
+  // per-hole-independent. Distribuer is unaffected by selection: it
+  // inherently needs the whole group (sorting, spacing), so restricting it
+  // to "just the selected one" wouldn't mean anything.
   const alignRow = el('div', { class: 'button-row' }, [
-    el('button', { class: 'btn', text: t('hole.centerX'), disabled: holes.length < 1, onClick: () => setList(centerHolesOnX(holes, availableWidthMm)) }),
-    el('button', { class: 'btn', text: t('hole.centerY'), disabled: holes.length < 1, onClick: () => setList(centerHolesOnY(holes, availableHeightMm)) }),
+    el('button', {
+      class: 'btn', text: t('hole.centerX'), disabled: selectedIndex == null,
+      onClick: () => {
+        const [centered] = centerHolesOnX([holes[selectedIndex]], availableWidthMm);
+        updateAt(selectedIndex, { xMm: centered.xMm });
+      },
+    }),
+    el('button', {
+      class: 'btn', text: t('hole.centerY'), disabled: selectedIndex == null,
+      onClick: () => {
+        const [centered] = centerHolesOnY([holes[selectedIndex]], availableHeightMm);
+        updateAt(selectedIndex, { yMm: centered.yMm });
+      },
+    }),
     el('button', { class: 'btn', text: t('hole.distributeX'), disabled: holes.length < 3, onClick: () => setList(distributeHolesOnX(holes)) }),
     el('button', { class: 'btn', text: t('hole.distributeY'), disabled: holes.length < 3, onClick: () => setList(distributeHolesOnY(holes)) }),
   ]);

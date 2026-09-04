@@ -17,9 +17,17 @@
 // comment for why raw mm values can be used directly as SVG rect
 // coordinates with no separate transform.
 //
+// Only ONE notch (at most) is ever "selected" at a time — see
+// EditorView.js's `selectedCutout` — and only that one shows its dashed
+// move-rect + resize handle; the rest render an invisible-but-clickable hit
+// rect, so a piece with many notches stays readable. See
+// HoleDragOverlay.js's own header comment for why a plain click on a
+// not-yet-selected notch only selects it, never also starts a drag.
+//
 // No store/project/pieceId knowledge here — the caller supplies the raw
-// notch list, the wall's own heightProfile() spans (for heightAt), and a
-// plain (index, patch) => void commit callback.
+// notch list, the wall's own heightProfile() spans (for heightAt), which
+// index (if any) is selected, and plain (index) => void /
+// (index, patch) => void select/commit callbacks.
 import { svgEl } from './dom.js';
 import { heightAt } from '../model/GridQuery.js';
 import { t } from '../i18n/index.js';
@@ -61,18 +69,21 @@ function positionHandle(handle, notch, localHeightMm, size) {
   handle.setAttribute('y', floorMm(notch, localHeightMm) - size / 2);
 }
 
-function renderOneNotch(group, notch, localHeightMm, onCommit) {
+function renderOneNotch(group, notch, localHeightMm, isSelected, onSelect, onCommit) {
   const rect = svgEl('rect', {
-    class: 'notch-drag-rect',
+    class: isSelected ? 'notch-drag-rect selected' : 'notch-drag-rect',
     x: notch.offsetMm, y: floorMm(notch, localHeightMm), width: notch.widthMm, height: notch.depthMm,
-  }, [svgEl('title', {}, [t('notch.dragMoveTooltip')])]);
+  }, [svgEl('title', {}, [t(isSelected ? 'notch.dragMoveTooltip' : 'notch.selectTooltip')])]);
 
-  const size = handleSizeFor(notch);
-  const handle = svgEl('rect', {
+  // Only the selected notch gets a resize handle at all — not just hidden
+  // via CSS, genuinely absent from the DOM (see HoleDragOverlay.js's mirror
+  // of this).
+  const size = isSelected ? handleSizeFor(notch) : null;
+  const handle = isSelected ? svgEl('rect', {
     class: 'notch-drag-handle',
     width: size, height: size,
-  }, [svgEl('title', {}, [t('notch.dragResizeTooltip')])]);
-  positionHandle(handle, notch, localHeightMm, size);
+  }, [svgEl('title', {}, [t('notch.dragResizeTooltip')])]) : null;
+  if (handle) positionHandle(handle, notch, localHeightMm, size);
 
   let dragKind = null; // 'move' | 'resize', set for the duration of one gesture
   let startPoint = null;
@@ -91,7 +102,7 @@ function renderOneNotch(group, notch, localHeightMm, onCommit) {
     rect.setAttribute('y', floorMm(next, localHeightMm));
     rect.setAttribute('width', next.widthMm);
     rect.setAttribute('height', next.depthMm);
-    positionHandle(handle, next, localHeightMm, size);
+    if (handle) positionHandle(handle, next, localHeightMm, size);
   }
 
   function beginDrag(kind) {
@@ -122,11 +133,19 @@ function renderOneNotch(group, notch, localHeightMm, onCommit) {
   }
 
   for (const el of [rect, handle]) {
+    if (!el) continue;
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
   }
-  rect.addEventListener('pointerdown', beginDrag('move'));
-  handle.addEventListener('pointerdown', beginDrag('resize'));
+  rect.addEventListener('pointerdown', (evt) => {
+    evt.stopPropagation();
+    // Not yet selected: this click only selects it — see
+    // HoleDragOverlay.js's mirror-image comment for why a drag can't also
+    // start in this same gesture.
+    if (!isSelected) { onSelect(); return; }
+    beginDrag('move')(evt);
+  });
+  if (handle) handle.addEventListener('pointerdown', (evt) => { evt.stopPropagation(); beginDrag('resize')(evt); });
 
   return svgEl('g', { class: 'notch-drag-group' }, [rect, handle]);
 }
@@ -136,11 +155,16 @@ function renderOneNotch(group, notch, localHeightMm, onCommit) {
  *  the wall's own heightProfile(run, grid, project) — each notch's local
  *  height is read at its own center (offsetMm + widthMm/2), exactly like
  *  Assembly.buildWallPiece's gripFragments, and held fixed for the whole
- *  gesture. `onNotchChange(index, patch)` is called exactly once per
- *  completed drag gesture (on pointerup), never during the drag itself. */
-export function attachNotchDragOverlay(group, notches, spans, onNotchChange) {
+ *  gesture. `selectedIndex` (or null) is the index of the ONE notch
+ *  currently selected — only that one gets its visible drag-rect style and
+ *  a resize handle (see HoleDragOverlay.attachHoleDragOverlay's mirror
+ *  comment). `onSelect(index)` is called on a plain click on a
+ *  not-yet-selected notch. `onNotchChange(index, patch)` is called exactly
+ *  once per completed drag gesture (on pointerup) on the ALREADY-selected
+ *  notch, never during the drag itself. */
+export function attachNotchDragOverlay(group, notches, spans, selectedIndex, onSelect, onNotchChange) {
   notches.forEach((notch, index) => {
     const localHeightMm = heightAt(spans, notch.offsetMm + notch.widthMm / 2);
-    group.appendChild(renderOneNotch(group, notch, localHeightMm, (patch) => onNotchChange(index, patch)));
+    group.appendChild(renderOneNotch(group, notch, localHeightMm, index === selectedIndex, () => onSelect(index), (patch) => onNotchChange(index, patch)));
   });
 }
