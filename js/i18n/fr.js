@@ -108,6 +108,11 @@ export const fr = {
   'notch.fieldOrderHint': 'L, P, R, X (mm)',
   'notch.add': '+ Ajouter une encoche',
   'notch.delete': 'Supprimer cette encoche',
+  'notch.center': 'Centrer',
+  'notch.distribute': 'Distribuer',
+  'notch.dragHint': 'Astuce : glissez une encoche dans l\'aperçu ci-dessus pour la déplacer le long du bord, ou sa poignée de coin pour la redimensionner, puis affinez ici si besoin.',
+  'notch.dragMoveTooltip': 'Glisser pour déplacer cette encoche',
+  'notch.dragResizeTooltip': 'Glisser pour redimensionner cette encoche',
 
   // Hole editor
   'hole.title': 'Trous',

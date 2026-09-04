@@ -311,6 +311,28 @@ h3:first-child { margin-top: 0; }
   touch-action: none;
 }
 
+/* Notch drag/resize overlay (NotchDragOverlay.js) — same ghost-rect look as
+   the hole overlay above; the handle sits at the notch's top-right corner
+   (it grows toward the top-right, away from its edge-anchored bottom-left
+   corner), the opposite diagonal from a hole's handle, hence the opposite
+   resize cursor. */
+.notch-drag-rect {
+  fill: var(--selected);
+  fill-opacity: 0.12;
+  stroke: var(--selected);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 1.5;
+  cursor: move;
+  touch-action: none;
+}
+.notch-drag-handle {
+  fill: var(--selected);
+  stroke: var(--panel-bg);
+  stroke-width: 0.3;
+  cursor: nesw-resize;
+  touch-action: none;
+}
+
 /* Compact list-item row shared by GripNotchEditor.js and HoleEditor.js:
    just the (single, comma-separated) text field and a trash button, no
    per-item border/heading — the field order is explained once, above the

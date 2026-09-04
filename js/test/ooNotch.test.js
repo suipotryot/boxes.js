@@ -62,6 +62,40 @@ test('toEdgeFragment: a radius beyond its own geometric max is clamped defensive
   assert(Math.min(...us) >= notch.offsetMm - 1e-6 && Math.max(...us) <= notch.offsetMm + notch.widthMm + 1e-6);
 });
 
+// --- movedBy / resizedToward: mouse-drag editing helpers (shared by both
+// a text-field editor and a pointer-drag commit, so both paths go through
+// identical, tested logic — see Hole.js's own mirror-image tests) ---
+
+test('movedBy: adds the delta to offsetMm only, leaves widthMm/depthMm/radiusMm unchanged', () => {
+  const notch = new Notch({ widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 3 });
+  const moved = notch.movedBy(5);
+  assert(moved instanceof Notch);
+  assertClose(moved.offsetMm, 25, 1e-9);
+  assert(moved.widthMm === notch.widthMm && moved.depthMm === notch.depthMm && moved.radiusMm === notch.radiusMm);
+});
+
+test('movedBy: applying the same delta twice from the same original notch gives the same result as applying it once (no accumulated drift)', () => {
+  const original = new Notch({ widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 0 });
+  const once = original.movedBy(7);
+  const againFromOriginal = original.movedBy(7);
+  assertClose(once.offsetMm, againFromOriginal.offsetMm, 1e-9, 'moving from the same original twice with the same delta must be idempotent');
+});
+
+test('resizedToward: grows width/depth toward the dragged point, anchor corner (offsetMm, localHeightMm) never moves', () => {
+  const notch = new Notch({ widthMm: 5, depthMm: 5, offsetMm: 10, radiusMm: 0 });
+  const resized = notch.resizedToward({ x: 40, y: 20 }, 1, 50);
+  assertClose(resized.widthMm, 30, 1e-9, 'grows toward targetPoint.x - offsetMm');
+  assertClose(resized.depthMm, 30, 1e-9, 'grows toward localHeightMm - targetPoint.y');
+  assertClose(resized.offsetMm, 10, 1e-9, 'offsetMm (the left anchor) never moves');
+});
+
+test('resizedToward: floors width/depth independently at minSizeMm when dragged past the anchor', () => {
+  const notch = new Notch({ widthMm: 5, depthMm: 5, offsetMm: 10, radiusMm: 0 });
+  const resized = notch.resizedToward({ x: 8, y: 45 }, 1, 50);
+  assertClose(resized.widthMm, 1, 1e-9, 'dragging past the anchor on x should floor at minSizeMm, not go negative');
+  assertClose(resized.depthMm, 5, 1e-9, 'the other axis should resize normally (50-45=5)');
+});
+
 // --- Notch.listFor: normalizing what's actually stored ---
 
 test('Notch.listFor: a real array becomes a list of Notch instances, same order/values', () => {

@@ -21,6 +21,7 @@ import { infoIcon, trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { Notch, DEFAULT_NOTCH } from '../geometry/oo/Notch.js';
 import { validateNotch } from '../geometry/oo/NotchValidation.js';
+import { centerNotches, distributeNotches } from '../geometry/oo/NotchAlignment.js';
 import { t } from '../i18n/index.js';
 
 function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
@@ -82,6 +83,13 @@ export function renderGripNotchSection(project, pieceId, context, store) {
     text: t('notch.fieldOrderHint'),
   });
 
+  const dragHint = el('div', { class: 'hint', text: t('notch.dragHint') });
+
+  const alignRow = el('div', { class: 'button-row' }, [
+    el('button', { class: 'btn', text: t('notch.center'), disabled: notches.length < 1, onClick: () => setList(centerNotches(notches, context.run.length)) }),
+    el('button', { class: 'btn', text: t('notch.distribute'), disabled: notches.length < 3, onClick: () => setList(distributeNotches(notches)) }),
+  ]);
+
   const items = notches.map((notch, index) => {
     const siblings = notches.filter((_, i) => i !== index);
     return renderOneNotch(notch, siblings, context, (patch) => updateAt(index, patch), () => removeAt(index));
@@ -89,5 +97,5 @@ export function renderGripNotchSection(project, pieceId, context, store) {
 
   const addBtn = el('button', { class: 'btn', text: t('notch.add'), onClick: addNotch });
 
-  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, ...items, addBtn]);
+  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }

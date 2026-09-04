@@ -49,6 +49,35 @@ export class Notch extends Cutout {
     return items.map((n) => new Notch(n));
   }
 
+  /** A moved copy, offset by dxMm along the edge only — unlike Hole.movedBy
+   *  there is no dyMm: a notch's position perpendicular to its edge is
+   *  never free (see class header), only its depth, which is a resize, not
+   *  a move. Call from the ORIGINAL notch (the one at drag-start), not an
+   *  already-moved one, so a caller recomputing the delta from the drag's
+   *  start on every pointermove never accumulates rounding drift. */
+  movedBy(dxMm) {
+    return this.withChanges({ offsetMm: this.offsetMm + dxMm });
+  }
+
+  /** A resized copy whose anchor corner — offsetMm (left) and this notch's
+   *  own edge line at `localHeightMm` (top) — stays fixed while the
+   *  opposite corner is dragged toward `targetPoint` ({x,y}, in the
+   *  piece's own local mm space): widthMm grows toward
+   *  `targetPoint.x - offsetMm`, depthMm grows toward
+   *  `localHeightMm - targetPoint.y`. Each axis floors independently at
+   *  `minSizeMm` so dragging past the anchor can't invert or zero out the
+   *  notch. `localHeightMm` is a parameter (unlike Hole.resizedToward)
+   *  because a notch doesn't know the wall's local height at its own
+   *  position — the caller passes the same value production already
+   *  computes via heightAt(spans, ...) (see Assembly.js's own
+   *  gripFragments). */
+  resizedToward(targetPoint, minSizeMm, localHeightMm) {
+    return this.withChanges({
+      widthMm: Math.max(minSizeMm, targetPoint.x - this.offsetMm),
+      depthMm: Math.max(minSizeMm, localHeightMm - targetPoint.y),
+    });
+  }
+
   /** {uStart, uEnd, points:[{u,y}...]} in the edge's own local space, for
    *  Edge.points() to splice into its outline.
    *  radius<=0: 2 points (a flat floor) — the notch's own 2 vertical walls

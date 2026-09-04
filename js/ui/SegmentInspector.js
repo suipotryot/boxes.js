@@ -11,12 +11,15 @@ import { el } from './dom.js';
 import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
 import { resolveWallRunContext, resolvePieceHoleContext } from '../geometry/PieceContext.js';
+import { heightProfile } from '../model/GridQuery.js';
 import { buildWallPiece, buildBasePlate, buildLid } from '../geometry/oo/Assembly.js';
 import { burnCorrect } from '../geometry/BurnCorrection.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { Hole } from '../geometry/oo/Hole.js';
+import { Notch } from '../geometry/oo/Notch.js';
 import { attachHoleDragOverlay } from './HoleDragOverlay.js';
+import { attachNotchDragOverlay } from './NotchDragOverlay.js';
 import { renderGripNotchSection } from './GripNotchEditor.js';
 import { renderHoleSection } from './HoleEditor.js';
 import { t } from '../i18n/index.js';
@@ -47,9 +50,14 @@ function buildInspectedPiece(holeContext) {
 // project.pieceNotches/pieceHoles directly) — what you see here IS what
 // gets exported, rendered exactly once regardless of which sections below
 // apply to the current piece.
-function renderPieceVisual(piece, holes, onHoleChange) {
+function renderPieceVisual(piece, holes, onHoleChange, notches, onNotchChange, wallContext) {
   const svg = pieceToStandaloneSvg(piece, { padding: 8, minSize: 380, showLabels: false });
-  attachHoleDragOverlay(svg.querySelector('.piece-space'), holes, onHoleChange);
+  const pieceSpace = svg.querySelector('.piece-space');
+  attachHoleDragOverlay(pieceSpace, holes, onHoleChange);
+  if (wallContext) {
+    const spans = heightProfile(wallContext.run, wallContext.grid, wallContext.project);
+    attachNotchDragOverlay(pieceSpace, notches, spans, onNotchChange);
+  }
   return el('div', { class: 'inspector-section' }, [
     el('div', { class: 'preview-card piece-visual' }, [svg]),
   ]);
@@ -120,7 +128,12 @@ export function renderInspector(project, selected, selectedWallId, store) {
       ...p,
       pieceHoles: { ...p.pieceHoles, [selectedWallId]: Cutout.replaceAt(Hole.listFor(p.pieceHoles, selectedWallId), index, patch) },
     }));
-    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange));
+    const notches = wallContext ? Notch.listFor(project.pieceNotches, selectedWallId) : [];
+    const onNotchChange = (index, patch) => store.apply((p) => ({
+      ...p,
+      pieceNotches: { ...p.pieceNotches, [selectedWallId]: Cutout.replaceAt(Notch.listFor(p.pieceNotches, selectedWallId), index, patch) },
+    }));
+    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, notches, onNotchChange, wallContext));
   }
   if (selected) sections.push(renderSegmentFields(project, selected, store));
   if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store));

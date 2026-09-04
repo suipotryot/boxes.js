@@ -103,6 +103,11 @@ export const en = {
   'notch.fieldOrderHint': 'W, D, E, O (mm)',
   'notch.add': '+ Add a notch',
   'notch.delete': 'Delete this notch',
+  'notch.center': 'Center',
+  'notch.distribute': 'Distribute',
+  'notch.dragHint': 'Tip: drag a notch in the preview above to move it along the edge, or its corner handle to resize it, then fine-tune it here if needed.',
+  'notch.dragMoveTooltip': 'Drag to move this notch',
+  'notch.dragResizeTooltip': 'Drag to resize this notch',
 
   // Hole editor
   'hole.title': 'Holes',
