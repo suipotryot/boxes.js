@@ -153,6 +153,7 @@ export function populateScene(scene, project, { openT = 0, visible = { box: true
     const mesh = new THREE.Mesh(geometry, materials);
     mesh.matrixAutoUpdate = false;
     mesh.matrix.copy(placementToMatrix(placement));
+    mesh.userData.pieceId = piece.id;
     scene.add(mesh);
   }
 }

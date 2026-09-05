@@ -30,6 +30,7 @@ export function mountThreeDView(container, project) {
 
   function refreshScene() {
     populateScene(pieceGroup, currentProject, { openT, visible });
+    applyDepthFlip(pieceGroup, currentProject);
   }
 
   const boxCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.box = e.target.checked; refreshScene(); } });
@@ -167,6 +168,49 @@ function approximateBounds(grid, project, offset = { x: 0, y: 0, z: 0 }) {
   };
 }
 
+// World-space bounding box of everything that can ever be in the scene —
+// the main box plus the drawer sleeve (already offset into the main box's
+// own world space), when enabled — shared by fitView (camera framing) and
+// applyDepthFlip (below) so the two never disagree about the scene's own
+// extent.
+function combinedBounds(project) {
+  const bounds = approximateBounds(project.grid, project);
+
+  if (project.drawer?.enabled) {
+    const { grid: sleeveGrid, project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
+    const sleeveBounds = approximateBounds(sleeveGrid, sleeveProject, computeDrawerOffset(project));
+    bounds.min.min(sleeveBounds.min);
+    bounds.max.max(sleeveBounds.max);
+  }
+
+  return bounds;
+}
+
+// Reflects the whole assembled scene across the depth (Y) axis so its rows
+// read top-to-bottom the same way the 2D grid editor draws them.
+// EditorRenderer.js draws row 0 at the top of its SVG (yAt(0)=0, SVG y-down),
+// but this view's own fixed 3/4 camera (see fitView below) is an elevated,
+// forward-looking angle, which always renders whatever is NEAREST the camera
+// (row 0, here) toward the BOTTOM of the screen and the farthest row toward
+// the top — the opposite of the 2D convention, invisible on a symmetric box
+// but glaring once rows differ. Repositioning the camera to the other side
+// of Y instead would "fix" that but necessarily flips left/right too (same
+// up=(0,0,1) cross-product coupling that makes screen-right depend on which
+// side of Y the camera sits on) — verified algebraically, not just tried. A
+// rigid Y-reflection applied to the WHOLE already-assembled group has no
+// such coupling and can't misalign any joint between pieces, since every
+// point (including the drawer sleeve's, sharing this same pieceGroup) moves
+// by the exact same transform. The compensating position.y keeps the
+// reflected box inside the same [bounds.min.y, bounds.max.y] envelope
+// fitView() already assumes, just with the two ends swapped. Recomputed on
+// every refreshScene() (unlike fitView's one-time camera framing) since
+// editing the project can change the box's own depth.
+export function applyDepthFlip(pieceGroup, project) {
+  const bounds = combinedBounds(project);
+  pieceGroup.scale.y = -1;
+  pieceGroup.position.y = bounds.min.y + bounds.max.y;
+}
+
 // Centers the orbit target on the assembled scene's own middle point and
 // backs the camera off along a fixed 3/4 direction, far enough that a
 // sphere around its diagonal fits the vertical field of view — including
@@ -177,14 +221,7 @@ function approximateBounds(grid, project, offset = { x: 0, y: 0, z: 0 }) {
 // persistent threeDContainer); it also always frames the CLOSED (openT:0)
 // position, since that's the state the drawer slider always starts at.
 function fitView(camera, controls, project) {
-  const bounds = approximateBounds(project.grid, project);
-
-  if (project.drawer?.enabled) {
-    const { grid: sleeveGrid, project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
-    const sleeveBounds = approximateBounds(sleeveGrid, sleeveProject, computeDrawerOffset(project));
-    bounds.min.min(sleeveBounds.min);
-    bounds.max.max(sleeveBounds.max);
-  }
+  const bounds = combinedBounds(project);
 
   const center = bounds.min.clone().add(bounds.max).multiplyScalar(0.5);
   const radius = bounds.min.distanceTo(bounds.max) / 2;
