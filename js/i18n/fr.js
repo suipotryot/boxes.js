@@ -105,6 +105,7 @@ export const fr = {
   // Grip notch editor
   'notch.title': 'Encoches pour doigt',
   'notch.help': 'Découpe une ou plusieurs encoches dans le bord haut (libre) de ce pan, pour pouvoir y passer les doigts — par exemple pour ouvrir une boîte en tiroir. Largeur L, profondeur P, rayon R, position P (en mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
+  'notch.helpFlat': 'Découpe une ou plusieurs encoches dans le bord choisi ci-dessus (un côté sans paroi), pour pouvoir y passer les doigts. Largeur L, profondeur P, rayon R, position P (en mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
   'notch.fieldOrderHint': 'L, P, R, X (mm)',
   'notch.add': '+ Ajouter une encoche',
   'notch.delete': 'Supprimer cette encoche',
@@ -114,6 +115,12 @@ export const fr = {
   'notch.selectTooltip': 'Cliquer pour sélectionner cette encoche',
   'notch.dragMoveTooltip': 'Glisser pour déplacer cette encoche',
   'notch.dragResizeTooltip': 'Glisser pour redimensionner cette encoche',
+  'notch.edgeSelectorLabel': 'Bord',
+  'notch.edgeSelectorHint': 'Ce panneau a un ou plusieurs bords sans paroi (côté ouvert) — choisissez sur lequel ajouter une encoche.',
+  'notch.edgeTop': 'Haut',
+  'notch.edgeRight': 'Droite',
+  'notch.edgeBottom': 'Bas',
+  'notch.edgeLeft': 'Gauche',
 
   // Hole editor
   'hole.title': 'Trous',

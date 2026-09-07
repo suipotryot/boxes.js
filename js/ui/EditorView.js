@@ -83,6 +83,15 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   // since a leftover index would otherwise point at an unrelated piece's
   // cutout list.
   let selectedCutout = null;
+  // Which open (smooth) compass side of the currently-selected FLAT piece
+  // (base-plate/lid) is active for grip-notch editing — a compass string
+  // ('top'/'right'/'bottom'/'left') or null. A flat piece can have several
+  // independent open edges (unlike a wall's single free/top edge), so this
+  // is a separate selection on top of `selectedWallId` — see
+  // SegmentInspector.js's own edge-selector UI. Reset alongside
+  // `selectedCutout` below: switching which piece or edge is active makes
+  // any previously-selected notch index meaningless.
+  let selectedFlatEdge = null;
   // Off by default — labels are most useful right before a final export,
   // not while experimenting with the layout.
   let showLabels = false;
@@ -111,6 +120,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     selected = next;
     selectedWallId = selectedPieceId(store.project, next);
     selectedCutout = null;
+    selectedFlatEdge = null;
     render();
   }
 
@@ -122,6 +132,13 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     selectedWallId = pieceId;
     selected = null;
     selectedCutout = null;
+    selectedFlatEdge = null;
+    render();
+  }
+
+  function selectFlatEdge(compass) {
+    selectedFlatEdge = compass;
+    selectedCutout = null; // a different edge's own notch list — any selected index would point at the wrong one
     render();
   }
 
@@ -186,7 +203,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     container.appendChild(el('div', { class: 'editor-layout' }, [
       el('aside', { class: 'panel settings-col' }, [renderSettingsPanel(project, store, openSections, toggleSection, showLabels, toggleLabels)]),
       el('div', { class: 'editor-main' }, [toolbar, renderDimensionsHint(project), editorCanvas, renderPreviewStrip(project, selectedWallId, showLabels, selectWall)]),
-      el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store, selectedCutout, selectCutout)]),
+      el('aside', { class: 'panel inspector-col' }, [renderInspector(project, selected, selectedWallId, store, selectedCutout, selectCutout, selectedFlatEdge, selectFlatEdge)]),
     ]));
   }
 

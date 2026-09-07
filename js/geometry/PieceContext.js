@@ -9,6 +9,7 @@
 // never produces a run for the base plate or lid ids, so this returns null
 // for those without any separate kind check.
 import { enumerateWallRuns, xAt, yAt, wallPieceId } from '../model/GridQuery.js';
+import { isOuterSegment } from '../model/Grid.js';
 import { Drawer, DRAWER_PREFIX } from './oo/Drawer.js';
 
 // Shared by resolveWallRunContext and resolvePieceHoleContext below: both
@@ -62,4 +63,37 @@ export function resolvePieceHoleContext(project, pieceId) {
 
   const run = enumerateWallRuns(grid, runProject).find((r) => wallPieceId(r) === rawId);
   return run ? { kind: 'wall', grid, project: runProject, run, rawId } : null;
+}
+
+const COMPASS_SIDES = ['top', 'right', 'bottom', 'left'];
+
+/** Which compass sides of a flat piece (base-plate/lid) have no outer wall
+ *  run there — the only sides a grip notch can be added to (see
+ *  Assembly.buildBoundarySides' own openSide branch: every OTHER side is a
+ *  fully-toothed FingerEdge, with no smooth splice point for a notch).
+ *  Empty for a wall piece id, and empty for the ordinary case (every outer
+ *  wall present) — only a Drawer's own openSide (or any future case that
+ *  leaves an outer side absent) ever produces entries here. `capMm` is the
+ *  side's own perpendicular extent — the material budget a notch on that
+ *  side cuts into (see NotchValidation.validateFlatEdgeNotch), the same
+ *  quantity used to build that side's own SmoothEdge in Assembly.js. */
+export function enumerateSmoothFlatEdges(grid, project, rawId) {
+  if (!FLAT_PIECE_IDS.has(rawId)) return [];
+
+  const cols = grid.sx.length, rows = grid.sy.length;
+  const widthMm = xAt(grid, project, cols);
+  const depthMm = yAt(grid, project, rows);
+  const outerRuns = enumerateWallRuns(grid, project).filter((run) => isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
+  const hasRun = {
+    top: outerRuns.some((r) => r.kind === 'h' && r.r === 0),
+    right: outerRuns.some((r) => r.kind === 'v' && r.c === cols),
+    bottom: outerRuns.some((r) => r.kind === 'h' && r.r === rows),
+    left: outerRuns.some((r) => r.kind === 'v' && r.c === 0),
+  };
+  const lengthMmFor = { top: widthMm, bottom: widthMm, left: depthMm, right: depthMm };
+  const capMmFor = { top: depthMm, bottom: depthMm, left: widthMm, right: widthMm };
+
+  return COMPASS_SIDES
+    .filter((compass) => !hasRun[compass])
+    .map((compass) => ({ compass, lengthMm: lengthMmFor[compass], capMm: capMmFor[compass] }));
 }
