@@ -150,10 +150,15 @@ export function renderInspector(project, selected, selectedWallId, store, select
   const smoothFlatEdges = holeContext && holeContext.kind === 'flat'
     ? enumerateSmoothFlatEdges(holeContext.grid, holeContext.project, holeContext.rawId)
     : [];
-  // Stale (e.g. the project changed and that edge isn't open any more)
-  // reads as "nothing active" — same bounds-guard spirit as
+  // A single open edge needs no picking — there's nothing to choose
+  // between, so it's active automatically and the selector below stays
+  // hidden. With several, the user's own explicit choice (selectedFlatEdge)
+  // decides which one; stale (e.g. the project changed and that edge isn't
+  // open any more) reads as "nothing active" — same bounds-guard spirit as
   // holeSelectedIndex/notchSelectedIndex below.
-  const activeFlatEdge = selectedFlatEdge ? smoothFlatEdges.find((e) => e.compass === selectedFlatEdge) : null;
+  const activeFlatEdge = smoothFlatEdges.length === 1
+    ? smoothFlatEdges[0]
+    : selectedFlatEdge ? smoothFlatEdges.find((e) => e.compass === selectedFlatEdge) : null;
   // The grip-notch context (a wall's own free edge, OR one open flat edge)
   // and the storage key that goes with it — a flat edge's own notches are
   // keyed by the compound `${pieceId}:${compass}` (Assembly.js's own
@@ -191,7 +196,10 @@ export function renderInspector(project, selected, selectedWallId, store, select
     sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, notches, onNotchChange, wallContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout));
   }
   if (selected) sections.push(renderSegmentFields(project, selected, store));
-  if (smoothFlatEdges.length) sections.push(renderFlatEdgeSelector(smoothFlatEdges, selectedFlatEdge, onSelectFlatEdge));
+  // Only shown when there's an actual choice to make — a single open edge
+  // is already active on its own (see activeFlatEdge above), so a
+  // one-option selector would just be a pointless extra click.
+  if (smoothFlatEdges.length > 1) sections.push(renderFlatEdgeSelector(smoothFlatEdges, selectedFlatEdge, onSelectFlatEdge));
   if (notchContext) sections.push(renderGripNotchSection(project, notchPieceId, notchContext, store, notchSelectedIndex));
   if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store, holeSelectedIndex));
 

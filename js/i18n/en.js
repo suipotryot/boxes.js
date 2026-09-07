@@ -100,7 +100,7 @@ export const en = {
   // Grip notch editor
   'notch.title': 'Grip notches',
   'notch.help': 'Cuts one or more notches into the free top edge of this panel, to slide fingers through — for example to open a drawer box. Width W, depth D, radius R, offset O (mm), comma-separated — the period separates decimals, e.g. "20.5, 8, 0, 10".',
-  'notch.helpFlat': 'Cuts one or more notches into the edge picked above (a side with no wall), to slide fingers through. Width W, depth D, radius R, offset O (mm), comma-separated — the period separates decimals, e.g. "20.5, 8, 0, 10".',
+  'notch.helpFlat': 'Cuts one or more notches into this panel\'s own open (wall-less) edge, to slide fingers through. Width W, depth D, radius R, offset O (mm), comma-separated — the period separates decimals, e.g. "20.5, 8, 0, 10".',
   'notch.fieldOrderHint': 'W, D, E, O (mm)',
   'notch.add': '+ Add a notch',
   'notch.delete': 'Delete this notch',

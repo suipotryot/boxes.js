@@ -105,7 +105,7 @@ export const fr = {
   // Grip notch editor
   'notch.title': 'Encoches pour doigt',
   'notch.help': 'Découpe une ou plusieurs encoches dans le bord haut (libre) de ce pan, pour pouvoir y passer les doigts — par exemple pour ouvrir une boîte en tiroir. Largeur L, profondeur P, rayon R, position P (en mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
-  'notch.helpFlat': 'Découpe une ou plusieurs encoches dans le bord choisi ci-dessus (un côté sans paroi), pour pouvoir y passer les doigts. Largeur L, profondeur P, rayon R, position P (en mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
+  'notch.helpFlat': 'Découpe une ou plusieurs encoches dans le bord ouvert (sans paroi) de ce panneau, pour pouvoir y passer les doigts. Largeur L, profondeur P, rayon R, position P (en mm), séparés par des virgules — le point sépare les décimales, ex. « 20.5, 8, 0, 10 ».',
   'notch.fieldOrderHint': 'L, P, R, X (mm)',
   'notch.add': '+ Ajouter une encoche',
   'notch.delete': 'Supprimer cette encoche',
