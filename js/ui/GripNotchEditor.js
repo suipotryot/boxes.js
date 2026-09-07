@@ -20,9 +20,23 @@ import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { Notch, DEFAULT_NOTCH } from '../geometry/oo/Notch.js';
-import { validateNotch } from '../geometry/oo/NotchValidation.js';
+import { validateNotch, validateFlatEdgeNotch } from '../geometry/oo/NotchValidation.js';
 import { centerNotches, distributeNotches } from '../geometry/oo/NotchAlignment.js';
 import { t } from '../i18n/index.js';
+
+// `context` is `{kind:'wall', run, grid, project}` (a wall's own free/top
+// edge) or `{kind:'flat', lengthMm, capMm}` (one open compass side of a
+// base plate/lid — see PieceContext.enumerateSmoothFlatEdges). Same split
+// as HoleEditor.js's own validateHole.
+function validate(context, notch, siblings) {
+  return context.kind === 'wall'
+    ? validateNotch(context.run, context.grid, context.project, notch, siblings)
+    : validateFlatEdgeNotch(context.lengthMm, context.capMm, notch, siblings);
+}
+
+function lengthOf(context) {
+  return context.kind === 'wall' ? context.run.length : context.lengthMm;
+}
 
 function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   const lineField = el('label', { class: 'field' }, [
@@ -44,7 +58,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
 
   const row = el('div', { class: 'compact-item-row' }, [lineField, trashBtn]);
 
-  const validation = validateNotch(context.run, context.grid, context.project, notch, siblings);
+  const validation = validate(context, notch, siblings);
   const warning = !validation.ok ? el('div', { class: 'field' }, [
     ...validation.problems.map((msg) => el('span', { class: 'warning', text: msg })),
     el('button', {
@@ -52,7 +66,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
       onClick: () => {
         const widthMm = Math.max(1, Math.min(notch.widthMm, validation.maxWidthMm));
         const depthMm = Math.min(notch.depthMm, Math.max(1, validation.localHeight - 1));
-        const offsetMm = Math.min(Math.max(notch.offsetMm, 0), Math.max(0, context.run.length - widthMm));
+        const offsetMm = Math.min(Math.max(notch.offsetMm, 0), Math.max(0, lengthOf(context) - widthMm));
         const radiusMm = Math.min(notch.radiusMm, notch.withChanges({ widthMm, depthMm }).maxRadiusMm());
         onUpdate({ widthMm, offsetMm, depthMm, radiusMm });
       },
@@ -75,7 +89,7 @@ export function renderGripNotchSection(project, pieceId, context, store, selecte
 
   const sectionLabel = el('div', { class: 'field-label' }, [
     t('notch.title'),
-    infoIcon(t('notch.help')),
+    infoIcon(t(context.kind === 'wall' ? 'notch.help' : 'notch.helpFlat')),
   ]);
 
   const fieldOrderHint = el('div', {
@@ -83,7 +97,11 @@ export function renderGripNotchSection(project, pieceId, context, store, selecte
     text: t('notch.fieldOrderHint'),
   });
 
-  const dragHint = el('div', { class: 'hint', text: t('notch.dragHint') });
+  // No drag overlay yet for a flat edge's own notches (see
+  // SegmentInspector.js's own renderPieceVisual, still gated on wallContext
+  // alone) — the hint about dragging in the preview would be misleading
+  // there, so it's only shown for a wall's own free edge.
+  const dragHint = context.kind === 'wall' ? el('div', { class: 'hint', text: t('notch.dragHint') }) : null;
 
   // Centrer acts on the ONE selected notch only (see SegmentInspector.js's
   // selectedCutout) — mirrors HoleEditor.js's own alignRow. Distribuer is
@@ -92,7 +110,7 @@ export function renderGripNotchSection(project, pieceId, context, store, selecte
     el('button', {
       class: 'btn', text: t('notch.center'), disabled: selectedIndex == null,
       onClick: () => {
-        const [centered] = centerNotches([notches[selectedIndex]], context.run.length);
+        const [centered] = centerNotches([notches[selectedIndex]], lengthOf(context));
         updateAt(selectedIndex, { offsetMm: centered.offsetMm });
       },
     }),

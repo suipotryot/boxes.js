@@ -10,7 +10,7 @@
 import { el } from './dom.js';
 import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
-import { resolveWallRunContext, resolvePieceHoleContext } from '../geometry/PieceContext.js';
+import { resolveWallRunContext, resolvePieceHoleContext, enumerateSmoothFlatEdges } from '../geometry/PieceContext.js';
 import { heightProfile } from '../model/GridQuery.js';
 import { buildWallPiece, buildBasePlate, buildLid } from '../geometry/oo/Assembly.js';
 import { burnCorrect } from '../geometry/BurnCorrection.js';
@@ -120,17 +120,60 @@ function renderSegmentFields(project, selected, store) {
   ]);
 }
 
-export function renderInspector(project, selected, selectedWallId, store, selectedCutout, onSelectCutout) {
+const COMPASS_LABEL_KEY = { top: 'notch.edgeTop', right: 'notch.edgeRight', bottom: 'notch.edgeBottom', left: 'notch.edgeLeft' };
+
+/** Which open (smooth) compass side of the selected flat piece (base-plate/
+ *  lid) to add a grip notch to — only shown when at least one exists (see
+ *  PieceContext.enumerateSmoothFlatEdges; the ordinary case, every outer
+ *  wall present, shows nothing here at all). A flat piece can have several
+ *  independent open edges, unlike a wall's single free/top edge, hence a
+ *  dedicated selector rather than reusing the segment click the wall path
+ *  relies on (a flat piece has no grid segment of its own to click either). */
+function renderFlatEdgeSelector(smoothEdges, selectedFlatEdge, onSelectFlatEdge) {
+  const buttons = smoothEdges.map(({ compass }) => el('button', {
+    class: compass === selectedFlatEdge ? 'btn active' : 'btn',
+    text: t(COMPASS_LABEL_KEY[compass]),
+    onClick: () => onSelectFlatEdge(compass),
+  }));
+  return el('div', { class: 'inspector-section' }, [
+    el('div', { class: 'field-label', text: t('notch.edgeSelectorLabel') }),
+    el('div', { class: 'hint', text: t('notch.edgeSelectorHint') }),
+    el('div', { class: 'button-row' }, buttons),
+  ]);
+}
+
+export function renderInspector(project, selected, selectedWallId, store, selectedCutout, onSelectCutout, selectedFlatEdge, onSelectFlatEdge) {
   const sections = [];
 
   const wallContext = selectedWallId ? resolveWallRunContext(project, selectedWallId) : null;
   const holeContext = selectedWallId ? resolvePieceHoleContext(project, selectedWallId) : null;
+  const smoothFlatEdges = holeContext && holeContext.kind === 'flat'
+    ? enumerateSmoothFlatEdges(holeContext.grid, holeContext.project, holeContext.rawId)
+    : [];
+  // A single open edge needs no picking — there's nothing to choose
+  // between, so it's active automatically and the selector below stays
+  // hidden. With several, the user's own explicit choice (selectedFlatEdge)
+  // decides which one; stale (e.g. the project changed and that edge isn't
+  // open any more) reads as "nothing active" — same bounds-guard spirit as
+  // holeSelectedIndex/notchSelectedIndex below.
+  const activeFlatEdge = smoothFlatEdges.length === 1
+    ? smoothFlatEdges[0]
+    : selectedFlatEdge ? smoothFlatEdges.find((e) => e.compass === selectedFlatEdge) : null;
+  // The grip-notch context (a wall's own free edge, OR one open flat edge)
+  // and the storage key that goes with it — a flat edge's own notches are
+  // keyed by the compound `${pieceId}:${compass}` (Assembly.js's own
+  // flatGripFragments), since a flat piece can have several independent
+  // open edges, unlike a wall's plain pieceId.
+  const notchContext = wallContext
+    ? { kind: 'wall', ...wallContext }
+    : activeFlatEdge ? { kind: 'flat', lengthMm: activeFlatEdge.lengthMm, capMm: activeFlatEdge.capMm } : null;
+  const notchPieceId = wallContext ? selectedWallId : activeFlatEdge ? `${selectedWallId}:${activeFlatEdge.compass}` : null;
 
   // Null (not -1) when nothing of that kind is selected, or the selection
   // is stale (e.g. the selected hole was deleted from under it) — a simple
   // bounds guard rather than tracking index shifts. Declared here (not
   // inside the `if (holeContext)` block below) since renderGripNotchSection
-  // is reached through its own, separate `if (wallContext)`.
+  // is reached through its own, separate `if (notchContext)`.
   let holeSelectedIndex = null;
   let notchSelectedIndex = null;
 
@@ -140,17 +183,24 @@ export function renderInspector(project, selected, selectedWallId, store, select
       ...p,
       pieceHoles: { ...p.pieceHoles, [selectedWallId]: Cutout.replaceAt(Hole.listFor(p.pieceHoles, selectedWallId), index, patch) },
     }));
-    const notches = wallContext ? Notch.listFor(project.pieceNotches, selectedWallId) : [];
+    const notches = notchContext ? Notch.listFor(project.pieceNotches, notchPieceId) : [];
     const onNotchChange = (index, patch) => store.apply((p) => ({
       ...p,
-      pieceNotches: { ...p.pieceNotches, [selectedWallId]: Cutout.replaceAt(Notch.listFor(p.pieceNotches, selectedWallId), index, patch) },
+      pieceNotches: { ...p.pieceNotches, [notchPieceId]: Cutout.replaceAt(Notch.listFor(p.pieceNotches, notchPieceId), index, patch) },
     }));
     holeSelectedIndex = selectedCutout && selectedCutout.kind === 'hole' && selectedCutout.index < holes.length ? selectedCutout.index : null;
     notchSelectedIndex = selectedCutout && selectedCutout.kind === 'notch' && selectedCutout.index < notches.length ? selectedCutout.index : null;
+    // The drag overlay stays wall-only for now (gated on wallContext, not
+    // notchContext) — a flat edge's own notch still shows up correctly,
+    // baked into the real piece visual, just without drag handles yet.
     sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, notches, onNotchChange, wallContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout));
   }
   if (selected) sections.push(renderSegmentFields(project, selected, store));
-  if (wallContext) sections.push(renderGripNotchSection(project, selectedWallId, wallContext, store, notchSelectedIndex));
+  // Only shown when there's an actual choice to make — a single open edge
+  // is already active on its own (see activeFlatEdge above), so a
+  // one-option selector would just be a pointless extra click.
+  if (smoothFlatEdges.length > 1) sections.push(renderFlatEdgeSelector(smoothFlatEdges, selectedFlatEdge, onSelectFlatEdge));
+  if (notchContext) sections.push(renderGripNotchSection(project, notchPieceId, notchContext, store, notchSelectedIndex));
   if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store, holeSelectedIndex));
 
   if (!sections.length) {

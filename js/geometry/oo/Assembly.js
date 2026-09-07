@@ -196,10 +196,28 @@ export function buildWallPiece(run, grid, project) {
   });
 }
 
+/** A flat panel edge's own grip notches, keyed by `${pieceId}:${compass}` —
+ *  distinct from a wall's plain `pieceId` key, since a single flat piece
+ *  can have up to 4 independent open (smooth) edges, unlike a wall's own
+ *  single free/top edge. Reuses the exact same unprefix-then-lookup a
+ *  drawer's own wall notches already go through (Drawer.sleeveContext's
+ *  `unprefixed`, above `pieceId` here is always the piece's own bare id —
+ *  'base-plate'/'lid' — never drawer-prefixed, so this needs no special
+ *  drawer handling of its own). `localHeight` is always 0: unlike a wall's
+ *  stepped height profile, a flat edge's own flush baseline never varies
+ *  along its length, and Edge/OuterBoundary's `inward` vector is flipped
+ *  for this open-side branch (see openSide below) specifically so that a
+ *  fragment computed against a 0 baseline still cuts INTO the panel, not
+ *  out past its nominal boundary. */
+function flatGripFragments(pieceId, compass, project) {
+  return Notch.listFor(project.pieceNotches, `${pieceId}:${compass}`)
+    .map((notch) => notch.toEdgeFragment(0));
+}
+
 /** The 4 compass sides + margins for BasePlate/Lid's own outerBoundarySide
  *  assembly — shared between the two, `protrude` is the only thing that
  *  differs (an onTop lid is geometrically the base plate's mirror image). */
-function buildBoundarySides(grid, project, protrude) {
+function buildBoundarySides(grid, project, protrude, pieceId) {
   const cols = grid.sx.length, rows = grid.sy.length;
   const widthMm = xAt(grid, project, cols);
   const depthMm = yAt(grid, project, rows);
@@ -222,20 +240,39 @@ function buildBoundarySides(grid, project, protrude) {
   // openSide) used to be represented as `null`: no Edge object at all, so
   // a grip notch had nowhere to anchor (unlike a wall's own free/top edge,
   // which is already a real SmoothEdge — see buildWallPiece). Giving it a
-  // genuine SmoothEdge instead — flush at value 0 for its whole length, no
-  // fragments (yet) — reproduces the exact same straight corner-to-corner
-  // line as before (value 0 contributes no offset regardless of `inward`),
-  // while leaving a real splice point for a future notch fragment.
-  function openSide(lengthMm) {
-    return new SmoothEdge({ lengthMm, heightProfile: [{ uStart: 0, uEnd: lengthMm, height: 0 }] });
+  // genuine SmoothEdge instead — flush at value 0 for its whole length —
+  // reproduces the exact same straight corner-to-corner line as before when
+  // there's no notch (value 0 contributes no offset regardless of `inward`),
+  // while letting a grip-notch fragment splice in a real cut.
+  //
+  // `inward` for THIS branch only is the FLIPPED compass vector (the
+  // negation of what a FingerEdge on the same side would use): a
+  // FingerEdge's `inward` points from the nominal boundary INTO the
+  // compartment because its own baseValueAt is a small protrusion toward a
+  // mate sitting just inside that boundary; flatGripFragments instead calls
+  // toEdgeFragment(0), whose `floor` comes out negative (0 - depthMm), so
+  // flipping `inward` here is what makes that negative floor still read as
+  // "depthMm further INTO the panel" rather than depthMm further outward
+  // past its nominal edge. Verified directly (not just derived) by
+  // ooAssembly.test.js's flat-edge grip-notch fixture.
+  function openSide(lengthMm, fragments) {
+    return new SmoothEdge({ lengthMm, heightProfile: [{ uStart: 0, uEnd: lengthMm, height: 0 }], fragments });
   }
 
   const sign = protrude ? -1 : 1;
   const sides = {
-    top: { edge: topRun ? side(topRun) : openSide(widthMm), axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: sign } },
-    right: { edge: rightRun ? side(rightRun) : openSide(depthMm), axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: -sign, y: 0 } },
-    bottom: { edge: bottomRun ? side(bottomRun) : openSide(widthMm), axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: -sign } },
-    left: { edge: leftRun ? side(leftRun) : openSide(depthMm), axisPoint: (u) => ({ x: 0, y: u }), inward: { x: sign, y: 0 } },
+    top: topRun
+      ? { edge: side(topRun), axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: sign } }
+      : { edge: openSide(widthMm, flatGripFragments(pieceId, 'top', project)), axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: -sign } },
+    right: rightRun
+      ? { edge: side(rightRun), axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: -sign, y: 0 } }
+      : { edge: openSide(depthMm, flatGripFragments(pieceId, 'right', project)), axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: sign, y: 0 } },
+    bottom: bottomRun
+      ? { edge: side(bottomRun), axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: -sign } }
+      : { edge: openSide(widthMm, flatGripFragments(pieceId, 'bottom', project)), axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: sign } },
+    left: leftRun
+      ? { edge: side(leftRun), axisPoint: (u) => ({ x: 0, y: u }), inward: { x: sign, y: 0 } }
+      : { edge: openSide(depthMm, flatGripFragments(pieceId, 'left', project)), axisPoint: (u) => ({ x: 0, y: u }), inward: { x: -sign, y: 0 } },
   };
   // Margin stays 0 on an open side — a plain corner-to-corner line, same as
   // when it was `null` — only a side with a real wall run gets the outer
@@ -254,7 +291,7 @@ function buildBoundarySides(grid, project, protrude) {
 }
 
 export function buildBasePlate(grid, project) {
-  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, false);
+  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, false, 'base-plate');
   const runs = enumerateWallRuns(grid, project);
   const innerRuns = runs.filter((run) => !isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
 
@@ -280,7 +317,7 @@ export function buildLid(grid, project) {
   // (protrude:true). onTop: the lid mirrors the base plate exactly
   // (protrude:false) — the walls' own added fingers (buildWallPiece) do
   // the same job bottomEdge/BasePlate already do below.
-  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, mode === 'recessed');
+  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, mode === 'recessed', 'lid');
   return new Lid({
     thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins,
     holes: Hole.listFor(project.pieceHoles, 'lid'),
