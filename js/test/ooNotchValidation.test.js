@@ -8,7 +8,7 @@ import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
 import { enumerateWallRuns } from '../model/GridQuery.js';
 import { Notch } from '../geometry/oo/Notch.js';
-import { validateNotch } from '../geometry/oo/NotchValidation.js';
+import { validateNotch, validateFlatEdgeNotch } from '../geometry/oo/NotchValidation.js';
 
 function baseProject() {
   const project = createDefaultProject();
@@ -52,6 +52,38 @@ test('validateNotch: rejects two sibling notches on the same wall that overlap, 
 
   const disjointSibling = new Notch({ widthMm: 20, depthMm: 5, offsetMm: 40, radiusMm: 0 }); // [40,60) does not overlap [10,30)
   const disjointResult = validateNotch(run2, project.grid, project, a, [disjointSibling]);
+  assert(disjointResult.ok, `expected disjoint sibling notches to validate, got: ${disjointResult.problems.join('; ')}`);
+});
+
+// validateFlatEdgeNotch: the same rule engine as validateNotch, but for a
+// flat panel's own open (smooth) edge — no run/grid/project, just a plain
+// length and a constant depth cap (the panel's own perpendicular extent).
+
+test('validateFlatEdgeNotch: rejects the expected cases, accepts a well-formed one', () => {
+  const lengthMm = 150;
+  const capMm = 80; // e.g. the panel's own perpendicular extent
+
+  assert(!validateFlatEdgeNotch(lengthMm, capMm, new Notch({ widthMm: 30, depthMm: 10, offsetMm: -5, radiusMm: 0 })).ok, 'negative offset should be rejected');
+  assert(!validateFlatEdgeNotch(lengthMm, capMm, new Notch({ widthMm: 0, depthMm: 10, offsetMm: 10, radiusMm: 0 })).ok, 'zero width should be rejected');
+  assert(!validateFlatEdgeNotch(lengthMm, capMm, new Notch({ widthMm: 30, depthMm: 10, offsetMm: 10, radiusMm: 20 })).ok, 'radius beyond its own max should be rejected');
+  assert(!validateFlatEdgeNotch(lengthMm, capMm, new Notch({ widthMm: 30, depthMm: 10, offsetMm: 140, radiusMm: 0 })).ok, 'a notch extending past the edge\'s own length should be rejected');
+  assert(!validateFlatEdgeNotch(lengthMm, capMm, new Notch({ widthMm: 30, depthMm: 85, offsetMm: 10, radiusMm: 0 })).ok, 'depth >= the cap should be rejected');
+
+  const ok = validateFlatEdgeNotch(lengthMm, capMm, new Notch({ widthMm: 30, depthMm: 10, offsetMm: 20, radiusMm: 5 }));
+  assert(ok.ok, `expected a well-formed notch to validate, got problems: ${ok.problems.join('; ')}`);
+});
+
+test('validateFlatEdgeNotch: rejects two sibling notches on the same flat edge that overlap, accepts disjoint ones', () => {
+  const lengthMm = 150;
+  const capMm = 80;
+  const a = new Notch({ widthMm: 20, depthMm: 5, offsetMm: 10, radiusMm: 0 });
+
+  const overlappingSibling = new Notch({ widthMm: 20, depthMm: 5, offsetMm: 25, radiusMm: 0 }); // [25,45) overlaps [10,30)
+  const overlapResult = validateFlatEdgeNotch(lengthMm, capMm, a, [overlappingSibling]);
+  assert(!overlapResult.ok, 'overlapping sibling notches should be rejected');
+
+  const disjointSibling = new Notch({ widthMm: 20, depthMm: 5, offsetMm: 40, radiusMm: 0 }); // [40,60) does not overlap [10,30)
+  const disjointResult = validateFlatEdgeNotch(lengthMm, capMm, a, [disjointSibling]);
   assert(disjointResult.ok, `expected disjoint sibling notches to validate, got: ${disjointResult.problems.join('; ')}`);
 });
 
