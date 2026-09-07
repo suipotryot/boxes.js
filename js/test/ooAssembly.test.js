@@ -11,6 +11,7 @@ import { createDefaultProject } from '../state/Project.js';
 import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt } from '../model/GridQuery.js';
 import { buildWallPiece, buildLid, buildBasePlate } from '../geometry/oo/Assembly.js';
 import { SmoothEdge } from '../geometry/oo/SmoothEdge.js';
+import { Notch } from '../geometry/oo/Notch.js';
 
 test('a mortise hole at a T junction is capped by the through-piece\'s own LOCAL height, not just the stem\'s own height — a stem taller than a locally-reduced through-piece must not poke a hole past its edge', () => {
   const project = createDefaultProject();
@@ -149,6 +150,54 @@ test('a base plate\'s open side, with no notch configured, produces the exact sa
   const nearCorner = (target) => piece.outline.some((p) => Math.abs(p.x - target.x) < 1e-6 && Math.abs(p.y - target.y) < 1e-6);
   assert(nearCorner(topRightExpected), `expected an outline point at the top-right corner ${JSON.stringify(topRightExpected)}`);
   assert(nearCorner(bottomRightExpected), `expected an outline point at the bottom-right corner ${JSON.stringify(bottomRightExpected)}`);
+});
+
+// A grip notch on a base plate's own open (smooth) edge — stored under the
+// compound key `${pieceId}:${compass}` (e.g. 'base-plate:right'), since a
+// flat piece can have several independent open edges, unlike a wall's
+// single free/top edge.
+
+test('a grip notch on a base plate\'s open right edge cuts INTO the panel (x decreases below the nominal width) across its own width, and leaves the rest of that edge flush', () => {
+  const project = openRightBasePlateFixture();
+  project.pieceNotches = { 'base-plate:right': [{ widthMm: 20, depthMm: 8, offsetMm: 30, radiusMm: 0 }] };
+  const basePlate = buildBasePlate(project.grid, project);
+
+  const widthMm = xAt(project.grid, project, project.grid.sx.length);
+  // Directly on the right edge's own points() (its local u axis runs along
+  // y — see buildBoundarySides' own right-side axisPoint) rather than the
+  // full assembled outline, which also contains the left edge's own points
+  // over the very same y range and would otherwise be ambiguous.
+  const rightPoints = basePlate.sides.right.edge.points();
+  const hasPoint = (u, y) => rightPoints.some((p) => Math.abs(p.u - u) < 1e-6 && Math.abs(p.y - y) < 1e-6);
+
+  assert(hasPoint(30, 0), 'expected a flush point (y=0) right where the notch starts (the jump-in wall)');
+  assert(hasPoint(30, -8), 'expected the notch\'s own near wall, read as a magnitude of depthMm (8) INTO the panel (a negative y here, per the flipped-inward convention this open-side branch uses)');
+  assert(hasPoint(50, -8), 'expected the notch\'s own far wall, still cut in by depthMm (8)');
+  assert(hasPoint(50, 0), 'expected a flush point (y=0) right where the notch ends (the jump-out wall)');
+  for (const p of rightPoints) {
+    if (p.u < 30 - 1e-6 || p.u > 50 + 1e-6) assertClose(p.y, 0, 1e-6, `point at u=${p.u}, outside the notch's own span, should stay flush`);
+  }
+
+  // And the assembled outline really does dip to widthMm-8 at those y's.
+  const piece = basePlate.toPiece();
+  const nearPoint = (target) => piece.outline.some((p) => Math.abs(p.x - target.x) < 1e-6 && Math.abs(p.y - target.y) < 1e-6);
+  assert(nearPoint({ x: widthMm - 8, y: 30 }), `expected the outline to reach x=${widthMm - 8} at y=30 (the notch's own start)`);
+  assert(nearPoint({ x: widthMm - 8, y: 50 }), `expected the outline to reach x=${widthMm - 8} at y=50 (the notch's own end)`);
+  assert(nearPoint({ x: widthMm, y: 30 }) && nearPoint({ x: widthMm, y: 50 }), 'expected the flush (nominal width) points bracketing the notch on either side');
+});
+
+test('a grip notch stored for the drawer\'s own base plate open edge (prefixed key) is found via the sleeve\'s own unprefixed project, exactly like a drawer wall notch already is', () => {
+  // Mirrors Drawer.sleeveContext's own unprefixing of project.pieceNotches
+  // (DRAWER_PREFIX = 'drawer:') — buildBasePlate itself only ever sees the
+  // bare 'base-plate' id, so a notch stored under 'drawer:base-plate:right'
+  // must already be unprefixed to 'base-plate:right' by the time it reaches
+  // buildBasePlate, exactly as Drawer.js already does for wall notches.
+  const project = openRightBasePlateFixture();
+  project.pieceNotches = { 'base-plate:right': [{ widthMm: 20, depthMm: 8, offsetMm: 30, radiusMm: 0 }] };
+  const withNotch = buildBasePlate(project.grid, project).toPiece();
+  const without = buildBasePlate(project.grid, { ...project, pieceNotches: {} }).toPiece();
+
+  assert(JSON.stringify(withNotch.outline) !== JSON.stringify(without.outline), 'the notch stored under the unprefixed key should actually affect the outline');
 });
 
 run();
