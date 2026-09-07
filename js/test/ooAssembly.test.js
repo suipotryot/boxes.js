@@ -9,9 +9,9 @@ import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
 import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt } from '../model/GridQuery.js';
-import { buildWallPiece, buildLid, buildBasePlate } from '../geometry/oo/Assembly.js';
+import { buildWallPiece, buildLid, buildBasePlate, wallSmoothEdges } from '../geometry/oo/Assembly.js';
 import { SmoothEdge } from '../geometry/oo/SmoothEdge.js';
-import { Notch } from '../geometry/oo/Notch.js';
+import { Drawer } from '../geometry/oo/Drawer.js';
 
 test('a mortise hole at a T junction is capped by the through-piece\'s own LOCAL height, not just the stem\'s own height — a stem taller than a locally-reduced through-piece must not poke a hole past its edge', () => {
   const project = createDefaultProject();
@@ -198,6 +198,130 @@ test('a grip notch stored for the drawer\'s own base plate open edge (prefixed k
   const without = buildBasePlate(project.grid, { ...project, pieceNotches: {} }).toPiece();
 
   assert(JSON.stringify(withNotch.outline) !== JSON.stringify(without.outline), 'the notch stored under the unprefixed key should actually affect the outline');
+});
+
+// wallSmoothEdges: which of a wall's own edges are genuinely un-jointed —
+// the wall's own free/top edge (isFreeEdge:true, unless an onTop lid joints
+// it), OR an END edge whose corner has no perpendicular mate (only
+// reachable via a Drawer's own openSide, since a plain box's editor never
+// lets an outer wall go missing). At most one per wall in every reachable
+// case: a drawer's own sleeve lid is ALWAYS onTop, so its own walls' free
+// edge is NEVER smooth there — only an end edge can be, and only for the
+// wall(s) adjacent to the missing side.
+
+test('wallSmoothEdges: an ordinary wall (no lid) reports its own free top edge, isFreeEdge:true', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+
+  const edges = wallSmoothEdges(run, project.grid, project);
+  assert(edges.length === 1, `expected exactly one smooth edge, got ${edges.length}`);
+  assert(edges[0].compass === 'top' && edges[0].isFreeEdge === true, 'expected the free/top edge, flagged isFreeEdge');
+});
+
+test('wallSmoothEdges: an ordinary wall with an onTop lid has NO smooth edge at all (its top is jointed to the lid, its ends are jointed to their neighbors)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null };
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+
+  assert(wallSmoothEdges(run, project.grid, project).length === 0, 'every edge is jointed here — there should be nowhere to put a grip notch');
+});
+
+test('wallSmoothEdges: a drawer wall adjacent to the open side reports its own END edge (not "top", which is jointed to the sleeve\'s always-onTop lid)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+  const { grid, project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
+  const run = enumerateWallRuns(grid, sleeveProject).find((r) => r.kind === 'h' && r.r === 0); // the sleeve's own top wall
+
+  const edges = wallSmoothEdges(run, grid, sleeveProject);
+  assert(edges.length === 1, `expected exactly one smooth edge, got ${edges.length}`);
+  assert(edges[0].compass === 'right' && edges[0].isFreeEdge === false, `expected the right END edge, got ${JSON.stringify(edges[0])}`);
+});
+
+test('wallSmoothEdges: a drawer wall NOT adjacent to the open side (fully enclosed) has NO smooth edge at all', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'right' };
+  const { grid, project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
+  const run = enumerateWallRuns(grid, sleeveProject).find((r) => r.kind === 'v' && r.c === 0); // the sleeve's own left wall, opposite the opening
+
+  assert(wallSmoothEdges(run, grid, sleeveProject).length === 0, 'this wall is jointed on every side — there should be nowhere to put a grip notch');
+});
+
+test('wallSmoothEdges: a \'v\' run\'s own END-edge compass follows north/south (top/bottom), not the internal left/right naming', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'top' }; // now a 'v' run wall sits adjacent to the opening
+  const { grid, project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
+  const run = enumerateWallRuns(grid, sleeveProject).find((r) => r.kind === 'v' && r.c === 0); // the sleeve's own left wall, its own TOP end now open
+
+  const edges = wallSmoothEdges(run, grid, sleeveProject);
+  assert(edges.length === 1, `expected exactly one smooth edge, got ${edges.length}`);
+  assert(edges[0].compass === 'top', `expected the compass label 'top' (not the internal 'left'/'right' naming) for a 'v' run's own north end, got '${edges[0].compass}'`);
+});
+
+// Grip notches routed to a wall's own END edge (right or left, via the
+// compound `${pieceId}:${compass}` key) — verified against the actual
+// outline, not just derived, exactly like the base-plate/lid work above.
+
+function drawerWallFixture(openSide) {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]);
+  project.outerHeightMm = 40;
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide };
+  const { grid, project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
+  return { grid, project: sleeveProject };
+}
+
+test('a grip notch on a drawer wall\'s own RIGHT end edge cuts INTO the wall (x decreases from the nominal length) across its own width, leaving the rest of that edge flush', () => {
+  const { grid, project } = drawerWallFixture('right');
+  const run = enumerateWallRuns(grid, project).find((r) => r.kind === 'h' && r.r === 0); // the sleeve's own top wall, its own right end open
+  const pieceId = `wall-${run.kind}-${run.aPoint[0]}-${run.aPoint[1]}`;
+  project.pieceNotches = { [`${pieceId}:right`]: [{ widthMm: 10, depthMm: 6, offsetMm: 5, radiusMm: 0 }] };
+
+  const panel = buildWallPiece(run, grid, project);
+  const rightPoints = panel.rightEdge.points();
+  const hasPoint = (u, y) => rightPoints.some((p) => Math.abs(p.u - u) < 1e-6 && Math.abs(p.y - y) < 1e-6);
+
+  assert(hasPoint(5, run.length), 'expected a flush point right where the notch starts');
+  assert(hasPoint(5, run.length - 6), 'expected the notch\'s own near wall, cut 6mm (depthMm) into the wall from its right end');
+  assert(hasPoint(15, run.length - 6), 'expected the notch\'s own far wall, still cut in');
+  assert(hasPoint(15, run.length), 'expected a flush point right where the notch ends');
+  for (const p of rightPoints) {
+    if (p.u < 5 - 1e-6 || p.u > 15 + 1e-6) assertClose(p.y, run.length, 1e-6, `point at u=${p.u}, outside the notch's own span, should stay flush at the nominal length`);
+  }
+});
+
+test('a grip notch on a drawer wall\'s own LEFT end edge cuts INTO the wall (x increases from 0) across its own width, leaving the rest of that edge flush', () => {
+  const { grid, project } = drawerWallFixture('left');
+  const run = enumerateWallRuns(grid, project).find((r) => r.kind === 'h' && r.r === 0); // the sleeve's own top wall, its own left end open
+  const pieceId = `wall-${run.kind}-${run.aPoint[0]}-${run.aPoint[1]}`;
+  project.pieceNotches = { [`${pieceId}:left`]: [{ widthMm: 10, depthMm: 6, offsetMm: 5, radiusMm: 0 }] };
+
+  const panel = buildWallPiece(run, grid, project);
+  const leftPoints = panel.leftEdge.points();
+  const hasPoint = (u, y) => leftPoints.some((p) => Math.abs(p.u - u) < 1e-6 && Math.abs(p.y - y) < 1e-6);
+
+  assert(hasPoint(5, 0), 'expected a flush point right where the notch starts');
+  assert(hasPoint(5, 6), 'expected the notch\'s own near wall, cut 6mm (depthMm) into the wall from its left end');
+  assert(hasPoint(15, 6), 'expected the notch\'s own far wall, still cut in');
+  assert(hasPoint(15, 0), 'expected a flush point right where the notch ends');
+  for (const p of leftPoints) {
+    if (p.u < 5 - 1e-6 || p.u > 15 + 1e-6) assertClose(p.y, 0, 1e-6, `point at u=${p.u}, outside the notch's own span, should stay flush at 0`);
+  }
+});
+
+test('a grip notch stored under the plain pieceId key no longer applies to a drawer wall\'s topEdge (always jointed to the sleeve\'s own onTop lid there) — it must not carve into the teeth', () => {
+  const { grid, project } = drawerWallFixture('right');
+  const run = enumerateWallRuns(grid, project).find((r) => r.kind === 'h' && r.r === 0);
+  const pieceId = `wall-${run.kind}-${run.aPoint[0]}-${run.aPoint[1]}`;
+  project.pieceNotches = { [pieceId]: [{ widthMm: 10, depthMm: 6, offsetMm: 5, radiusMm: 0 }] };
+
+  const withStaleNotch = buildWallPiece(run, grid, project).toPiece();
+  const without = buildWallPiece(run, grid, { ...project, pieceNotches: {} }).toPiece();
+  assert(JSON.stringify(withStaleNotch.outline) === JSON.stringify(without.outline), 'a notch under the plain key should no longer affect this wall\'s outline at all, since its topEdge is jointed, not free');
 });
 
 run();
