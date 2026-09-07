@@ -6,10 +6,11 @@
 // found post-cutover, exercising Assembly's own exported builders
 // directly.
 import { test, assert, assertClose, run } from './testHarness.js';
-import { createGrid, setSegmentHeight } from '../model/Grid.js';
+import { createGrid, setSegmentHeight, setSegmentPresent } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { enumerateWallRuns, heightProfile, heightAt } from '../model/GridQuery.js';
-import { buildWallPiece, buildLid } from '../geometry/oo/Assembly.js';
+import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt } from '../model/GridQuery.js';
+import { buildWallPiece, buildLid, buildBasePlate } from '../geometry/oo/Assembly.js';
+import { SmoothEdge } from '../geometry/oo/SmoothEdge.js';
 
 test('a mortise hole at a T junction is capped by the through-piece\'s own LOCAL height, not just the stem\'s own height — a stem taller than a locally-reduced through-piece must not poke a hole past its edge', () => {
   const project = createDefaultProject();
@@ -103,6 +104,51 @@ test('an onTop lid never forces the wall\'s own physical tip to the full protrud
 
   const tipValue = wallPanel.topEdge.intervalValue(0, 0, 0.001);
   assertClose(tipValue, 40, 1e-6, 'the physical tip\'s own natural phase here is \'space\' — it must stay flush at the nominal height (40), not be forced up to the finger height (43)');
+});
+
+// FlatPanel (base plate/lid) open sides: an open side (no outer wall run,
+// e.g. a drawer sleeve's own openSide) used to be represented as `null` in
+// buildBoundarySides — no Edge object at all, so a grip notch had nowhere
+// to anchor. It should now be a real (un-toothed) SmoothEdge, exactly like
+// a wall's own free/top edge, WITHOUT changing the default (no-notch)
+// geometry at all.
+
+function openRightBasePlateFixture() {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]); // single cell
+  project.grid = setSegmentPresent(project.grid, 'v', 1, 0, false); // remove the right outer wall
+  project.outerThicknessMm = 3;
+  return project;
+}
+
+test('a base plate\'s open side (no outer wall run there) is a real SmoothEdge, not null, so a grip notch has somewhere to anchor', () => {
+  const project = openRightBasePlateFixture();
+  const basePlate = buildBasePlate(project.grid, project);
+
+  assert(basePlate.sides.right !== null, 'the open right side should no longer be entirely absent');
+  assert(basePlate.sides.right.edge instanceof SmoothEdge, `expected a SmoothEdge on the open side, got ${basePlate.sides.right.edge && basePlate.sides.right.edge.constructor.name}`);
+  assert(basePlate.sides.top !== null && basePlate.sides.top.edge.constructor.name === 'FingerEdge', 'sanity check: the top side still has its own wall, so it should stay a FingerEdge, unaffected by this change');
+});
+
+test('a base plate\'s open side, with no notch configured, produces the exact same outline as the old null-side straight line — no accidental geometry shift', () => {
+  const project = openRightBasePlateFixture();
+  const piece = buildBasePlate(project.grid, project).toPiece();
+
+  const widthMm = xAt(project.grid, project, project.grid.sx.length);
+  const depthMm = yAt(project.grid, project, project.grid.sy.length);
+  // Same corner formula as OuterBoundary.outerBoundaryOutline: 0 margin on
+  // the open (right) side, the outer margin (outerThicknessMm) on every
+  // side that still has a real wall (top/bottom/left here).
+  const marginMm = project.outerThicknessMm;
+  const topRightExpected = { x: widthMm, y: -marginMm };
+  const bottomRightExpected = { x: widthMm, y: depthMm + marginMm };
+
+  const maxX = Math.max(...piece.outline.map((p) => p.x));
+  assertClose(maxX, widthMm, 1e-6, 'the open right side must stay flush at the nominal width, with no protruding/receding margin, exactly like the old null-side straight line');
+
+  const nearCorner = (target) => piece.outline.some((p) => Math.abs(p.x - target.x) < 1e-6 && Math.abs(p.y - target.y) < 1e-6);
+  assert(nearCorner(topRightExpected), `expected an outline point at the top-right corner ${JSON.stringify(topRightExpected)}`);
+  assert(nearCorner(bottomRightExpected), `expected an outline point at the bottom-right corner ${JSON.stringify(bottomRightExpected)}`);
 });
 
 run();

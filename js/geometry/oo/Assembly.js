@@ -212,22 +212,44 @@ function buildBoundarySides(grid, project, protrude) {
   const marginMm = project.outerThicknessMm;
 
   function side(run) {
-    if (!run) return null;
     return new FingerEdge(outerBoundarySide({
       lengthMm: run.length, fingerJoint: project.fingerJoint, startWithFinger: run.kind === 'v',
       marginMm, protrude, exclusions: junctionExclusionRanges(run, grid, project),
     }));
   }
 
+  // An open side (no outer wall run there — e.g. a drawer sleeve's own
+  // openSide) used to be represented as `null`: no Edge object at all, so
+  // a grip notch had nowhere to anchor (unlike a wall's own free/top edge,
+  // which is already a real SmoothEdge — see buildWallPiece). Giving it a
+  // genuine SmoothEdge instead — flush at value 0 for its whole length, no
+  // fragments (yet) — reproduces the exact same straight corner-to-corner
+  // line as before (value 0 contributes no offset regardless of `inward`),
+  // while leaving a real splice point for a future notch fragment.
+  function openSide(lengthMm) {
+    return new SmoothEdge({ lengthMm, heightProfile: [{ uStart: 0, uEnd: lengthMm, height: 0 }] });
+  }
+
   const sign = protrude ? -1 : 1;
   const sides = {
-    top: topRun ? { edge: side(topRun), axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: sign } } : null,
-    right: rightRun ? { edge: side(rightRun), axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: -sign, y: 0 } } : null,
-    bottom: bottomRun ? { edge: side(bottomRun), axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: -sign } } : null,
-    left: leftRun ? { edge: side(leftRun), axisPoint: (u) => ({ x: 0, y: u }), inward: { x: sign, y: 0 } } : null,
+    top: { edge: topRun ? side(topRun) : openSide(widthMm), axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: sign } },
+    right: { edge: rightRun ? side(rightRun) : openSide(depthMm), axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: -sign, y: 0 } },
+    bottom: { edge: bottomRun ? side(bottomRun) : openSide(widthMm), axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: -sign } },
+    left: { edge: leftRun ? side(leftRun) : openSide(depthMm), axisPoint: (u) => ({ x: 0, y: u }), inward: { x: sign, y: 0 } },
   };
+  // Margin stays 0 on an open side — a plain corner-to-corner line, same as
+  // when it was `null` — only a side with a real wall run gets the outer
+  // margin (the finger comb needs room to protrude/recede into), and only
+  // when NOT protruding (a recessed lid's tabs poke out from 0, they never
+  // need their own corner margin either — same `protrude ? 0 : marginMm`
+  // this used to apply uniformly to every side before this change).
   const margin = protrude ? 0 : marginMm;
-  const margins = { top: margin, right: margin, bottom: margin, left: margin };
+  const margins = {
+    top: topRun ? margin : 0,
+    right: rightRun ? margin : 0,
+    bottom: bottomRun ? margin : 0,
+    left: leftRun ? margin : 0,
+  };
   return { sides, widthMm, depthMm, margins };
 }
 
