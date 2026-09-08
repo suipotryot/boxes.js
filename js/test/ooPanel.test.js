@@ -6,11 +6,18 @@
 // extensively during migration (see js/test/ooEquivalence.test.js's own
 // history); once the old pipeline was deleted at cutover, that comparison
 // lost its oracle and was retired along with it.
+//
+// The flat-mode (boundary) tests below were originally verified live
+// against OuterBoundary.outerBoundaryOutline (the now-deleted duplicate
+// algorithm this unification replaced) — once equivalence was confirmed,
+// the expected outlines were frozen here as plain fixture values instead
+// of keeping that duplicate algorithm alive forever just to serve as a
+// permanent oracle.
 import { test, assert, run } from './testHarness.js';
 import { Panel } from '../geometry/oo/Panel.js';
 import { SmoothEdge } from '../geometry/oo/SmoothEdge.js';
 import { FingerEdge } from '../geometry/oo/FingerEdge.js';
-import { outerBoundarySide, outerBoundaryOutline } from '../geometry/oo/OuterBoundary.js';
+import { outerBoundarySide } from '../geometry/oo/OuterBoundary.js';
 
 test('toPiece(): produces the same {id,kind,thicknessGroup,thicknessMm,outline,holes} shape existing downstream code expects', () => {
   const bottomEdge = new FingerEdge({ lengthMm: 100, fingerJoint: { fingerMm: 20, spaceMm: 20, marginMm: 5 }, startWithFinger: true, mateThicknessMm: 3, baselineMm: 0, signMm: -1 });
@@ -38,7 +45,7 @@ test('Panel(): boundary defaults to null (wall mode) when not given', () => {
   assert(panel.boundary === null, `expected boundary to default to null (wall mode), got ${JSON.stringify(panel.boundary)}`);
 });
 
-test('Panel(): flat mode (boundary set, all 4 sides present) matches outerBoundaryOutline for the same geometry, via the compass->field table (top->bottomEdge, bottom->topEdge)', () => {
+test('Panel(): flat mode (boundary set, all 4 sides present) matches the known-correct outline, via the compass->field table (top->bottomEdge, bottom->topEdge)', () => {
   const widthMm = 100, depthMm = 80, marginMm = 3;
   const fingerJoint = { fingerMm: 20, spaceMm: 20, marginMm: 5 };
 
@@ -47,22 +54,17 @@ test('Panel(): flat mode (boundary set, all 4 sides present) matches outerBounda
   const bottomEdgeCfg = new FingerEdge(outerBoundarySide({ lengthMm: widthMm, fingerJoint, startWithFinger: false, marginMm, protrude: false }));
   const leftEdgeCfg = new FingerEdge(outerBoundarySide({ lengthMm: depthMm, fingerJoint, startWithFinger: true, marginMm, protrude: false }));
 
-  const sides = {
-    top: { edge: topEdgeCfg, axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: 1 } },
-    right: { edge: rightEdgeCfg, axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: -1, y: 0 } },
-    bottom: { edge: bottomEdgeCfg, axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: -1 } },
-    left: { edge: leftEdgeCfg, axisPoint: (u) => ({ x: 0, y: u }), inward: { x: 1, y: 0 } },
-  };
-  const margins = { top: marginMm, right: marginMm, bottom: marginMm, left: marginMm };
-  const oracle = outerBoundaryOutline(sides, widthMm, depthMm, margins);
-
   const panel = new Panel({
     id: 'base-plate', kind: 'basePlate', thicknessGroup: 'outer', thicknessMm: 3,
     bottomEdge: topEdgeCfg, rightEdge: rightEdgeCfg, topEdge: bottomEdgeCfg, leftEdge: leftEdgeCfg,
     boundary: { widthMm, depthMm, marginMm, protrude: false, openSides: { top: false, right: false, bottom: false, left: false } },
   });
 
-  assert(JSON.stringify(panel.outline()) === JSON.stringify(oracle), `expected the flat-mode outline to match outerBoundaryOutline exactly, got ${JSON.stringify(panel.outline())} vs oracle ${JSON.stringify(oracle)}`);
+  // Frozen from this exact scenario, verified live against the (now-deleted)
+  // OuterBoundary.outerBoundaryOutline before this refactor removed it.
+  const expected = [{ x: 20, y: -3 }, { x: 40, y: -3 }, { x: 40, y: 0 }, { x: 60, y: 0 }, { x: 60, y: -3 }, { x: 80, y: -3 }, { x: 103, y: -3 }, { x: 103, y: 10 }, { x: 100, y: 10 }, { x: 100, y: 30 }, { x: 103, y: 30 }, { x: 103, y: 50 }, { x: 100, y: 50 }, { x: 100, y: 70 }, { x: 103, y: 70 }, { x: 103, y: 83 }, { x: 80, y: 83 }, { x: 60, y: 83 }, { x: 60, y: 80 }, { x: 40, y: 80 }, { x: 40, y: 83 }, { x: 20, y: 83 }, { x: -3, y: 83 }, { x: -3, y: 70 }, { x: 0, y: 70 }, { x: 0, y: 50 }, { x: -3, y: 50 }, { x: -3, y: 30 }, { x: 0, y: 30 }, { x: 0, y: 10 }, { x: -3, y: 10 }, { x: -3, y: -3 }];
+
+  assert(JSON.stringify(panel.outline()) === JSON.stringify(expected), `expected the flat-mode outline to match the frozen fixture, got ${JSON.stringify(panel.outline())}`);
 });
 
 test('Panel(): flat mode with openSides.right=true reproduces the exact same corner geometry as the old null/open-side handling — no accidental shift', () => {
@@ -74,22 +76,18 @@ test('Panel(): flat mode with openSides.right=true reproduces the exact same cor
   const bottomEdgeCfg = new FingerEdge(outerBoundarySide({ lengthMm: widthMm, fingerJoint, startWithFinger: false, marginMm, protrude: false }));
   const leftEdgeCfg = new FingerEdge(outerBoundarySide({ lengthMm: depthMm, fingerJoint, startWithFinger: true, marginMm, protrude: false }));
 
-  const sides = {
-    top: { edge: topEdgeCfg, axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: 1 } },
-    right: { edge: rightEdgeCfg, axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: 1, y: 0 } }, // flipped inward: open side
-    bottom: { edge: bottomEdgeCfg, axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: -1 } },
-    left: { edge: leftEdgeCfg, axisPoint: (u) => ({ x: 0, y: u }), inward: { x: 1, y: 0 } },
-  };
-  const margins = { top: marginMm, right: 0, bottom: marginMm, left: marginMm };
-  const oracle = outerBoundaryOutline(sides, widthMm, depthMm, margins);
-
   const panel = new Panel({
     id: 'base-plate', kind: 'basePlate', thicknessGroup: 'outer', thicknessMm: 3,
     bottomEdge: topEdgeCfg, rightEdge: rightEdgeCfg, topEdge: bottomEdgeCfg, leftEdge: leftEdgeCfg,
     boundary: { widthMm, depthMm, marginMm, protrude: false, openSides: { top: false, right: true, bottom: false, left: false } },
   });
 
-  assert(JSON.stringify(panel.outline()) === JSON.stringify(oracle), `expected the open-right-side outline to match the oracle exactly, got ${JSON.stringify(panel.outline())} vs oracle ${JSON.stringify(oracle)}`);
+  // Frozen from this exact scenario, verified live against the (now-deleted)
+  // OuterBoundary.outerBoundaryOutline before this refactor removed it —
+  // the right side stays flush at the nominal width (x=100), no margin.
+  const expected = [{ x: 20, y: -3 }, { x: 40, y: -3 }, { x: 40, y: 0 }, { x: 60, y: 0 }, { x: 60, y: -3 }, { x: 80, y: -3 }, { x: 100, y: -3 }, { x: 100, y: 83 }, { x: 80, y: 83 }, { x: 60, y: 83 }, { x: 60, y: 80 }, { x: 40, y: 80 }, { x: 40, y: 83 }, { x: 20, y: 83 }, { x: -3, y: 83 }, { x: -3, y: 70 }, { x: 0, y: 70 }, { x: 0, y: 50 }, { x: -3, y: 50 }, { x: -3, y: 30 }, { x: 0, y: 30 }, { x: 0, y: 10 }, { x: -3, y: 10 }, { x: -3, y: -3 }];
+
+  assert(JSON.stringify(panel.outline()) === JSON.stringify(expected), `expected the open-right-side outline to match the frozen fixture, got ${JSON.stringify(panel.outline())}`);
 });
 
 test('Panel(): a grip notch on an open right side cuts INTO the panel (x decreases below the nominal width), not outward — the inward vector for an open side must be the flip of a real one, never derived from edge===null', () => {
@@ -118,7 +116,7 @@ test('Panel(): a grip notch on an open right side cuts INTO the panel (x decreas
   assert(!nearPoint({ x: widthMm + 8, y: 30 }), 'the notch must never cut OUTWARD past the nominal width');
 });
 
-test('Panel(): flat mode with protrude=true (recessed lid) matches outerBoundaryOutline for the same geometry, no special-casing needed', () => {
+test('Panel(): flat mode with protrude=true (recessed lid) matches the known-correct outline, no special-casing needed', () => {
   const widthMm = 100, depthMm = 80, marginMm = 3;
   const fingerJoint = { fingerMm: 20, spaceMm: 20, marginMm: 5 };
 
@@ -127,24 +125,18 @@ test('Panel(): flat mode with protrude=true (recessed lid) matches outerBoundary
   const bottomEdgeCfg = new FingerEdge(outerBoundarySide({ lengthMm: widthMm, fingerJoint, startWithFinger: false, marginMm, protrude: true }));
   const leftEdgeCfg = new FingerEdge(outerBoundarySide({ lengthMm: depthMm, fingerJoint, startWithFinger: true, marginMm, protrude: true }));
 
-  const sign = -1; // protrude:true
-  const sides = {
-    top: { edge: topEdgeCfg, axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: sign } },
-    right: { edge: rightEdgeCfg, axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: -sign, y: 0 } },
-    bottom: { edge: bottomEdgeCfg, axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: -sign } },
-    left: { edge: leftEdgeCfg, axisPoint: (u) => ({ x: 0, y: u }), inward: { x: sign, y: 0 } },
-  };
-  // protrude:true => margin is 0 on every side (see buildBoundarySides: `protrude ? 0 : marginMm`).
-  const margins = { top: 0, right: 0, bottom: 0, left: 0 };
-  const oracle = outerBoundaryOutline(sides, widthMm, depthMm, margins);
-
   const panel = new Panel({
     id: 'lid', kind: 'lid', thicknessGroup: 'outer', thicknessMm: 3,
     bottomEdge: topEdgeCfg, rightEdge: rightEdgeCfg, topEdge: bottomEdgeCfg, leftEdge: leftEdgeCfg,
     boundary: { widthMm, depthMm, marginMm, protrude: true, openSides: { top: false, right: false, bottom: false, left: false } },
   });
 
-  assert(JSON.stringify(panel.outline()) === JSON.stringify(oracle), `expected the protrude:true outline to match the oracle exactly, got ${JSON.stringify(panel.outline())} vs oracle ${JSON.stringify(oracle)}`);
+  // Frozen from this exact scenario, verified live against the (now-deleted)
+  // OuterBoundary.outerBoundaryOutline before this refactor removed it —
+  // margin is 0 on every side here (protrude:true), tabs poke INWARD instead.
+  const expected = [{ x: 20, y: 0 }, { x: 40, y: 0 }, { x: 40, y: -3 }, { x: 60, y: -3 }, { x: 60, y: 0 }, { x: 80, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 10 }, { x: 103, y: 10 }, { x: 103, y: 30 }, { x: 100, y: 30 }, { x: 100, y: 50 }, { x: 103, y: 50 }, { x: 103, y: 70 }, { x: 100, y: 70 }, { x: 100, y: 80 }, { x: 80, y: 80 }, { x: 60, y: 80 }, { x: 60, y: 83 }, { x: 40, y: 83 }, { x: 40, y: 80 }, { x: 20, y: 80 }, { x: 0, y: 80 }, { x: 0, y: 70 }, { x: -3, y: 70 }, { x: -3, y: 50 }, { x: 0, y: 50 }, { x: 0, y: 30 }, { x: -3, y: 30 }, { x: -3, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 0 }];
+
+  assert(JSON.stringify(panel.outline()) === JSON.stringify(expected), `expected the protrude:true outline to match the frozen fixture, got ${JSON.stringify(panel.outline())}`);
 });
 
 test('Panel(): wall mode tolerates a null side edge without throwing — the side is simply omitted from the assembled polygon', () => {

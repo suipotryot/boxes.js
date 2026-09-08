@@ -80,7 +80,11 @@ test('an onTop lid: the wall\'s topEdge finger phase exactly matches the Lid\'s 
   const wallTopSegments = buildWallPiece(topRun, project.grid, project).topEdge.segments();
 
   const lid = buildLid(project.grid, project);
-  const lidTopSegments = lid.sides.top.edge.segments();
+  // lid's own compass-top (north) side lives in the `bottomEdge` field, not
+  // `topEdge` — see Panel.js's own COMPASS_TO_FIELD comment: a flat piece's
+  // north side occupies the SAME assembly position as a wall's own socle
+  // edge. This is intentional, not a bug — do not "fix" it to lid.topEdge.
+  const lidTopSegments = lid.bottomEdge.segments();
 
   assert(wallTopSegments.length === lidTopSegments.length, `expected the same comb tiling on both sides of the joint, got ${wallTopSegments.length} vs ${lidTopSegments.length} segments`);
   for (let i = 0; i < wallTopSegments.length; i++) {
@@ -107,12 +111,12 @@ test('an onTop lid never forces the wall\'s own physical tip to the full protrud
   assertClose(tipValue, 40, 1e-6, 'the physical tip\'s own natural phase here is \'space\' — it must stay flush at the nominal height (40), not be forced up to the finger height (43)');
 });
 
-// FlatPanel (base plate/lid) open sides: an open side (no outer wall run,
-// e.g. a drawer sleeve's own openSide) used to be represented as `null` in
-// buildBoundarySides — no Edge object at all, so a grip notch had nowhere
-// to anchor. It should now be a real (un-toothed) SmoothEdge, exactly like
-// a wall's own free/top edge, WITHOUT changing the default (no-notch)
-// geometry at all.
+// Panel in flat/boundary mode (base plate/lid) open sides: an open side (no
+// outer wall run, e.g. a drawer sleeve's own openSide) used to be
+// represented as `null` in buildBoundarySides — no Edge object at all, so a
+// grip notch had nowhere to anchor. It should now be a real (un-toothed)
+// SmoothEdge, exactly like a wall's own free/top edge, WITHOUT changing the
+// default (no-notch) geometry at all.
 
 function openRightBasePlateFixture() {
   const project = createDefaultProject();
@@ -126,9 +130,30 @@ test('a base plate\'s open side (no outer wall run there) is a real SmoothEdge, 
   const project = openRightBasePlateFixture();
   const basePlate = buildBasePlate(project.grid, project);
 
-  assert(basePlate.sides.right !== null, 'the open right side should no longer be entirely absent');
-  assert(basePlate.sides.right.edge instanceof SmoothEdge, `expected a SmoothEdge on the open side, got ${basePlate.sides.right.edge && basePlate.sides.right.edge.constructor.name}`);
-  assert(basePlate.sides.top !== null && basePlate.sides.top.edge.constructor.name === 'FingerEdge', 'sanity check: the top side still has its own wall, so it should stay a FingerEdge, unaffected by this change');
+  // compass "right" -> Panel's own `rightEdge` field (no inversion there,
+  // unlike top/bottom -> bottomEdge/topEdge — see Panel.js's own
+  // COMPASS_TO_FIELD comment).
+  assert(basePlate.rightEdge != null, 'the open right side should no longer be entirely absent');
+  assert(basePlate.rightEdge instanceof SmoothEdge, `expected a SmoothEdge on the open side, got ${basePlate.rightEdge && basePlate.rightEdge.constructor.name}`);
+  assert(basePlate.boundary.openSides.right === true, 'sanity check: the open-side flag must be set explicitly, never derived from the edge alone');
+  // compass "top" (the side that still has its own wall here) -> Panel's
+  // own `bottomEdge` field, not `topEdge` — intentional inversion, see above.
+  assert(basePlate.bottomEdge != null && basePlate.bottomEdge.constructor.name === 'FingerEdge', 'sanity check: the top side still has its own wall, so it should stay a FingerEdge, unaffected by this change');
+});
+
+test('D1 lock: a base plate with ONLY its own compass-north wall present populates bottomEdge (never topEdge) — this is intentional, not a bug, do not "fix" it', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]); // single cell
+  project.outerThicknessMm = 3;
+  project.grid = setSegmentPresent(project.grid, 'v', 0, 0, false); // remove west (left)
+  project.grid = setSegmentPresent(project.grid, 'v', 1, 0, false); // remove east (right)
+  project.grid = setSegmentPresent(project.grid, 'h', 0, 1, false); // remove south (bottom)
+  // Only the north (compass-top) wall run is left present.
+
+  const basePlate = buildBasePlate(project.grid, project);
+  assert(basePlate.bottomEdge.constructor.name === 'FingerEdge', 'the only real wall run (north) must land in bottomEdge, per Panel.js\'s own COMPASS_TO_FIELD table');
+  assert(basePlate.topEdge instanceof SmoothEdge, 'topEdge (compass-south) has no wall run here, so it must be the open-side SmoothEdge, not the real one');
+  assert(basePlate.boundary.openSides.top === false && basePlate.boundary.openSides.bottom === true, 'openSides must track the REAL compass side, unaffected by the field-name inversion');
 });
 
 test('a base plate\'s open side, with no notch configured, produces the exact same outline as the old null-side straight line — no accidental geometry shift', () => {
@@ -137,9 +162,9 @@ test('a base plate\'s open side, with no notch configured, produces the exact sa
 
   const widthMm = xAt(project.grid, project, project.grid.sx.length);
   const depthMm = yAt(project.grid, project, project.grid.sy.length);
-  // Same corner formula as OuterBoundary.outerBoundaryOutline: 0 margin on
-  // the open (right) side, the outer margin (outerThicknessMm) on every
-  // side that still has a real wall (top/bottom/left here).
+  // Same corner formula as Panel.flatBoundaryOutline: 0 margin on the open
+  // (right) side, the outer margin (outerThicknessMm) on every side that
+  // still has a real wall (top/bottom/left here).
   const marginMm = project.outerThicknessMm;
   const topRightExpected = { x: widthMm, y: -marginMm };
   const bottomRightExpected = { x: widthMm, y: depthMm + marginMm };
@@ -164,10 +189,10 @@ test('a grip notch on a base plate\'s open right edge cuts INTO the panel (x dec
 
   const widthMm = xAt(project.grid, project, project.grid.sx.length);
   // Directly on the right edge's own points() (its local u axis runs along
-  // y — see buildBoundarySides' own right-side axisPoint) rather than the
-  // full assembled outline, which also contains the left edge's own points
-  // over the very same y range and would otherwise be ambiguous.
-  const rightPoints = basePlate.sides.right.edge.points();
+  // y — see Panel.flatBoundaryOutline's own right-side axisPoint) rather
+  // than the full assembled outline, which also contains the left edge's
+  // own points over the very same y range and would otherwise be ambiguous.
+  const rightPoints = basePlate.rightEdge.points();
   const hasPoint = (u, y) => rightPoints.some((p) => Math.abs(p.u - u) < 1e-6 && Math.abs(p.y - y) < 1e-6);
 
   assert(hasPoint(30, 0), 'expected a flush point (y=0) right where the notch starts (the jump-in wall)');
