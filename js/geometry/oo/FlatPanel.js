@@ -1,5 +1,6 @@
-// The box's flat W×D piece — shared shape behind BasePlate (bottom) and Lid
-// (top, when enabled): a Panel (see Panel.js) whose 4 inherited edges
+// The box's flat W×D piece — shared shape behind the base plate (bottom)
+// and the lid (top, when enabled), built directly by Assembly.js's own
+// buildBasePlate/buildLid: a Panel (see Panel.js) whose 4 inherited edges
 // (bottomEdge/rightEdge/topEdge/leftEdge) represent the compass sides of a
 // rectangular boundary rather than a wall's own socle/free/end roles — see
 // COMPASS_TO_FIELD below for the translation.
