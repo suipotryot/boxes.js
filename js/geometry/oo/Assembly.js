@@ -1,6 +1,7 @@
 // Shared construction logic behind Box and Drawer: reads a Grid + Project
-// and builds every Panel/Divider + the BasePlate/Lid — the OO replacement
-// for PieceFactory.computePieces' orchestration plus the now-retired
+// and builds every Panel/Divider + the BasePlatePanel/LidPanel (both
+// FlatPanel — see FlatPanel.js) — the OO replacement for
+// PieceFactory.computePieces' orchestration plus the now-retired
 // PanelBuilder/BasePlateBuilder/LidBuilder/DrawerBuilder's own per-piece
 // decisions.
 //
@@ -23,8 +24,8 @@ import { Panel } from './Panel.js';
 import { Divider } from './Divider.js';
 import { HalfLapNotch } from './HalfLapNotch.js';
 import { MortiseHole } from './MortiseHole.js';
-import { BasePlate } from './BasePlate.js';
-import { Lid } from './Lid.js';
+import { BasePlatePanel } from './BasePlatePanel.js';
+import { LidPanel } from './LidPanel.js';
 import { outerBoundarySide } from './OuterBoundary.js';
 
 /** Whether/how `run` joints with a fixed lid — a lid only ever joints with
@@ -218,7 +219,7 @@ export function buildWallPiece(run, grid, project) {
   // now-retired "flush" case used to. Deliberately no forceEndsToFinger
   // here, matching bottomEdge (which never used it either): the Lid's own
   // corner points are already snapped independently of either side's comb
-  // phase (see outerBoundaryOutline's topLeft/topRight etc.) — forcing
+  // phase (see FlatPanel.outline()'s topLeft/topRight etc.) — forcing
   // this edge's own physical tips to 'finger' regardless of their real
   // phase would protrude the wall's corner into space the Lid's own
   // (independently-snapped) corner never receded to make room for,
@@ -290,10 +291,14 @@ function flatGripFragments(pieceId, compass, project) {
     .map((notch) => notch.toEdgeFragment(0));
 }
 
-/** The 4 compass sides + margins for BasePlate/Lid's own outerBoundarySide
- *  assembly — shared between the two, `protrude` is the only thing that
- *  differs (an onTop lid is geometrically the base plate's mirror image). */
-function buildBoundarySides(grid, project, protrude, pieceId) {
+/** The 4 boundary edges + FlatPanel descriptor for a base plate/lid's own
+ *  outerBoundarySide assembly — shared between the two, `protrude` is the
+ *  only thing that differs (an onTop lid is geometrically the base plate's
+ *  mirror image). Returned in FlatPanel's own field names, via its
+ *  compass->field table (top->bottomEdge, bottom->topEdge — see
+ *  FlatPanel.js's own COMPASS_TO_FIELD comment for why), so the caller can
+ *  feed this straight into `new FlatPanel(...)`. */
+function buildBoundaryEdges(grid, project, protrude, pieceId) {
   const cols = grid.sx.length, rows = grid.sy.length;
   const widthMm = xAt(grid, project, cols);
   const depthMm = yAt(grid, project, rows);
@@ -318,56 +323,34 @@ function buildBoundarySides(grid, project, protrude, pieceId) {
   // which is already a real SmoothEdge — see buildWallPiece). Giving it a
   // genuine SmoothEdge instead — flush at value 0 for its whole length —
   // reproduces the exact same straight corner-to-corner line as before when
-  // there's no notch (value 0 contributes no offset regardless of `inward`),
-  // while letting a grip-notch fragment splice in a real cut.
-  //
-  // `inward` for THIS branch only is the FLIPPED compass vector (the
-  // negation of what a FingerEdge on the same side would use): a
-  // FingerEdge's `inward` points from the nominal boundary INTO the
-  // compartment because its own baseValueAt is a small protrusion toward a
-  // mate sitting just inside that boundary; flatGripFragments instead calls
-  // toEdgeFragment(0), whose `floor` comes out negative (0 - depthMm), so
-  // flipping `inward` here is what makes that negative floor still read as
-  // "depthMm further INTO the panel" rather than depthMm further outward
-  // past its nominal edge. Verified directly (not just derived) by
-  // ooAssembly.test.js's flat-edge grip-notch fixture.
+  // there's no notch, while letting a grip-notch fragment splice in a real
+  // cut. FlatPanel.outline() derives the correct (flipped) inward vector
+  // for this side on its own from `openSides`, so this function itself no
+  // longer needs to compute axisPoint/inward/margin — only the raw Edge and
+  // the `openSides` flag FlatPanel needs to tell it apart from a real side
+  // sharing the same 0 margin (see FlatPanel.js's own comment on why that
+  // flag can never be derived from the edge alone).
   function openSide(lengthMm, fragments) {
     return new SmoothEdge({ lengthMm, heightProfile: [{ uStart: 0, uEnd: lengthMm, height: 0 }], fragments });
   }
 
-  const sign = protrude ? -1 : 1;
-  const sides = {
-    top: topRun
-      ? { edge: side(topRun), axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: sign } }
-      : { edge: openSide(widthMm, flatGripFragments(pieceId, 'top', project)), axisPoint: (u) => ({ x: u, y: 0 }), inward: { x: 0, y: -sign } },
-    right: rightRun
-      ? { edge: side(rightRun), axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: -sign, y: 0 } }
-      : { edge: openSide(depthMm, flatGripFragments(pieceId, 'right', project)), axisPoint: (u) => ({ x: widthMm, y: u }), inward: { x: sign, y: 0 } },
-    bottom: bottomRun
-      ? { edge: side(bottomRun), axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: -sign } }
-      : { edge: openSide(widthMm, flatGripFragments(pieceId, 'bottom', project)), axisPoint: (u) => ({ x: u, y: depthMm }), inward: { x: 0, y: sign } },
-    left: leftRun
-      ? { edge: side(leftRun), axisPoint: (u) => ({ x: 0, y: u }), inward: { x: sign, y: 0 } }
-      : { edge: openSide(depthMm, flatGripFragments(pieceId, 'left', project)), axisPoint: (u) => ({ x: 0, y: u }), inward: { x: -sign, y: 0 } },
+  return {
+    bottomEdge: topRun ? side(topRun) : openSide(widthMm, flatGripFragments(pieceId, 'top', project)),
+    rightEdge: rightRun ? side(rightRun) : openSide(depthMm, flatGripFragments(pieceId, 'right', project)),
+    topEdge: bottomRun ? side(bottomRun) : openSide(widthMm, flatGripFragments(pieceId, 'bottom', project)),
+    leftEdge: leftRun ? side(leftRun) : openSide(depthMm, flatGripFragments(pieceId, 'left', project)),
+    widthMm, depthMm, marginMm, protrude,
+    openSides: { top: !topRun, right: !rightRun, bottom: !bottomRun, left: !leftRun },
   };
-  // Margin stays 0 on an open side — a plain corner-to-corner line, same as
-  // when it was `null` — only a side with a real wall run gets the outer
-  // margin (the finger comb needs room to protrude/recede into), and only
-  // when NOT protruding (a recessed lid's tabs poke out from 0, they never
-  // need their own corner margin either — same `protrude ? 0 : marginMm`
-  // this used to apply uniformly to every side before this change).
-  const margin = protrude ? 0 : marginMm;
-  const margins = {
-    top: topRun ? margin : 0,
-    right: rightRun ? margin : 0,
-    bottom: bottomRun ? margin : 0,
-    left: leftRun ? margin : 0,
-  };
-  return { sides, widthMm, depthMm, margins };
 }
 
+// The box's floor (Socle in the plan/design discussion): a BasePlatePanel
+// whose outer boundary always uses protrude:false, plus one MortiseHole per
+// finger segment of each interior Divider's own bottom comb (never touching
+// the boundary — always fully interior, so unlike the boundary's own
+// notches these are safe as independent closed holes).
 export function buildBasePlate(grid, project) {
-  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, false, 'base-plate');
+  const { bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides } = buildBoundaryEdges(grid, project, false, 'base-plate');
   const runs = enumerateWallRuns(grid, project);
   const innerRuns = runs.filter((run) => !isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
 
@@ -379,12 +362,21 @@ export function buildBasePlate(grid, project) {
       : MortiseHole.manyFromFingerSegments(segs, { axis: 'x', centerMm: yAt(grid, project, run.r), thicknessMm, offsetMm: xAt(grid, project, run.cStart) });
   });
 
-  return new BasePlate({
-    thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins,
+  return new BasePlatePanel({
+    thicknessMm: project.outerThicknessMm,
+    bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
     holes: [...holes, ...Hole.listFor(project.pieceHoles, 'base-plate')],
   });
 }
 
+// The box's fixed lid (Plafond in the plan/design discussion): a LidPanel,
+// either mode: 'onTop' (protrude:false, mirrors the base plate exactly —
+// the walls ADD fingers to meet it, see Assembly.buildWallPiece) or mode:
+// 'recessed' (protrude:true, its own tabs poke outward into holes cut
+// mid-height into the walls). Never gets divider holes — a lid only ever
+// joints with the OUTER walls (GridQuery.validateLid guarantees a recessed
+// lid's own bottom face clears every interior divider, so there's
+// structurally nothing for it to joint against there).
 export function buildLid(grid, project) {
   const { lid } = project;
   const mode = lidMode(project);
@@ -392,10 +384,11 @@ export function buildLid(grid, project) {
   // Recessed: the lid's own tabs poke OUT into the walls' mid-height holes
   // (protrude:true). onTop: the lid mirrors the base plate exactly
   // (protrude:false) — the walls' own added fingers (buildWallPiece) do
-  // the same job bottomEdge/BasePlate already do below.
-  const { sides, widthMm, depthMm, margins } = buildBoundarySides(grid, project, mode === 'recessed', 'lid');
-  return new Lid({
-    thicknessMm: project.outerThicknessMm, sides, widthMm, depthMm, margins,
+  // the same job bottomEdge/base-plate already do above.
+  const { bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides } = buildBoundaryEdges(grid, project, mode === 'recessed', 'lid');
+  return new LidPanel({
+    thicknessMm: project.outerThicknessMm,
+    bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
     holes: Hole.listFor(project.pieceHoles, 'lid'),
   });
 }

@@ -2,6 +2,17 @@
 // Edge instances (its own 4 sides) plus a list of Hole instances, and the
 // two methods that turn that into the flat Piece shape every downstream
 // consumer (BurnCorrection, the UI, export) already expects unchanged.
+//
+// A wall/divider's own 4 edges are trusted to already meet at their own
+// tips (outline() below — Divider is a Panel in this mode with no fields
+// of its own, see Divider.js). A base plate/lid instead needs its corners
+// FUSED from two adjacent sides' own margins, because a side can be
+// entirely open (no wall there at all) — see FlatPanel.js, which extends
+// this class and overrides outline() for that: a genuinely different
+// algorithm, not a rename, since a wall's dented tips naturally interlock
+// without ever computing a shared corner point, while a flat piece's
+// corner must be computed explicitly since one of the two sides meeting
+// there might contribute nothing.
 import { simplifyPolygon } from '../Point.js';
 
 export class Panel {
