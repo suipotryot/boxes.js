@@ -137,9 +137,9 @@ export function wallSmoothEdges(run, grid, project) {
   const bCompass = run.kind === 'h' ? 'right' : 'bottom';
 
   const edges = [];
-  if (!lidOnTop) edges.push({ compass: 'top', isFreeEdge: true, lengthMm: run.length });
-  if (protrusionA === 0) edges.push({ compass: aCompass, isFreeEdge: false, lengthMm: spans[0].height, capMm: run.length });
-  if (protrusionB === 0) edges.push({ compass: bCompass, isFreeEdge: false, lengthMm: spans[spans.length - 1].height, capMm: run.length });
+  if (!lidOnTop) edges.push({ compass: 'top', isFreeEdge: true, lengthMm: run.length, frame: { axis: 'x', zeroBoundary: false, boundaryAt: (u) => heightAt(spans, u) } });
+  if (protrusionA === 0) edges.push({ compass: aCompass, isFreeEdge: false, lengthMm: spans[0].height, capMm: run.length, frame: { axis: 'y', zeroBoundary: true, boundaryAt: () => 0 } });
+  if (protrusionB === 0) edges.push({ compass: bCompass, isFreeEdge: false, lengthMm: spans[spans.length - 1].height, capMm: run.length, frame: { axis: 'y', zeroBoundary: false, boundaryAt: () => run.length } });
   return edges;
 }
 

@@ -11,7 +11,6 @@ import { el } from './dom.js';
 import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
 import { resolveWallRunContext, resolvePieceHoleContext, enumerateSmoothFlatEdges } from '../geometry/PieceContext.js';
-import { heightProfile } from '../model/GridQuery.js';
 import { buildWallPiece, buildBasePlate, buildLid, wallSmoothEdges } from '../geometry/oo/Assembly.js';
 import { burnCorrect } from '../geometry/BurnCorrection.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
@@ -50,7 +49,7 @@ function buildInspectedPiece(holeContext) {
 // project.pieceNotches/pieceHoles directly) — what you see here IS what
 // gets exported, rendered exactly once regardless of which sections below
 // apply to the current piece.
-function renderPieceVisual(piece, holes, onHoleChange, notches, onNotchChange, wallContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout) {
+function renderPieceVisual(piece, holes, onHoleChange, notches, onNotchChange, notchContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout) {
   const svg = pieceToStandaloneSvg(piece, { padding: 8, minSize: 380, showLabels: false });
   const pieceSpace = svg.querySelector('.piece-space');
   // A pointerdown that reaches the group itself (never a cutout's own rect,
@@ -58,9 +57,8 @@ function renderPieceVisual(piece, holes, onHoleChange, notches, onNotchChange, w
   // clicked — clear the selection.
   pieceSpace.addEventListener('pointerdown', () => onSelectCutout(null));
   attachHoleDragOverlay(pieceSpace, holes, holeSelectedIndex, (index) => onSelectCutout({ kind: 'hole', index }), onHoleChange);
-  if (wallContext) {
-    const spans = heightProfile(wallContext.run, wallContext.grid, wallContext.project);
-    attachNotchDragOverlay(pieceSpace, notches, spans, notchSelectedIndex, (index) => onSelectCutout({ kind: 'notch', index }), onNotchChange);
+  if (notchContext) {
+    attachNotchDragOverlay(pieceSpace, notches, notchContext.frame, notchSelectedIndex, (index) => onSelectCutout({ kind: 'notch', index }), onNotchChange);
   }
   return el('div', { class: 'inspector-section' }, [
     el('div', { class: 'preview-card piece-visual' }, [svg]),
@@ -178,18 +176,12 @@ export function renderInspector(project, selected, selectedWallId, store, select
   // wallSmoothEdges/flatGripFragments).
   const notchContext = activeEdge
     ? activeEdge.isFreeEdge
-      ? { kind: 'wall', ...wallContext }
-      : { kind: 'flat', lengthMm: activeEdge.lengthMm, capMm: activeEdge.capMm }
+      ? { kind: 'wall', frame: activeEdge.frame, ...wallContext }
+      : { kind: 'flat', lengthMm: activeEdge.lengthMm, capMm: activeEdge.capMm, frame: activeEdge.frame }
     : null;
   const notchPieceId = activeEdge
     ? activeEdge.isFreeEdge ? selectedWallId : `${selectedWallId}:${activeEdge.compass}`
     : null;
-  // The drag overlay stays reserved for a wall's own free/top edge — every
-  // other active edge (a wall's own END edge, or any flat-panel side)
-  // still renders correctly, baked into the real piece visual, but is only
-  // editable via the text field for now (see GripNotchEditor.js's own
-  // dragHint gate).
-  const dragOverlayContext = activeEdge && activeEdge.isFreeEdge ? wallContext : null;
 
   // Null (not -1) when nothing of that kind is selected, or the selection
   // is stale (e.g. the selected hole was deleted from under it) — a simple
@@ -212,7 +204,7 @@ export function renderInspector(project, selected, selectedWallId, store, select
     }));
     holeSelectedIndex = selectedCutout && selectedCutout.kind === 'hole' && selectedCutout.index < holes.length ? selectedCutout.index : null;
     notchSelectedIndex = selectedCutout && selectedCutout.kind === 'notch' && selectedCutout.index < notches.length ? selectedCutout.index : null;
-    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, notches, onNotchChange, dragOverlayContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout));
+    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, notches, onNotchChange, notchContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout));
   }
   if (selected) sections.push(renderSegmentFields(project, selected, store));
   // Only shown when there's an actual choice to make — a single open edge
