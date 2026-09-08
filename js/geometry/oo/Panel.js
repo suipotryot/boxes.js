@@ -1,7 +1,23 @@
-// One flat piece to be cut (Planche in the plan/design discussion): 4
-// Edge instances (its own 4 sides) plus a list of Hole instances, and the
-// two methods that turn that into the flat Piece shape every downstream
+// One flat piece to be cut (Planche in the plan/design discussion): 4 Edge
+// instances (its own 4 sides) plus a list of Hole instances, and the two
+// methods that turn that into the flat Piece shape every downstream
 // consumer (BurnCorrection, the UI, export) already expects unchanged.
+//
+// Two genuinely different corner algorithms live here, chosen per instance
+// via `boundary`: a wall/divider's own 4 edges are trusted to already meet
+// at their own tips (outline() below, `boundary` left null — Divider is a
+// Panel in this mode with no fields of its own, see Divider.js) — a base
+// plate/lid's own 4 edges instead need their corners FUSED from two
+// adjacent sides' own margins (flatBoundaryOutline() below, `boundary`
+// set), because a side can be entirely open (no wall there at all). These
+// aren't a rename of the same computation — a wall's dented tips naturally
+// interlock without ever computing a shared corner point, while a flat
+// piece's corner must be computed explicitly since one of the two sides
+// meeting there might contribute nothing. Formerly two separate classes
+// (Panel + FlatPanel, with BasePlate/Lid as its trivial subclasses, and
+// OuterBoundary.outerBoundaryOutline as the flat-mode algorithm) — merged
+// here once boundary-mode support was proven equivalent to the old
+// OuterBoundary implementation.
 import { simplifyPolygon } from '../Point.js';
 
 // Which Panel field holds each compass side of a flat piece's own boundary
@@ -28,7 +44,7 @@ export class Panel {
     // {widthMm, depthMm, marginMm, protrude, openSides:{top,right,bottom,left}}
     // => flat-piece mode (base plate/lid): corner points are FUSED from two
     // adjacent sides' own margins instead of trusted from each edge's own
-    // tip — see outline()'s own flat-mode branch, added in a later step.
+    // tip — see flatBoundaryOutline() below.
     this.boundary = boundary;
     this.holes = holes;
   }

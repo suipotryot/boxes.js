@@ -1,6 +1,7 @@
 // Shared construction logic behind Box and Drawer: reads a Grid + Project
-// and builds every Panel/Divider + the BasePlate/Lid — the OO replacement
-// for PieceFactory.computePieces' orchestration plus the now-retired
+// and builds every Panel/Divider + the base plate/lid (both Panel in its
+// own flat/boundary mode — see Panel.js) — the OO replacement for
+// PieceFactory.computePieces' orchestration plus the now-retired
 // PanelBuilder/BasePlateBuilder/LidBuilder/DrawerBuilder's own per-piece
 // decisions.
 //
