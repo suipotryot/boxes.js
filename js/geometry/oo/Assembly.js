@@ -108,6 +108,40 @@ function combSegmentsFor(run, grid, project) {
   }).segments();
 }
 
+/** Which of `run`'s own edges are genuinely un-jointed (no finger comb) —
+ *  the wall's own free/top edge (`isFreeEdge:true`), unless an onTop lid
+ *  joints it there, OR an END edge (`aPoint`/`bPoint`) whose corner has no
+ *  perpendicular mate at all — only reachable via a Drawer's own openSide,
+ *  since a plain box's editor never lets an outer wall go missing (see
+ *  Grid.toggleWall). At most one entry in every reachable case: a
+ *  Drawer's own sleeve lid is ALWAYS 'onTop' (Drawer.sleeveContext), so a
+ *  drawer wall's own free/top edge is NEVER smooth there — only an end
+ *  can be, and only for the wall(s) actually adjacent to the missing side.
+ *  `compass` is a GLOBAL direction, not Panel's own internal edge naming:
+ *  for an 'h' run, aPoint/bPoint are west/east (left/right) as expected,
+ *  but for a 'v' run they're north/south (top/bottom) instead — Panel's
+ *  own "leftEdge"/"rightEdge" only ever means "the aPoint end"/"the bPoint
+ *  end", regardless of which compass direction that actually is (see
+ *  GridQuery.enumerateWallRuns' own aPoint/bPoint). `capMm` (end edges
+ *  only) is how deep a notch may cut in — bounded by the wall's own
+ *  length, the same way a notch on the free/top edge is bounded by the
+ *  wall's own height. */
+export function wallSmoothEdges(run, grid, project) {
+  const spans = heightProfile(run, grid, project);
+  const { active: lidActive, mode } = lidState(run, project);
+  const lidOnTop = lidActive && mode === 'onTop';
+  const protrusionA = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.aPoint[0], run.aPoint[1]), project);
+  const protrusionB = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.bPoint[0], run.bPoint[1]), project);
+  const aCompass = run.kind === 'h' ? 'left' : 'top';
+  const bCompass = run.kind === 'h' ? 'right' : 'bottom';
+
+  const edges = [];
+  if (!lidOnTop) edges.push({ compass: 'top', isFreeEdge: true, lengthMm: run.length });
+  if (protrusionA === 0) edges.push({ compass: aCompass, isFreeEdge: false, lengthMm: spans[0].height, capMm: run.length });
+  if (protrusionB === 0) edges.push({ compass: bCompass, isFreeEdge: false, lengthMm: spans[spans.length - 1].height, capMm: run.length });
+  return edges;
+}
+
 export function buildWallPiece(run, grid, project) {
   const spans = heightProfile(run, grid, project);
   const fj = project.fingerJoint;
@@ -121,13 +155,43 @@ export function buildWallPiece(run, grid, project) {
   const lidOnTop = lidActive && mode === 'onTop';
   const lidRecessed = lidActive && mode === 'recessed';
   const pieceId = wallPieceId(run);
-  // Always targets the free/top edge, regardless of lid state (an onTop
-  // lid's own top edge still solders these in — see buildWallPanel's own
-  // gripOverrides wiring, passed into lidTopEdgePoints too, not just
-  // freeEdgePoints). Each notch's own local height is read at ITS OWN
-  // center, so a stepped-height run still resolves correctly per notch.
-  const gripFragments = Notch.listFor(project.pieceNotches, pieceId)
-    .map((notch) => notch.toEdgeFragment(heightAt(spans, notch.offsetMm + notch.widthMm / 2)));
+
+  // Grip notches only ever splice into a genuinely un-jointed edge (see
+  // wallSmoothEdges' own header comment) — never into a toothed topEdge
+  // just because that's historically the only edge this used to check.
+  // The wall's own free/top edge keeps its historical, unsuffixed pieceId
+  // key (no migration needed, and it's still the overwhelmingly common
+  // case); an END edge (only ever smooth for a Drawer wall adjacent to its
+  // own openSide) uses a `${pieceId}:${compass}` key instead.
+  const aCompass = run.kind === 'h' ? 'left' : 'top';
+  const bCompass = run.kind === 'h' ? 'right' : 'bottom';
+  // Each notch's own local height is read at ITS OWN center, so a
+  // stepped-height run still resolves correctly per notch.
+  const topGripFragments = !lidOnTop
+    ? Notch.listFor(project.pieceNotches, pieceId)
+        .map((notch) => notch.toEdgeFragment(heightAt(spans, notch.offsetMm + notch.widthMm / 2)))
+    : [];
+  // rightEdge's own baseline sits at its HIGH value (run.length) when
+  // flush — cutting a notch there means REDUCING toward that baseline,
+  // exactly like topEdge's own heightAt-based cut: toEdgeFragment's own
+  // `localHeight - depthMm` already produces that directly, no adjustment
+  // needed (verified against the actual outline, not just derived — see
+  // ooAssembly.test.js).
+  const rightGripFragments = protrusionB === 0
+    ? Notch.listFor(project.pieceNotches, `${pieceId}:${bCompass}`).map((notch) => notch.toEdgeFragment(run.length))
+    : [];
+  // leftEdge's own baseline sits at its LOW value (0) when flush instead —
+  // cutting a notch there means INCREASING away from 0, the mirror image
+  // of rightEdge/topEdge's own convention. toEdgeFragment's formula always
+  // DECREASES from whatever reference it's given, so computing it against
+  // a 0 reference (giving a negative floor) and negating the result is
+  // what turns that into the correct increasing-with-depth cut here.
+  const leftGripFragments = protrusionA === 0
+    ? Notch.listFor(project.pieceNotches, `${pieceId}:${aCompass}`).map((notch) => {
+        const fragment = notch.toEdgeFragment(0);
+        return { ...fragment, points: fragment.points.map((p) => ({ u: p.u, y: -p.y })) };
+      })
+    : [];
 
   const bottomEdge = new FingerEdge({
     lengthMm: run.length, fingerJoint: fj, startWithFinger,
@@ -135,10 +199,16 @@ export function buildWallPiece(run, grid, project) {
     exclusions: junctionExclusionRanges(run, grid, project),
     fragments: run.kind === 'h' ? crossingFragments : [],
   });
-  const rightEdge = new FingerEdge({
-    lengthMm: spans[spans.length - 1].height, fingerJoint: fj, startWithFinger,
-    mateThicknessMm: protrusionB, extendToTips, baselineMm: run.length, signMm: 1,
-  });
+  const rightEdge = protrusionB === 0
+    ? new SmoothEdge({
+        lengthMm: spans[spans.length - 1].height,
+        heightProfile: [{ uStart: 0, uEnd: spans[spans.length - 1].height, height: run.length }],
+        fragments: rightGripFragments,
+      })
+    : new FingerEdge({
+        lengthMm: spans[spans.length - 1].height, fingerJoint: fj, startWithFinger,
+        mateThicknessMm: protrusionB, extendToTips, baselineMm: run.length, signMm: 1,
+      });
   // An onTop lid replaces the free edge entirely for an outer run: the
   // wall ADDS fingers beyond its own nominal spans[0].height (baseline at
   // the wall's own true top edge, signMm pointing away from the wall's
@@ -162,16 +232,22 @@ export function buildWallPiece(run, grid, project) {
         mateThicknessMm: project.outerThicknessMm,
         baselineMm: spans[0].height, signMm: 1,
         exclusions: junctionExclusionRanges(run, grid, project),
-        fragments: run.kind === 'v' ? [...crossingFragments, ...gripFragments] : gripFragments,
+        fragments: run.kind === 'v' ? [...crossingFragments, ...topGripFragments] : topGripFragments,
       })
     : new SmoothEdge({
         lengthMm: run.length, heightProfile: spans,
-        fragments: run.kind === 'v' ? [...crossingFragments, ...gripFragments] : gripFragments,
+        fragments: run.kind === 'v' ? [...crossingFragments, ...topGripFragments] : topGripFragments,
       });
-  const leftEdge = new FingerEdge({
-    lengthMm: spans[0].height, fingerJoint: fj, startWithFinger,
-    mateThicknessMm: protrusionA, extendToTips, baselineMm: 0, signMm: -1,
-  });
+  const leftEdge = protrusionA === 0
+    ? new SmoothEdge({
+        lengthMm: spans[0].height,
+        heightProfile: [{ uStart: 0, uEnd: spans[0].height, height: 0 }],
+        fragments: leftGripFragments,
+      })
+    : new FingerEdge({
+        lengthMm: spans[0].height, fingerJoint: fj, startWithFinger,
+        mateThicknessMm: protrusionA, extendToTips, baselineMm: 0, signMm: -1,
+      });
 
   // A RECESSED lid pokes its own tabs into a row of enclosed holes
   // mid-height on the wall's face instead — one hole per 'finger' segment
