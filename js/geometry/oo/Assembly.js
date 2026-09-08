@@ -1,7 +1,7 @@
 // Shared construction logic behind Box and Drawer: reads a Grid + Project
-// and builds every Panel/Divider + the base plate/lid (both FlatPanel — see
-// FlatPanel.js) — the OO replacement for PieceFactory.computePieces'
-// orchestration plus the now-retired
+// and builds every Panel/Divider + the BasePlatePanel/LidPanel (both
+// FlatPanel — see FlatPanel.js) — the OO replacement for
+// PieceFactory.computePieces' orchestration plus the now-retired
 // PanelBuilder/BasePlateBuilder/LidBuilder/DrawerBuilder's own per-piece
 // decisions.
 //
@@ -24,7 +24,8 @@ import { Panel } from './Panel.js';
 import { Divider } from './Divider.js';
 import { HalfLapNotch } from './HalfLapNotch.js';
 import { MortiseHole } from './MortiseHole.js';
-import { FlatPanel } from './FlatPanel.js';
+import { BasePlatePanel } from './BasePlatePanel.js';
+import { LidPanel } from './LidPanel.js';
 import { outerBoundarySide } from './OuterBoundary.js';
 
 /** Whether/how `run` joints with a fixed lid — a lid only ever joints with
@@ -343,8 +344,8 @@ function buildBoundaryEdges(grid, project, protrude, pieceId) {
   };
 }
 
-// The box's floor (Socle in the plan/design discussion): a FlatPanel whose
-// outer boundary always uses protrude:false, plus one MortiseHole per
+// The box's floor (Socle in the plan/design discussion): a BasePlatePanel
+// whose outer boundary always uses protrude:false, plus one MortiseHole per
 // finger segment of each interior Divider's own bottom comb (never touching
 // the boundary — always fully interior, so unlike the boundary's own
 // notches these are safe as independent closed holes).
@@ -361,14 +362,14 @@ export function buildBasePlate(grid, project) {
       : MortiseHole.manyFromFingerSegments(segs, { axis: 'x', centerMm: yAt(grid, project, run.r), thicknessMm, offsetMm: xAt(grid, project, run.cStart) });
   });
 
-  return new FlatPanel({
-    id: 'base-plate', kind: 'basePlate', thicknessMm: project.outerThicknessMm,
+  return new BasePlatePanel({
+    thicknessMm: project.outerThicknessMm,
     bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
     holes: [...holes, ...Hole.listFor(project.pieceHoles, 'base-plate')],
   });
 }
 
-// The box's fixed lid (Plafond in the plan/design discussion): a FlatPanel,
+// The box's fixed lid (Plafond in the plan/design discussion): a LidPanel,
 // either mode: 'onTop' (protrude:false, mirrors the base plate exactly —
 // the walls ADD fingers to meet it, see Assembly.buildWallPiece) or mode:
 // 'recessed' (protrude:true, its own tabs poke outward into holes cut
@@ -385,8 +386,8 @@ export function buildLid(grid, project) {
   // (protrude:false) — the walls' own added fingers (buildWallPiece) do
   // the same job bottomEdge/base-plate already do above.
   const { bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides } = buildBoundaryEdges(grid, project, mode === 'recessed', 'lid');
-  return new FlatPanel({
-    id: 'lid', kind: 'lid', thicknessMm: project.outerThicknessMm,
+  return new LidPanel({
+    thicknessMm: project.outerThicknessMm,
     bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
     holes: Hole.listFor(project.pieceHoles, 'lid'),
   });
