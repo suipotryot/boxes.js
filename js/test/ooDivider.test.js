@@ -28,7 +28,7 @@ test('a Divider is a Panel — same outline()/toPiece() behavior, no extra field
 test('Object.keys(divider) is exactly the Panel fields — Divider adds nothing of its own', () => {
   const divider = sampleDivider();
   const keys = Object.keys(divider).sort();
-  assert(JSON.stringify(keys) === JSON.stringify(['bottomEdge', 'holes', 'id', 'kind', 'leftEdge', 'rightEdge', 'thicknessGroup', 'thicknessMm', 'topEdge']));
+  assert(JSON.stringify(keys) === JSON.stringify(['bottomEdge', 'boundary', 'holes', 'id', 'kind', 'leftEdge', 'rightEdge', 'thicknessGroup', 'thicknessMm', 'topEdge']));
 });
 
 run();
