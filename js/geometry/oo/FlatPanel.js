@@ -2,30 +2,62 @@
 // and the lid (top, when enabled), built directly by Assembly.js's own
 // buildBasePlate/buildLid: a Panel (see Panel.js) whose 4 inherited edges
 // (bottomEdge/rightEdge/topEdge/leftEdge) represent the compass sides of a
-// rectangular boundary rather than a wall's own socle/free/end roles — see
-// COMPASS_TO_FIELD below for the translation.
+// rectangular boundary rather than a wall's own socle/free/end roles —
+// see outline() below: a flat piece's own compass-north side occupies the
+// SAME assembly position as a wall's own socle edge, so north reads from
+// bottomEdge and south from topEdge (verified against Panel's own
+// wall-mode outline()); east/west read from rightEdge/leftEdge directly,
+// no inversion there.
 //
 // Genuinely a different outline() algorithm from Panel's own wall-mode one,
 // not a rename: a wall's 4 edges naturally meet at their own tips (each
 // edge's own extendToTips, decided once at construction — see Panel.js),
-// but a flat piece's own side can be entirely open (no wall there — see
-// openSides), so its corners must be computed by explicitly FUSING two
-// adjacent sides' own margins instead of trusting either edge's own tip.
-// That's why this overrides outline() rather than reusing Panel's, even
-// though both classes share the same 4 named edge fields.
+// but a flat piece's own side can be entirely open (no wall there), so its
+// corners must be computed by explicitly FUSING two adjacent sides' own
+// margins instead of trusting either edge's own tip.
 import { simplifyPolygon } from '../Point.js';
 import { Panel } from './Panel.js';
 
-// Which Panel field holds each compass side of a flat piece's own boundary.
-// NOT a 1:1 name match: the position a compass side occupies in this
-// class's own assembly order (unreversed-first/alongX = "top") is the SAME
-// position bottomEdge occupies in Panel's own wall-mode outline() (also
-// unreversed-first/alongX) — a wall's socle edge and a flat piece's compass
-// north side play the same structural role. Renaming Panel's fields to
-// compass would therefore invert a wall's own bottom/top (socle/free)
-// semantics; keeping the wall names and translating here instead avoids
-// that.
-const COMPASS_TO_FIELD = { top: 'bottomEdge', right: 'rightEdge', bottom: 'topEdge', left: 'leftEdge' };
+function nominalPointAt(compass, u, widthMm, depthMm) {
+  if (compass === 'top') return { x: u, y: 0 };
+  if (compass === 'right') return { x: widthMm, y: u };
+  if (compass === 'bottom') return { x: u, y: depthMm };
+  return { x: 0, y: u }; // left
+}
+
+function inwardDirection(compass, protrude, isOpenSide) {
+  const outward = protrude ? -1 : 1;
+  const towardMaterial = isOpenSide ? -outward : outward;
+  if (compass === 'top') return { x: 0, y: towardMaterial };
+  if (compass === 'bottom') return { x: 0, y: -towardMaterial };
+  if (compass === 'right') return { x: -towardMaterial, y: 0 };
+  return { x: towardMaterial, y: 0 }; // left
+}
+
+function cornerMargin(protrude, isOpenSide, marginMm) {
+  return isOpenSide || protrude ? 0 : marginMm;
+}
+
+function sideTrace(edge, compass, { widthMm, depthMm, protrude, isOpenSide, reverse }) {
+  const inward = inwardDirection(compass, protrude, isOpenSide);
+  const points = edge.points().map(({ u, y: reach }) => {
+    const nominal = nominalPointAt(compass, u, widthMm, depthMm);
+    return { x: nominal.x + inward.x * reach, y: nominal.y + inward.y * reach };
+  });
+  return reverse ? points.reverse() : points;
+}
+
+function fuseCorners(traces, widthMm, depthMm, margins) {
+  const topLeft = { x: -margins.left, y: -margins.top };
+  const topRight = { x: widthMm + margins.right, y: -margins.top };
+  const bottomRight = { x: widthMm + margins.right, y: depthMm + margins.bottom };
+  const bottomLeft = { x: -margins.left, y: depthMm + margins.bottom };
+
+  if (traces.top.length) { traces.top[0] = topLeft; traces.top[traces.top.length - 1] = topRight; }
+  if (traces.right.length) { traces.right[0] = topRight; traces.right[traces.right.length - 1] = bottomRight; }
+  if (traces.bottom.length) { traces.bottom[0] = bottomRight; traces.bottom[traces.bottom.length - 1] = bottomLeft; }
+  if (traces.left.length) { traces.left[0] = bottomLeft; traces.left[traces.left.length - 1] = topLeft; }
+}
 
 export class FlatPanel extends Panel {
   constructor({
@@ -33,73 +65,31 @@ export class FlatPanel extends Panel {
     widthMm, depthMm, marginMm, protrude, openSides, holes = [],
   }) {
     super({ id, kind, thicknessGroup: 'outer', thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, holes });
-    this.widthMm = widthMm; // the compartment's own W×D (the un-toothed nominal rectangle)
+    this.widthMm = widthMm;
     this.depthMm = depthMm;
-    this.marginMm = marginMm; // how far a real side's own tab reaches/recedes (= project.outerThicknessMm)
-    this.protrude = protrude; // true for a recessed lid, false for a base plate/flush lid
-    // {top, right, bottom, left} booleans — which compass sides have no
-    // real wall run there. Must be given explicitly, NEVER derived from an
-    // edge being absent: an open side is still always a real (flush) Edge
-    // here (see buildBoundaryEdges in Assembly.js), and it shares the same
-    // 0 margin a real side gets when `protrude` is true — margin alone
-    // can't tell the two apart. Getting this wrong would silently invert
-    // grip-notch cut direction on an open side (its own inward vector is
-    // the exact opposite of a real side's).
+    this.marginMm = marginMm;
+    this.protrude = protrude;
     this.openSides = openSides;
   }
 
-  /** A flat piece's own outline: unlike Panel's wall-mode outline(),
-   *  adjacent sides' corner points are FUSED — combined from both sides'
-   *  own margins into one point — rather than trusted from each edge's own
-   *  tip, because a side can be open, in which case it contributes 0
-   *  margin there regardless of what the other side does. */
   outline() {
     const { widthMm, depthMm, marginMm, protrude, openSides = {} } = this;
-    const sign = protrude ? -1 : 1;
+    const geometryFor = (compass, reverse) => ({ widthMm, depthMm, protrude, isOpenSide: openSides[compass], reverse });
 
-    const axisPointFor = {
-      top: (u) => ({ x: u, y: 0 }),
-      right: (u) => ({ x: widthMm, y: u }),
-      bottom: (u) => ({ x: u, y: depthMm }),
-      left: (u) => ({ x: 0, y: u }),
+    const traces = {
+      top: sideTrace(this.bottomEdge, 'top', geometryFor('top', false)),
+      right: sideTrace(this.rightEdge, 'right', geometryFor('right', false)),
+      bottom: sideTrace(this.topEdge, 'bottom', geometryFor('bottom', true)),
+      left: sideTrace(this.leftEdge, 'left', geometryFor('left', true)),
     };
-    const inwardFor = {
-      top: { x: 0, y: openSides.top ? -sign : sign },
-      right: { x: openSides.right ? sign : -sign, y: 0 },
-      bottom: { x: 0, y: openSides.bottom ? sign : -sign },
-      left: { x: openSides.left ? -sign : sign, y: 0 },
+    const margins = {
+      top: cornerMargin(protrude, openSides.top, marginMm),
+      right: cornerMargin(protrude, openSides.right, marginMm),
+      bottom: cornerMargin(protrude, openSides.bottom, marginMm),
+      left: cornerMargin(protrude, openSides.left, marginMm),
     };
-    const marginFor = (compass) => (openSides[compass] ? 0 : protrude ? 0 : marginMm);
+    fuseCorners(traces, widthMm, depthMm, margins);
 
-    const sidePoints = (compass, reverse) => {
-      const edge = this[COMPASS_TO_FIELD[compass]];
-      const axisPoint = axisPointFor[compass];
-      const inward = inwardFor[compass];
-      const pts = edge.points().map(({ u, y: val }) => {
-        const p = axisPoint(u);
-        return { x: p.x + inward.x * val, y: p.y + inward.y * val };
-      });
-      return reverse ? pts.reverse() : pts;
-    };
-
-    const top = sidePoints('top', false);
-    const right = sidePoints('right', false);
-    const bottom = sidePoints('bottom', true);
-    const left = sidePoints('left', true);
-
-    const mLeft = marginFor('left');
-    const mRight = marginFor('right');
-    const mTop = marginFor('top');
-    const mBottom = marginFor('bottom');
-    const topLeft = { x: -mLeft, y: -mTop };
-    const topRight = { x: widthMm + mRight, y: -mTop };
-    const bottomRight = { x: widthMm + mRight, y: depthMm + mBottom };
-    const bottomLeft = { x: -mLeft, y: depthMm + mBottom };
-    if (top.length) { top[0] = topLeft; top[top.length - 1] = topRight; }
-    if (right.length) { right[0] = topRight; right[right.length - 1] = bottomRight; }
-    if (bottom.length) { bottom[0] = bottomRight; bottom[bottom.length - 1] = bottomLeft; }
-    if (left.length) { left[0] = bottomLeft; left[left.length - 1] = topLeft; }
-
-    return simplifyPolygon([...top, ...right, ...bottom, ...left]);
+    return simplifyPolygon([...traces.top, ...traces.right, ...traces.bottom, ...traces.left]);
   }
 }
