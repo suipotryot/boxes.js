@@ -68,8 +68,9 @@ export class FingerEdge extends Edge {
   constructor({
     lengthMm, fingerJoint, startWithFinger, mateThicknessMm, extendToTips = false,
     forceEndsToFinger: forceEnds = false, baselineMm = 0, signMm = 1, exclusions = [], fragments,
+    startClipMm = 0, endClipMm = 0,
   }) {
-    super(lengthMm, fragments);
+    super(lengthMm, fragments, { startClipMm, endClipMm });
     this.fingerJoint = fingerJoint; // {fingerMm, spaceMm, marginMm, playMm} — shared project-wide setting
     this.startWithFinger = startWithFinger;
     this.mateThicknessMm = mateThicknessMm; // the MATE's own thickness, never this edge's own

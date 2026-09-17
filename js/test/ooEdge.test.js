@@ -71,4 +71,48 @@ test('points(): two overlap-free fragments both apply, each within its own range
   assert(pts.some((p) => p.u === 8 && p.y === -2));
 });
 
+// startClipMm/endClipMm: a caller-side "recede the outline's own outer
+// boundary" knob — see Assembly.buildWallPiece's own corner-consistency
+// fix. Must never disturb ownBoundaries()/baseValueAt() (the underlying
+// tiling a FingerEdge's tooth positions depend on stays computed over the
+// full [0,lengthMm] regardless).
+
+test('points(): with no startClipMm/endClipMm given, behavior is byte-for-byte identical to today (a pure no-op default)', () => {
+  const withDefaults = new TwoZoneEdge(10).points();
+  const explicitZero = new TwoZoneEdge(10, [], { startClipMm: 0, endClipMm: 0 }).points();
+  assert(JSON.stringify(withDefaults) === JSON.stringify(explicitZero));
+  assertClose(withDefaults[0].u, 0, 1e-9);
+  assertClose(withDefaults[withDefaults.length - 1].u, 10, 1e-9);
+});
+
+test('points(): startClipMm recedes the first point without touching ownBoundaries()/baseValueAt() (the value there still comes from the FULL underlying tiling)', () => {
+  const pts = new TwoZoneEdge(10, [], { startClipMm: 3 }).points();
+  assertClose(pts[0].u, 3, 1e-9, 'the outline should now start at u=3, not u=0');
+  assertClose(pts[0].y, 0, 1e-9, 'u=3 is still in the first zone (u<5), so the value is unchanged');
+  assertClose(pts[pts.length - 1].u, 10, 1e-9, 'the far end is untouched');
+});
+
+test('points(): endClipMm recedes the last point the same way, from the far end', () => {
+  const pts = new TwoZoneEdge(10, [], { endClipMm: 3 }).points();
+  assertClose(pts[0].u, 0, 1e-9);
+  assertClose(pts[pts.length - 1].u, 7, 1e-9, 'the outline should now end at u=7 (10-3), not u=10');
+  assertClose(pts[pts.length - 1].y, 10, 1e-9, 'u=7 is still in the second zone (u>=5), so the value is unchanged');
+});
+
+test('points(): a fragment straddling the clipped-away zone disables the clip at that end entirely, falling back to 0/lengthMm', () => {
+  // fragment [1,6] straddles startClipMm=3 (uStart=1 < 3) — the clip at
+  // the START must be skipped, but the fragment itself must still render
+  // verbatim, exactly as it would with no clip at all.
+  const withoutClip = new TwoZoneEdge(10, [{ uStart: 1, uEnd: 6, depth: 42 }]).points();
+  const withClip = new TwoZoneEdge(10, [{ uStart: 1, uEnd: 6, depth: 42 }], { startClipMm: 3 }).points();
+  assert(JSON.stringify(withoutClip) === JSON.stringify(withClip), 'a straddling fragment must disable the clip at that end, reproducing the unclipped trace exactly');
+});
+
+test('points(): a fragment entirely clear of the clipped zone does not disable the clip', () => {
+  // fragment [7,8] is entirely within [0, hi=7]... use endClipMm=1 (hi=9) so [7,8] sits inside it.
+  const pts = new TwoZoneEdge(10, [{ uStart: 7, uEnd: 8, depth: 42 }], { endClipMm: 1 }).points();
+  assertClose(pts[pts.length - 1].u, 9, 1e-9, 'the clip should still apply since the fragment does not straddle it');
+  assert(pts.some((p) => p.u === 7 && p.y === 42) && pts.some((p) => p.u === 8 && p.y === 42), 'the untouched fragment should still render verbatim');
+});
+
 run();

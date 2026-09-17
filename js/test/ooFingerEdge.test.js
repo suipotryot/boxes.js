@@ -90,4 +90,18 @@ test('forceEndsToFinger: unconditionally reaches the tip at BOTH ends, even when
   assertClose(pts[pts.length - 1].y, 5, 1e-9, 'the very end should too');
 });
 
+test('startClipMm/endClipMm recede points() at either end without shifting segments()/tooth positions — the underlying tiling must stay in sync with a mate that tiles the same raw lengthMm independently', () => {
+  const lengthMm = 100;
+  const plain = new FingerEdge({ lengthMm, fingerJoint: fj, startWithFinger: true, mateThicknessMm: 5 });
+  const clipped = new FingerEdge({ lengthMm, fingerJoint: fj, startWithFinger: true, mateThicknessMm: 5, startClipMm: 2, endClipMm: 3 });
+
+  assert(JSON.stringify(clipped.segments()) === JSON.stringify(plain.segments()), 'segments()/tooth positions must be completely unaffected by the clip');
+
+  const pts = clipped.points();
+  assertClose(pts[0].u, 2, 1e-9, 'the outline should now start at u=2');
+  assertClose(pts[0].y, 0, 1e-9, 'u=2 is still within the guaranteed-flush margin, so the value is unchanged');
+  assertClose(pts[pts.length - 1].u, 97, 1e-9, 'the outline should now end at u=97 (100-3)');
+  assertClose(pts[pts.length - 1].y, 0, 1e-9, 'u=97 is still within the guaranteed-flush margin');
+});
+
 run();
