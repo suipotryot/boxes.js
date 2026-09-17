@@ -92,8 +92,18 @@ export function enumerateSmoothFlatEdges(grid, project, rawId) {
   };
   const lengthMmFor = { top: widthMm, bottom: widthMm, left: depthMm, right: depthMm };
   const capMmFor = { top: depthMm, bottom: depthMm, left: widthMm, right: widthMm };
+  // Same axis/boundary split as Assembly.wallSmoothEdges' own `frame` (see
+  // NotchFrame.js): top/left cut inward from a 0 boundary, bottom/right cut
+  // inward from their own capMm — matching FlatPanel.js's own
+  // nominalPointAt/inwardDirection for each compass exactly.
+  const frameFor = {
+    top: { axis: 'x', zeroBoundary: true, boundaryAt: () => 0 },
+    bottom: { axis: 'x', zeroBoundary: false, boundaryAt: () => capMmFor.bottom },
+    left: { axis: 'y', zeroBoundary: true, boundaryAt: () => 0 },
+    right: { axis: 'y', zeroBoundary: false, boundaryAt: () => capMmFor.right },
+  };
 
   return COMPASS_SIDES
     .filter((compass) => !hasRun[compass])
-    .map((compass) => ({ compass, lengthMm: lengthMmFor[compass], capMm: capMmFor[compass] }));
+    .map((compass) => ({ compass, lengthMm: lengthMmFor[compass], capMm: capMmFor[compass], frame: frameFor[compass] }));
 }

@@ -97,11 +97,7 @@ export function renderGripNotchSection(project, pieceId, context, store, selecte
     text: t('notch.fieldOrderHint'),
   });
 
-  // No drag overlay yet for a flat edge's own notches (see
-  // SegmentInspector.js's own renderPieceVisual, still gated on wallContext
-  // alone) — the hint about dragging in the preview would be misleading
-  // there, so it's only shown for a wall's own free edge.
-  const dragHint = context.kind === 'wall' ? el('div', { class: 'hint', text: t('notch.dragHint') }) : null;
+  const dragHint = el('div', { class: 'hint', text: t('notch.dragHint') });
 
   // Centrer acts on the ONE selected notch only (see SegmentInspector.js's
   // selectedCutout) — mirrors HoleEditor.js's own alignRow. Distribuer is
