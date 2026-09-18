@@ -118,6 +118,100 @@ test('a real box outer corner (both perpendicular pieces also terminate there �
   assertClose(Math.max(values), project.outerThicknessMm, 1e-9, 'the finger tips must reach the FULL outer thickness — corners are never touched by the T-junction fix');
 });
 
+// Follow-up fix: the T-junction correction above only touched
+// rightEdge/leftEdge, leaving bottomEdge/topEdge ending at the raw,
+// uncorrected run.length — creating a tiny step at the corner where they
+// meet (invisible on the raw outline, but BurnCorrection.outwardNormal's
+// unweighted direction-averaging blows it up into a visible diagonal
+// spike). bottomEdge/topEdge must now recede to the SAME corrected corner.
+
+test('bottomEdge/topEdge now recede to match rightEdge/leftEdge\'s own T-junction-corrected corner — the user\'s own real reproduction of the corner-step defect', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([20, 20], [20, 20]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 3;
+  project.fingerJoint = { fingerMm: 5, spaceMm: 5, marginMm: 2, playMm: 0.1 };
+  // remove the right half of the horizontal divider at r=1, so it ends in
+  // a T junction against the full vertical divider at c=1.
+  project.grid = setSegmentPresent(project.grid, 'h', 1, 1, false);
+
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 1);
+  assert(run.bPoint[0] === 1 && run.bPoint[1] === 1, `sanity check: expected the T junction at (1,1), got ${JSON.stringify(run.bPoint)}`);
+  const junction = junctionKindAt(project.grid, 'h', run.bPoint[0], run.bPoint[1], true);
+  assert(junction.kind === 'stem' && junction.seg.thicknessGroup === 'inner', 'sanity check: expected the inner-mate stem case the previous fix targets');
+
+  const panel = buildWallPiece(run, project.grid, project);
+  const correction = project.innerThicknessMm / 2; // 1.5 — matches rightEdge's own already-fixed correction
+
+  const bottomPts = panel.bottomEdge.points();
+  const bottomLast = bottomPts.reduce((a, b) => (b.u > a.u ? b : a));
+  assertClose(bottomLast.u, run.length - correction, 1e-9, 'bottomEdge\'s own last point must recede to the corrected corner, not stay at the raw run.length');
+
+  const topPts = panel.topEdge.points();
+  const topLast = topPts.reduce((a, b) => (b.u > a.u ? b : a));
+  assertClose(topLast.u, run.length - correction, 1e-9, 'topEdge\'s own last point must recede the same way');
+
+  // The actual visual defect surface: bottomEdge's/topEdge's own corner
+  // point must exactly match rightEdge's own value there — no gap/step.
+  const rightPts = panel.rightEdge.points();
+  const rightNear = rightPts.reduce((a, b) => (b.u < a.u ? b : a)); // u=0, meets bottomEdge
+  const rightFar = rightPts.reduce((a, b) => (b.u > a.u ? b : a)); // u=height, meets topEdge
+  assertClose(bottomLast.u, rightNear.y, 1e-9, 'bottomEdge\'s corner must land exactly on rightEdge\'s own near-face value — no step');
+  assertClose(topLast.u, rightFar.y, 1e-9, 'topEdge\'s corner must land exactly on rightEdge\'s own value at its own top — no step');
+});
+
+test('when the T-junction correction would exceed the guaranteed flush margin, bottomEdge\'s own corner clip is capped rather than cutting into a real tooth', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([20, 20], [20, 20]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 20; // correction (10) would dwarf a small margin
+  project.fingerJoint = { fingerMm: 5, spaceMm: 5, marginMm: 2, playMm: 0.1 };
+  project.grid = setSegmentPresent(project.grid, 'h', 1, 1, false);
+
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 1);
+  const panel = buildWallPiece(run, project.grid, project);
+  const rawCorrection = project.innerThicknessMm / 2; // 10
+
+  const bottomPts = panel.bottomEdge.points();
+  const bottomLast = bottomPts.reduce((a, b) => (b.u > a.u ? b : a));
+  const actualClip = run.length - bottomLast.u;
+  assert(actualClip < rawCorrection, `expected the clip (${actualClip}) to be capped below the raw correction (${rawCorrection})`);
+  assert(actualClip > 0, 'the clip should still be nonzero (some recession), not silently dropped entirely');
+
+  // No point of bottomEdge should land inside a real tooth's own interior
+  // — every point must sit at a 'flush'/margin value the tiling itself
+  // already guarantees, never a half-cut tooth.
+  const segs = panel.bottomEdge.segments();
+  const clippedZoneStart = bottomLast.u;
+  for (const seg of segs) {
+    if (seg.kind !== 'finger') continue;
+    const segEnd = seg.start + seg.length;
+    assert(segEnd <= clippedZoneStart + 1e-9, `a real tooth (u=${seg.start}..${segEnd}) must not be sliced by the clip boundary at u=${clippedZoneStart}`);
+  }
+});
+
+test('a grip notch anchored flush against a T-junction-corrected corner disables the clip at that end rather than producing a malformed shape', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([20, 20], [20, 20]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 3;
+  project.fingerJoint = { fingerMm: 5, spaceMm: 5, marginMm: 2, playMm: 0.1 };
+  project.grid = setSegmentPresent(project.grid, 'h', 1, 1, false);
+
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 1);
+  const pieceId = `wall-${run.kind}-${run.aPoint[0]}-${run.aPoint[1]}`;
+  // A grip notch on the free/top edge, anchored flush against the very
+  // corner this fix recedes (offsetMm+widthMm === run.length) — explicitly
+  // permitted by NotchValidation.js.
+  project.pieceNotches = { [pieceId]: [{ widthMm: 5, depthMm: 2, offsetMm: run.length - 5, radiusMm: 0 }] };
+
+  const panel = buildWallPiece(run, project.grid, project);
+  const topPts = panel.topEdge.points();
+  const topLast = topPts.reduce((a, b) => (b.u > a.u ? b : a));
+  assertClose(topLast.u, run.length, 1e-9, 'the clip must be disabled at this end (falls back to the raw run.length) since a fragment straddles it');
+  assert(topPts.some((p) => Math.abs(p.u - (run.length - 5)) < 1e-9), 'the notch fragment itself must still render, untouched');
+});
+
 test('a mortise hole at a T junction is capped by the through-piece\'s own LOCAL height, not just the stem\'s own height — a stem taller than a locally-reduced through-piece must not poke a hole past its edge', () => {
   const project = createDefaultProject();
   project.grid = createGrid([80, 80], [100]); // 2x1: one interior v-divider, T-junctions at its top/bottom ends

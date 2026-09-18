@@ -13,13 +13,23 @@
 // own sign convention independently. Keeping Edge itself sign-agnostic
 // means one shared algorithm serves every edge role.
 export class Edge {
-  constructor(lengthMm, fragments = []) {
+  constructor(lengthMm, fragments = [], { startClipMm = 0, endClipMm = 0 } = {}) {
     this.lengthMm = lengthMm;
     // Fragments splice an override into a u-range of this edge's own
     // trace — either {uStart, uEnd, points:[{u,y}...]} (a full polyline,
     // e.g. a rounded Notch) or {uStart, uEnd, depth} (a flat override
     // value, e.g. a crossing notch). Never mutated after construction.
     this.fragments = fragments;
+    // How far this edge's own OUTLINE recedes from its natural 0/lengthMm
+    // extremity — a pure output-domain trim, never touching ownBoundaries()/
+    // baseValueAt() (a FingerEdge's tooth positions stay computed over the
+    // FULL [0,lengthMm] regardless, so they never drift out of sync with a
+    // mate that tiles the same raw length independently — see
+    // Assembly.buildWallPiece's own corner-consistency fix, the only
+    // caller of this). 0 everywhere else — a guaranteed no-op. See
+    // points() below for the fragment-straddling safety fallback.
+    this.startClipMm = startClipMm;
+    this.endClipMm = endClipMm;
   }
 
   /** u-positions (besides 0 and lengthMm) where this edge's OWN base
@@ -59,10 +69,21 @@ export class Edge {
    *  skeleton that used to be reimplemented independently in
    *  bottomEdgePoints/freeEdgePoints/lidTopEdgePoints/edgeNotchPoints. */
   points() {
-    const boundarySet = new Set([0, this.lengthMm, ...this.ownBoundaries()]);
+    // A fragment straddling the zone a clip would recede past (starts
+    // before `lo`, or ends after `hi`) disables the clip at THAT end
+    // entirely, falling back to 0/lengthMm there — never risk a fragment
+    // (e.g. a user grip notch anchored flush against the recede point,
+    // NotchValidation.js explicitly permits offsetMm+widthMm===lengthMm)
+    // reconciling against a boundary that no longer exists.
+    const lo = this.fragments.some((f) => f.uStart < this.startClipMm) ? 0 : this.startClipMm;
+    const hi = this.fragments.some((f) => f.uEnd > this.lengthMm - this.endClipMm)
+      ? this.lengthMm
+      : this.lengthMm - this.endClipMm;
+
+    const boundarySet = new Set([lo, hi, ...this.ownBoundaries().filter((u) => u > lo && u < hi)]);
     for (const f of this.fragments) {
-      boundarySet.add(f.uStart);
-      boundarySet.add(f.uEnd);
+      if (f.uStart >= lo && f.uStart <= hi) boundarySet.add(f.uStart);
+      if (f.uEnd >= lo && f.uEnd <= hi) boundarySet.add(f.uEnd);
     }
     const boundaries = [...boundarySet].sort((a, b) => a - b);
 

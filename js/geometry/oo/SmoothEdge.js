@@ -5,8 +5,8 @@
 import { Edge } from './Edge.js';
 
 export class SmoothEdge extends Edge {
-  constructor({ lengthMm, heightProfile, fragments }) {
-    super(lengthMm, fragments);
+  constructor({ lengthMm, heightProfile, fragments, startClipMm = 0, endClipMm = 0 }) {
+    super(lengthMm, fragments, { startClipMm, endClipMm });
     // Span[] {uStart, uEnd, height} — ALWAYS at least one entry covering
     // the full [0, lengthMm] range, even for a plain constant-height edge
     // (a single span). Never optional/nullable: one representation for

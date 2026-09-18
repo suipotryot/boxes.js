@@ -108,6 +108,40 @@ function stemBaselineCorrectionMm(junction, protrusionMm) {
   return junction.kind === 'stem' && junction.seg.thicknessGroup === 'inner' ? protrusionMm / 2 : 0;
 }
 
+/** The guaranteed-available flush margin at each end of `run`'s own
+ *  bottom-comb tiling (combSegmentsFor) — the SAME tiling bottomEdge (and,
+ *  when a lid is 'onTop', topEdge — both share identical lengthMm/
+ *  fingerJoint/startWithFinger/exclusions with combSegmentsFor, see
+ *  buildWallPiece below) is actually cut with. Read off the real tiling
+ *  rather than re-deriving fingerEdgePath's own margin formula, so it
+ *  stays correct even where tileWithExclusions has locally shrunk the
+ *  margin near a nearby mid-run crossing. 0 whenever the outermost
+ *  segment isn't 'flush' at all (an already-degenerate, out-of-scope
+ *  case) — used to cap stemBaselineCorrectionMm below so a divider/comb
+ *  corner-recession (see cornerClipMm) can never cut into a real tooth. */
+function endMarginsFor(run, grid, project) {
+  const segs = combSegmentsFor(run, grid, project);
+  const first = segs[0];
+  const last = segs[segs.length - 1];
+  return {
+    startMarginMm: first && first.kind === 'flush' ? first.length : 0,
+    endMarginMm: last && last.kind === 'flush' ? last.length : 0,
+  };
+}
+
+/** How far bottomEdge's/topEdge's(onTop) own corner point must recede to
+ *  land exactly on leftEdge's/rightEdge's own stem-corrected corner (see
+ *  Edge.js's startClipMm/endClipMm) — the same correctionMm already used
+ *  for rightEdge/leftEdge's own baselineMm, defensively capped at the
+ *  guaranteed-available flush margin so a project whose inner thickness
+ *  exceeds its own fingerJoint.marginMm can never make this clip land
+ *  inside a real tooth (a smaller, but never negative or tooth-cutting,
+ *  residual step is accepted there instead — see the plan's own
+ *  margin-vs-correction note). 0 whenever correctionMm is already 0. */
+function cornerClipMm(correctionMm, marginMm) {
+  return Math.min(correctionMm, marginMm);
+}
+
 /** `run`'s own bottom-edge tooth tiling — a throwaway FingerEdge's own
  *  segments(), which is provably the exact same tiling as the retired
  *  PanelBuilder.bottomCombSegments (verified directly against it in
@@ -167,6 +201,17 @@ export function buildWallPiece(run, grid, project) {
   const protrusionB = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.bPoint[0], run.bPoint[1]), project);
   const aJunction = junctionKindAt(grid, run.kind, run.aPoint[0], run.aPoint[1], true);
   const bJunction = junctionKindAt(grid, run.kind, run.bPoint[0], run.bPoint[1], true);
+  const correctionA = stemBaselineCorrectionMm(aJunction, protrusionA);
+  const correctionB = stemBaselineCorrectionMm(bJunction, protrusionB);
+  // bottomEdge (and topEdge when lidOnTop) carry real teeth whose
+  // positions must stay in sync with the base plate's own independent
+  // combSegmentsFor call — so their own corner recession is capped at the
+  // guaranteed-available flush margin (cappedStartClip/cappedEndClip).
+  // topEdge's ordinary (SmoothEdge, flat) branch has no tooth to protect
+  // at all, so it gets the FULL, uncapped correction instead — see below.
+  const { startMarginMm, endMarginMm } = endMarginsFor(run, grid, project);
+  const cappedStartClip = cornerClipMm(correctionA, startMarginMm);
+  const cappedEndClip = cornerClipMm(correctionB, endMarginMm);
   const { crossingFragments, mortiseHoles } = crossingData(run, grid, project, spans);
   const { active: lidActive, mode, lid } = lidState(run, project);
   const lidOnTop = lidActive && mode === 'onTop';
@@ -215,6 +260,7 @@ export function buildWallPiece(run, grid, project) {
     mateThicknessMm: project.outerThicknessMm, baselineMm: 0, signMm: -1,
     exclusions: junctionExclusionRanges(run, grid, project),
     fragments: run.kind === 'h' ? crossingFragments : [],
+    startClipMm: cappedStartClip, endClipMm: cappedEndClip,
   });
   const rightEdge = protrusionB === 0
     ? new SmoothEdge({
@@ -225,7 +271,7 @@ export function buildWallPiece(run, grid, project) {
     : new FingerEdge({
         lengthMm: spans[spans.length - 1].height, fingerJoint: fj, startWithFinger,
         mateThicknessMm: protrusionB, extendToTips,
-        baselineMm: run.length - stemBaselineCorrectionMm(bJunction, protrusionB), signMm: 1,
+        baselineMm: run.length - correctionB, signMm: 1,
       });
   // An onTop lid replaces the free edge entirely for an outer run: the
   // wall ADDS fingers beyond its own nominal spans[0].height (baseline at
@@ -251,10 +297,15 @@ export function buildWallPiece(run, grid, project) {
         baselineMm: spans[0].height, signMm: 1,
         exclusions: junctionExclusionRanges(run, grid, project),
         fragments: run.kind === 'v' ? [...crossingFragments, ...topGripFragments] : topGripFragments,
+        startClipMm: cappedStartClip, endClipMm: cappedEndClip,
       })
     : new SmoothEdge({
         lengthMm: run.length, heightProfile: spans,
         fragments: run.kind === 'v' ? [...crossingFragments, ...topGripFragments] : topGripFragments,
+        // No teeth to protect on a flat free edge (unlike bottomEdge/the
+        // lidOnTop branch above) — the FULL, uncapped correction applies
+        // here, so this end always reaches a perfect, step-free corner.
+        startClipMm: correctionA, endClipMm: correctionB,
       });
   const leftEdge = protrusionA === 0
     ? new SmoothEdge({
@@ -265,7 +316,7 @@ export function buildWallPiece(run, grid, project) {
     : new FingerEdge({
         lengthMm: spans[0].height, fingerJoint: fj, startWithFinger,
         mateThicknessMm: protrusionA, extendToTips,
-        baselineMm: stemBaselineCorrectionMm(aJunction, protrusionA), signMm: -1,
+        baselineMm: correctionA, signMm: -1,
       });
 
   // A RECESSED lid pokes its own tabs into a row of enclosed holes

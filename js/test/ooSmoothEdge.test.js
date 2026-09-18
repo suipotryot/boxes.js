@@ -60,4 +60,17 @@ test('a Notch anchored across a height step uses the height AT ITS OWN position,
   assert(floorPoints.length === 2, 'expected the notch floor at 25-5=20, derived from its own local height');
 });
 
+test('startClipMm/endClipMm recede points() at either end, value still read from the full underlying height profile', () => {
+  const edge = new SmoothEdge({
+    lengthMm: 100,
+    heightProfile: [{ uStart: 0, uEnd: 100, height: 40 }],
+    startClipMm: 2, endClipMm: 3,
+  });
+  const pts = edge.points();
+  assertClose(pts[0].u, 2, 1e-9);
+  assertClose(pts[0].y, 40, 1e-9);
+  assertClose(pts[pts.length - 1].u, 97, 1e-9);
+  assertClose(pts[pts.length - 1].y, 40, 1e-9);
+});
+
 run();
