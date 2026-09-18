@@ -8,7 +8,8 @@
     "test": "node js/test/run-all.js",
     "dev": "vite",
     "build": "vite build && node scripts/copy-docs.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && cp -r dist/* ../suipotryot.github.io/boxes"
   },
   "devDependencies": {
     "vite": "^8.2.2",
