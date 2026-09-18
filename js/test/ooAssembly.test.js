@@ -8,10 +8,115 @@
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt } from '../model/GridQuery.js';
+import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt, junctionKindAt } from '../model/GridQuery.js';
 import { buildWallPiece, buildLid, buildBasePlate, wallSmoothEdges } from '../geometry/oo/Assembly.js';
 import { SmoothEdge } from '../geometry/oo/SmoothEdge.js';
 import { Drawer } from '../geometry/oo/Drawer.js';
+
+// A divider that stops mid-span in a T-junction against another, fully
+// through-going divider — its own end-comb must reach the mating wall's
+// NEAR/FAR face (centerline ± half its thickness), never the centerline
+// itself: GridQuery.xAt/yAt place an interior grid line's coordinate on
+// the mating wall's own CENTERLINE, so a naive baseline there already
+// overshoots by half the mating wall's thickness once FingerEdge adds its
+// own full-thickness teeth on top (see HalfLapNotch's sibling X-crossing
+// case, which does back off by /2, for contrast).
+
+test('a divider terminating mid-span at a T junction against a fully-through inner divider gets an end comb reaching the mating wall\'s near/far FACE, not its centerline', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [80, 80]); // 2x2: interior v-divider at c=1, interior h-divider at r=1
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+  // remove the bottom half of the vertical divider at c=1, so it only
+  // spans the top row and ends in a T junction against the full
+  // horizontal divider at r=1 (still present across both c=0 and c=1).
+  project.grid = setSegmentPresent(project.grid, 'v', 1, 1, false);
+
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'v' && r.c === 1);
+  assert(run.bPoint[0] === 1 && run.bPoint[1] === 1, `sanity check: this run's own end should land at the T junction (1,1), got ${JSON.stringify(run.bPoint)}`);
+  assertClose(yAt(project.grid, project, 1), 81, 1e-9, 'sanity check: the mating wall\'s own centerline');
+
+  const panel = buildWallPiece(run, project.grid, project);
+  const values = panel.rightEdge.points().map((p) => p.y);
+  const near = Math.min(...values);
+  const far = Math.max(...values);
+  assertClose(near, 80, 1e-9, 'the flush region should sit at the mating wall\'s NEAR face (centerline - thickness/2), not its centerline (81)');
+  assertClose(far, 82, 1e-9, 'the finger tips should sit at the mating wall\'s FAR face (centerline + thickness/2), not centerline + full thickness (83)');
+});
+
+test('the same T-junction fix applies to a run\'s own aPoint (leftEdge), not just bPoint (rightEdge)', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [80, 80]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+  // remove the TOP half of the vertical divider at c=1 instead, so its own
+  // aPoint (not bPoint) lands on the T junction against the full
+  // horizontal divider at r=1.
+  project.grid = setSegmentPresent(project.grid, 'v', 1, 0, false);
+
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'v' && r.c === 1);
+  assert(run.aPoint[0] === 1 && run.aPoint[1] === 1, `sanity check: this run's own start should land at the T junction (1,1), got ${JSON.stringify(run.aPoint)}`);
+  const junction = junctionKindAt(project.grid, 'v', run.aPoint[0], run.aPoint[1], true);
+  assert(junction.kind === 'stem' && junction.seg.thicknessGroup === 'inner', `sanity check: expected an inner-mate stem junction, got kind=${junction.kind}`);
+
+  const panel = buildWallPiece(run, project.grid, project);
+  const values = panel.leftEdge.points().map((p) => p.y);
+  // leftEdge's own local frame starts at 0 (its own aPoint), signMm=-1, so
+  // the NEAR face (closer to the run's own body) is the larger value here.
+  assertClose(Math.max(values), 1, 1e-9, 'the flush region should sit at +protrusionA/2 (near face), not at 0 (the raw local start)');
+  assertClose(Math.min(values), -1, 1e-9, 'the finger tips should sit at -protrusionA/2 (far face), not -protrusionA (2, the old overshoot)');
+});
+
+test('the T-junction fix also applies to an \'h\' run (xAt axis), symmetric to the \'v\'/yAt case above', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [80, 80]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+  // remove the right half of the horizontal divider at r=1, so it ends in
+  // a T junction against the full vertical divider at c=1.
+  project.grid = setSegmentPresent(project.grid, 'h', 1, 1, false);
+
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 1);
+  assert(run.bPoint[0] === 1 && run.bPoint[1] === 1, `sanity check: this run's own end should land at the T junction (1,1), got ${JSON.stringify(run.bPoint)}`);
+  assertClose(xAt(project.grid, project, 1), 81, 1e-9, 'sanity check: the mating wall\'s own centerline');
+
+  const panel = buildWallPiece(run, project.grid, project);
+  const values = panel.rightEdge.points().map((p) => p.y);
+  assertClose(Math.min(values), 80, 1e-9, 'the flush region should sit at the mating wall\'s NEAR face');
+  assertClose(Math.max(values), 82, 1e-9, 'the finger tips should sit at the mating wall\'s FAR face');
+});
+
+test('a divider ending flush at the box\'s own OUTER wall (junctionKindAt also calls this \'stem\') must NOT get the T-junction correction — its mating wall is already on the grid boundary, where xAt/yAt contribute zero', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [80, 80]); // full-height divider at c=1, untouched
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 2;
+
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'v' && r.c === 1);
+  assert(run.bPoint[0] === 1 && run.bPoint[1] === 2, `sanity check: expected the full-height run to end at the box's own bottom wall, got ${JSON.stringify(run.bPoint)}`);
+  const junction = junctionKindAt(project.grid, 'v', run.bPoint[0], run.bPoint[1], true);
+  assert(junction.kind === 'stem' && junction.seg.thicknessGroup === 'outer', `sanity check: expected an outer-mate stem junction, got kind=${junction.kind}, group=${junction.seg && junction.seg.thicknessGroup}`);
+
+  const panel = buildWallPiece(run, project.grid, project);
+  const values = panel.rightEdge.points().map((p) => p.y);
+  assertClose(Math.min(values), run.length, 1e-9, 'the flush region must stay at the raw run.length — no correction for an outer mate');
+  assertClose(Math.max(values), run.length + project.outerThicknessMm, 1e-9, 'the finger tips must reach run.length + the FULL outer thickness — no correction for an outer mate');
+});
+
+test('a real box outer corner (both perpendicular pieces also terminate there — junctionKindAt classifies it \'corner\') keeps its uncorrected end-comb baseline, untouched by the T-junction fix', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [80]); // single cell
+  project.outerThicknessMm = 3;
+
+  const run = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+  const junction = junctionKindAt(project.grid, 'h', run.aPoint[0], run.aPoint[1], true);
+  assert(junction.kind === 'corner', `sanity check: expected a real box corner, got kind=${junction.kind}`);
+
+  const panel = buildWallPiece(run, project.grid, project);
+  const values = panel.leftEdge.points().map((p) => p.y);
+  assertClose(Math.min(values), 0, 1e-9, 'the flush region must stay at the raw baseline (0) — corners are never touched by the T-junction fix');
+  assertClose(Math.max(values), project.outerThicknessMm, 1e-9, 'the finger tips must reach the FULL outer thickness — corners are never touched by the T-junction fix');
+});
 
 test('a mortise hole at a T junction is capped by the through-piece\'s own LOCAL height, not just the stem\'s own height — a stem taller than a locally-reduced through-piece must not poke a hole past its edge', () => {
   const project = createDefaultProject();

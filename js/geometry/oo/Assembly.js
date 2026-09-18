@@ -94,6 +94,20 @@ function maxMateThickness(mates, project) {
   return mates.length ? Math.max(...mates.map((m) => resolveThickness(m, project))) : 0;
 }
 
+/** A divider's own end comb overshoots the mating wall by half its
+ *  thickness ONLY when that mating wall sits on an INTERIOR grid line
+ *  (xAt/yAt's own centerline convention there — see their header comment):
+ *  an 'outer' mate is always on the grid's own boundary row/column
+ *  (Grid.js's defaultSegment), where xAt/yAt already contribute zero, so
+ *  an ordinary divider ending at the box's own outer wall (junctionKindAt
+ *  calls this 'stem' too) must NOT be shifted here — only a divider
+ *  ending against another, fully-through divider. 'corner'/'none' never
+ *  reach this (only called where protrusion !== 0, i.e. kind is 'stem' or
+ *  'corner'). */
+function stemBaselineCorrectionMm(junction, protrusionMm) {
+  return junction.kind === 'stem' && junction.seg.thicknessGroup === 'inner' ? protrusionMm / 2 : 0;
+}
+
 /** `run`'s own bottom-edge tooth tiling — a throwaway FingerEdge's own
  *  segments(), which is provably the exact same tiling as the retired
  *  PanelBuilder.bottomCombSegments (verified directly against it in
@@ -151,6 +165,8 @@ export function buildWallPiece(run, grid, project) {
 
   const protrusionA = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.aPoint[0], run.aPoint[1]), project);
   const protrusionB = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.bPoint[0], run.bPoint[1]), project);
+  const aJunction = junctionKindAt(grid, run.kind, run.aPoint[0], run.aPoint[1], true);
+  const bJunction = junctionKindAt(grid, run.kind, run.bPoint[0], run.bPoint[1], true);
   const { crossingFragments, mortiseHoles } = crossingData(run, grid, project, spans);
   const { active: lidActive, mode, lid } = lidState(run, project);
   const lidOnTop = lidActive && mode === 'onTop';
@@ -208,7 +224,8 @@ export function buildWallPiece(run, grid, project) {
       })
     : new FingerEdge({
         lengthMm: spans[spans.length - 1].height, fingerJoint: fj, startWithFinger,
-        mateThicknessMm: protrusionB, extendToTips, baselineMm: run.length, signMm: 1,
+        mateThicknessMm: protrusionB, extendToTips,
+        baselineMm: run.length - stemBaselineCorrectionMm(bJunction, protrusionB), signMm: 1,
       });
   // An onTop lid replaces the free edge entirely for an outer run: the
   // wall ADDS fingers beyond its own nominal spans[0].height (baseline at
@@ -247,7 +264,8 @@ export function buildWallPiece(run, grid, project) {
       })
     : new FingerEdge({
         lengthMm: spans[0].height, fingerJoint: fj, startWithFinger,
-        mateThicknessMm: protrusionA, extendToTips, baselineMm: 0, signMm: -1,
+        mateThicknessMm: protrusionA, extendToTips,
+        baselineMm: stemBaselineCorrectionMm(aJunction, protrusionA), signMm: -1,
       });
 
   // A RECESSED lid pokes its own tabs into a row of enclosed holes
