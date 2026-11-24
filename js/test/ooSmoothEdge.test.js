@@ -12,6 +12,13 @@ test('a constant-height profile (one span) produces a flat 2-point trace', () =>
   assertClose(pts[1].y, 40, 1e-9);
 });
 
+test('SmoothEdge() should pass startsAtMm through to its points', () => {
+  const edge = new SmoothEdge({ lengthMm: 100, heightProfile: [{ uStart: 0, uEnd: 100, height: 40 }], startsAtMm: -6 });
+  const pts = edge.points();
+  assertClose(pts[0].u, -6, 1e-9);
+  assertClose(pts[1].u, 94, 1e-9);
+});
+
 test('a stepped height profile produces one flat pair per span, at each span\'s own height', () => {
   const edge = new SmoothEdge({
     lengthMm: 100,

@@ -1,7 +1,8 @@
 // Shared base for one side of a Panel (Bordure in the plan/design
 // discussion — SmoothEdge/FingerEdge below are its two concrete shapes).
 //
-// An Edge's own local frame is always (u, y): u runs [0, lengthMm] along
+// An Edge's own local frame is always (u, y): u runs [0, lengthMm] (shifted
+// by startsAtMm only in points()'s output) along
 // whichever axis this edge tiles along (a wall's own length for its
 // bottom/top edges, or its height for its left/right end edges — an Edge
 // itself never knows or cares which); y is a magnitude toward this edge's
@@ -13,7 +14,7 @@
 // own sign convention independently. Keeping Edge itself sign-agnostic
 // means one shared algorithm serves every edge role.
 export class Edge {
-  constructor(lengthMm, fragments = [], { startClipMm = 0, endClipMm = 0 } = {}) {
+  constructor(lengthMm, fragments = [], { startClipMm = 0, endClipMm = 0, startsAtMm = 0 } = {}) {
     this.lengthMm = lengthMm;
     // Fragments splice an override into a u-range of this edge's own
     // trace — either {uStart, uEnd, points:[{u,y}...]} (a full polyline,
@@ -30,6 +31,7 @@ export class Edge {
     // points() below for the fragment-straddling safety fallback.
     this.startClipMm = startClipMm;
     this.endClipMm = endClipMm;
+    this.startsAtMm = startsAtMm;
   }
 
   /** u-positions (besides 0 and lengthMm) where this edge's OWN base
@@ -101,6 +103,6 @@ export class Edge {
       const y = fragment ? fragment.depth : this.intervalValue(mid, uStart, uEnd);
       pts.push({ u: uStart, y }, { u: uEnd, y });
     }
-    return pts;
+    return pts.map((p) => ({ u: p.u + this.startsAtMm, y: p.y }));
   }
 }

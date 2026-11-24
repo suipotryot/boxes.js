@@ -82,6 +82,7 @@ export class Drawer extends Assembly {
       outerThicknessMm: drawer.thicknessMm,
       outerHeightMm: sleeveH,
       lid: { enabled: true, mode: 'onTop', insertHeightMm: null },
+      basePlate: { mode: 'flush', recessMm: null },
       pieceNotches: unprefixed(project.pieceNotches, DRAWER_PREFIX),
       pieceHoles: unprefixed(project.pieceHoles, DRAWER_PREFIX),
     };

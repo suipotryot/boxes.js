@@ -7,7 +7,7 @@ import { el } from './dom.js';
 import { numberField, textField, infoIcon } from './fields.js';
 import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP, DRAWER_PLAY_HELP, DRAWER_THICKNESS_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
-import { validateLid } from '../model/GridQuery.js';
+import { validateLid, basePlateMode, basePlateRecessMm, isBasePlateRecessValid } from '../model/GridQuery.js';
 import { t } from '../i18n/index.js';
 
 function parseMmList(text) {
@@ -123,6 +123,39 @@ function lidSection(project, store, openSections, onToggleSection) {
   return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, modeField, heightField, warning]);
 }
 
+function basePlateModeLabels() {
+  return { flush: t('settingsPanel.basePlateModeFlush'), recessed: t('settingsPanel.basePlateModeRecessed') };
+}
+
+function basePlateSection(project, store, openSections, onToggleSection) {
+  const mode = basePlateMode(project);
+  const setBasePlate = (changes) => store.apply((p) => ({ ...p, basePlate: { ...p.basePlate, ...changes } }));
+
+  const modeField = el('div', { class: 'field' }, [
+    el('span', { class: 'field-label' }, [t('settingsPanel.basePlateMode'), infoIcon(t('settingsPanel.basePlateModeHelp'))]),
+    el('div', { class: 'radio-group' }, Object.entries(basePlateModeLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
+      el('input', {
+        type: 'radio', name: 'base-plate-mode', value, checked: mode === value,
+        onChange: () => setBasePlate({ mode: value }),
+      }),
+      el('span', { text: ` ${label}` }),
+    ]))),
+  ]);
+
+  if (mode === 'flush') {
+    return collapsibleSection(openSections, onToggleSection, 'basePlate', t('settingsPanel.basePlateSection'), [modeField]);
+  }
+
+  const recessMm = basePlateRecessMm(project);
+  const recessField = numberField(t('settingsPanel.basePlateRecess'), recessMm, (n) => setBasePlate({ recessMm: n }), '1', t('settingsPanel.basePlateRecessHelp'));
+  const warning = !isBasePlateRecessValid(recessMm) ? el('div', { class: 'field' }, [
+    el('span', { class: 'warning', text: t('settingsPanel.basePlateRecessInvalid') }),
+    el('button', { class: 'btn', text: t('shared.autoFix'), onClick: () => setBasePlate({ recessMm: null }) }),
+  ]) : null;
+
+  return collapsibleSection(openSections, onToggleSection, 'basePlate', t('settingsPanel.basePlateSection'), [modeField, recessField, warning]);
+}
+
 // The "Étiqueter les pièces" toggle — controls both the live preview
 // strip's labels and the SVG export's labels (EditorView-owned
 // showLabels/onToggleLabels, same idiom as openSections/selected). Lives
@@ -216,6 +249,7 @@ export function renderSettingsPanel(project, store, openSections, onToggleSectio
 
     optionsSection(openSections, onToggleSection, showLabels, onToggleLabels),
 
+    basePlateSection(project, store, openSections, onToggleSection),
     lidSection(project, store, openSections, onToggleSection),
     drawerSection(project, store, openSections, onToggleSection),
 

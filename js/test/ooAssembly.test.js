@@ -7,11 +7,13 @@
 // directly.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent } from '../model/Grid.js';
-import { createDefaultProject } from '../state/Project.js';
-import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt, junctionKindAt } from '../model/GridQuery.js';
+import { createDefaultProject, createM2ExampleProject } from '../state/Project.js';
+import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt, junctionKindAt, wallPieceId } from '../model/GridQuery.js';
 import { buildWallPiece, buildLid, buildBasePlate, wallSmoothEdges } from '../geometry/oo/Assembly.js';
 import { SmoothEdge } from '../geometry/oo/SmoothEdge.js';
 import { Drawer } from '../geometry/oo/Drawer.js';
+import { Box } from '../geometry/oo/Box.js';
+import { isSimplePolygon } from './polygonAssertions.js';
 
 // A divider that stops mid-span in a T-junction against another, fully
 // through-going divider — its own end-comb must reach the mating wall's
@@ -310,6 +312,145 @@ test('an onTop lid never forces the wall\'s own physical tip to the full protrud
   assertClose(tipValue, 40, 1e-6, 'the physical tip\'s own natural phase here is \'space\' — it must stay flush at the nominal height (40), not be forced up to the finger height (43)');
 });
 
+test('buildBasePlate() should give a recessed base plate the exact outline of a recessed lid — tabs reaching out through the outer walls', () => {
+  const project = lidFixtureProject();
+  project.basePlate = { mode: 'recessed', recessMm: 3 };
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20 };
+  const plate = buildBasePlate(project.grid, project).toPiece();
+  const lid = buildLid(project.grid, project).toPiece();
+  assert(JSON.stringify(plate.outline) === JSON.stringify(lid.outline));
+});
+
+function recessedBasePlateFixtureProject() {
+  const project = lidFixtureProject();
+  project.basePlate = { mode: 'recessed', recessMm: 5 };
+  return project;
+}
+
+function outerTopRun(project) {
+  return enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
+}
+
+test('buildWallPiece() should extend an outer wall down to the recess below the base plate, with a flat bottom edge', () => {
+  const project = recessedBasePlateFixtureProject();
+  const piece = buildWallPiece(outerTopRun(project), project.grid, project).toPiece();
+  const minY = Math.min(...piece.outline.map((p) => p.y));
+  assertClose(minY, -8, 1e-9, 'outerThicknessMm (3) + recessMm (5) below v=0');
+  const bottomPoints = piece.outline.filter((p) => Math.abs(p.y - minY) < 1e-9);
+  assert(bottomPoints.length === 2, `a flat bottom edge is a single segment, got ${bottomPoints.length} points at the lowest y`);
+});
+
+function intervalsAtY(outline, y) {
+  const xs = outline.filter((p) => Math.abs(p.y - y) < 1e-9).map((p) => p.x).sort((a, b) => a - b);
+  const intervals = [];
+  for (let i = 0; i < xs.length; i += 2) intervals.push([xs[i], xs[i + 1]]);
+  return intervals;
+}
+
+test('buildWallPiece() should cut one mortise hole through the outer wall for each base plate tab, at the exact same position', () => {
+  const project = recessedBasePlateFixtureProject();
+  const plateTabs = intervalsAtY(buildBasePlate(project.grid, project).toPiece().outline, -3);
+  const holes = buildWallPiece(outerTopRun(project), project.grid, project).toPiece().holes;
+
+  assert(plateTabs.length > 0, 'sanity check: the recessed base plate should have tabs on its top side');
+  assert(holes.length === plateTabs.length, `expected ${plateTabs.length} holes, got ${holes.length}`);
+  holes.forEach((hole, i) => {
+    const xs = hole.map((p) => p.x), ys = hole.map((p) => p.y);
+    assertClose(Math.min(...xs), plateTabs[i][0], 1e-9, `hole ${i} start`);
+    assertClose(Math.max(...xs), plateTabs[i][1], 1e-9, `hole ${i} end`);
+    assertClose(Math.min(...ys), -3, 1e-9, `hole ${i} should reach the base plate's bottom face`);
+    assertClose(Math.max(...ys), 0, 1e-9, `hole ${i} should reach the base plate's top face`);
+  });
+});
+
+test('buildWallPiece() should also match the base plate tabs on a vertical outer wall, whose tiling runs along the plate y axis', () => {
+  const project = recessedBasePlateFixtureProject();
+  const transposed = buildBasePlate(project.grid, project).toPiece().outline.map((p) => ({ x: p.y, y: p.x }));
+  const plateTabs = intervalsAtY(transposed, -3);
+  const leftRun = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'v' && r.c === 0);
+  const holes = buildWallPiece(leftRun, project.grid, project).toPiece().holes;
+
+  assert(holes.length === plateTabs.length && holes.length > 0, `expected ${plateTabs.length} holes, got ${holes.length}`);
+  holes.forEach((hole, i) => {
+    assertClose(Math.min(...hole.map((p) => p.x)), plateTabs[i][0], 1e-9, `hole ${i} start`);
+    assertClose(Math.max(...hole.map((p) => p.x)), plateTabs[i][1], 1e-9, `hole ${i} end`);
+  });
+});
+
+function fingerRanges(edge) {
+  return edge.segments().filter((s) => s.kind === 'finger').map((s) => [edge.startsAtMm + s.start, edge.startsAtMm + s.start + s.length]);
+}
+
+test('buildWallPiece() should keep the two outer walls meeting at a corner complementary over their whole extended height', () => {
+  const project = recessedBasePlateFixtureProject();
+  project.fingerJoint = { ...project.fingerJoint, playMm: 0 };
+  const runs = enumerateWallRuns(project.grid, project);
+  const topWall = buildWallPiece(runs.find((r) => r.kind === 'h' && r.r === 0), project.grid, project);
+  const leftWall = buildWallPiece(runs.find((r) => r.kind === 'v' && r.c === 0), project.grid, project);
+  const ranges = [...fingerRanges(topWall.leftEdge), ...fingerRanges(leftWall.leftEdge)].sort((a, b) => a[0] - b[0]);
+
+  assertClose(ranges[0][0], -8, 1e-9, 'the corner comb should start at the wall bottom');
+  assertClose(ranges[ranges.length - 1][1], 40, 1e-9, 'the corner comb should end at the wall top');
+  for (let i = 1; i < ranges.length; i++) {
+    assertClose(ranges[i][0], ranges[i - 1][1], 1e-9, `the two combs should neither overlap nor leave a gap at range ${i}`);
+  }
+});
+
+test('buildWallPiece() should leave interior dividers untouched by a recessed base plate', () => {
+  const flush = createDefaultProject();
+  flush.grid = createGrid([90, 130], [70, 100]);
+  const recessed = { ...flush, basePlate: { mode: 'recessed', recessMm: 5 } };
+  const dividerRuns = enumerateWallRuns(flush.grid, flush).filter((r) => r.seg.thicknessGroup === 'inner');
+
+  assert(dividerRuns.length > 0, 'sanity check: the 2x2 grid should have interior dividers');
+  for (const run of dividerRuns) {
+    const before = buildWallPiece(run, flush.grid, flush).toPiece();
+    const after = buildWallPiece(run, recessed.grid, recessed).toPiece();
+    assert(JSON.stringify(before) === JSON.stringify(after), `divider ${before.id} changed`);
+  }
+});
+
+function tabsAlongOuterRun(plateOutline, run, outerThicknessMm) {
+  const alongX = run.kind === 'h';
+  const outline = alongX ? plateOutline : plateOutline.map((p) => ({ x: p.y, y: p.x }));
+  const atFarSide = alongX ? run.r !== 0 : run.c !== 0;
+  const faceY = atFarSide ? Math.max(...outline.map((p) => p.y)) : -outerThicknessMm;
+  return intervalsAtY(outline, faceY);
+}
+
+function basePlateHolesOf(wallPiece) {
+  return wallPiece.holes
+    .filter((hole) => Math.max(...hole.map((p) => p.y)) <= 1e-9)
+    .map((hole) => [Math.min(...hole.map((p) => p.x)), Math.max(...hole.map((p) => p.x))])
+    .sort((a, b) => a[0] - b[0]);
+}
+
+test('Box.fromProject() should build a recessed 2x2 box whose every base plate tab meets a mortise hole, with every piece still cuttable', () => {
+  const project = createM2ExampleProject();
+  project.basePlate = { mode: 'recessed', recessMm: 5 };
+  const box = Box.fromProject(project);
+
+  for (const piece of box.allPiecesBurnCorrected()) {
+    assert(isSimplePolygon(piece.outline), `${piece.id}: outline should stay a simple polygon after burn correction`);
+    piece.holes.forEach((hole, i) => assert(isSimplePolygon(hole), `${piece.id}: hole ${i} should stay a simple polygon`));
+  }
+
+  const pieces = box.allPieces();
+  const plateOutline = pieces.find((p) => p.id === 'base-plate').outline;
+  const outerRuns = enumerateWallRuns(project.grid, project).filter((r) => r.seg.thicknessGroup === 'outer');
+  assert(outerRuns.length === 4, `sanity check: expected 4 outer walls, got ${outerRuns.length}`);
+  for (const run of outerRuns) {
+    const wall = pieces.find((p) => p.id === wallPieceId(run));
+    const tabs = tabsAlongOuterRun(plateOutline, run, project.outerThicknessMm);
+    const holes = basePlateHolesOf(wall);
+    assert(tabs.length > 0 && holes.length === tabs.length, `${wall.id}: expected ${tabs.length} holes, got ${holes.length}`);
+    holes.forEach((hole, i) => {
+      assertClose(hole[0], tabs[i][0], 1e-9, `${wall.id}: hole ${i} start`);
+      assertClose(hole[1], tabs[i][1], 1e-9, `${wall.id}: hole ${i} end`);
+    });
+  }
+});
+
 // FlatPanel (base plate/lid) open sides: an open side (no outer wall run,
 // e.g. a drawer sleeve's own openSide) used to be represented as `null` in
 // buildBoundarySides — no Edge object at all, so a grip notch had nowhere
@@ -422,6 +563,22 @@ test('a grip notch stored for the drawer\'s own base plate open edge (prefixed k
   const without = buildBasePlate(project.grid, { ...project, pieceNotches: {} }).toPiece();
 
   assert(JSON.stringify(withNotch.outline) !== JSON.stringify(without.outline), 'the notch stored under the unprefixed key should actually affect the outline');
+});
+
+test('Drawer.sleeveContext() should keep the sleeve base plate flush even when the box base plate is recessed', () => {
+  const project = recessedBasePlateFixtureProject();
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'top' };
+  const { project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
+  assert(sleeveProject.basePlate.mode === 'flush', `expected a flush sleeve base plate, got ${sleeveProject.basePlate.mode}`);
+});
+
+test('Drawer.sleeveContext() should make the sleeve taller by the box base plate recess, so the box still fits inside', () => {
+  const project = recessedBasePlateFixtureProject();
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'top' };
+  const flushProject = { ...project, basePlate: { mode: 'flush', recessMm: null } };
+  const recessedHeight = Drawer.sleeveContext({ grid: project.grid, project }).project.outerHeightMm;
+  const flushHeight = Drawer.sleeveContext({ grid: project.grid, project: flushProject }).project.outerHeightMm;
+  assertClose(recessedHeight - flushHeight, 5, 1e-9);
 });
 
 // wallSmoothEdges: which of a wall's own edges are genuinely un-jointed —

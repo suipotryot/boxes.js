@@ -85,6 +85,13 @@ test('points(): with no startClipMm/endClipMm given, behavior is byte-for-byte i
   assertClose(withDefaults[withDefaults.length - 1].u, 10, 1e-9);
 });
 
+test('points() should shift every point along u by startsAtMm, leaving the values untouched', () => {
+  const pts = new TwoZoneEdge(10, [], { startsAtMm: -4 }).points();
+  assertClose(pts[0].u, -4, 1e-9, 'the edge should now start at u=-4');
+  assertClose(pts[pts.length - 1].u, 6, 1e-9, 'the edge should now end at u=6 (-4+10)');
+  assert(JSON.stringify(pts.map((p) => p.y)) === JSON.stringify(new TwoZoneEdge(10).points().map((p) => p.y)));
+});
+
 test('points(): startClipMm recedes the first point without touching ownBoundaries()/baseValueAt() (the value there still comes from the FULL underlying tiling)', () => {
   const pts = new TwoZoneEdge(10, [], { startClipMm: 3 }).points();
   assertClose(pts[0].u, 3, 1e-9, 'the outline should now start at u=3, not u=0');
