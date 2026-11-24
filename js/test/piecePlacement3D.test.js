@@ -40,7 +40,7 @@ test('the base plate placement is the identity transform at the world origin, ex
   assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'wAxis');
 });
 
-test('computePiecePlacement3D() should raise a recessed base plate by the floor recess, the walls reaching down to z=0 around it', () => {
+test('computePiecePlacement3D() should raise a recessed base plate by its recess, the walls reaching down to z=0 around it', () => {
   const project = fixtureProject();
   project.basePlate = { mode: 'recessed', recessMm: 5 };
   const basePlate = computePieces(project).find((p) => p.id === 'base-plate');
@@ -65,6 +65,14 @@ test('computePiecePlacement3D() should anchor every wall on the recessed base pl
     assert(wall, `expected a wall ${id}`);
     assertClose(computePiecePlacement3D(project.grid, project, wall).origin.z, 3 + 5, 1e-9, `${id} origin.z = outerThicknessMm + recessMm`);
   }
+});
+
+test('computePiecePlacement3D() should raise a recessed lid by the base plate recess too', () => {
+  const project = fixtureProject();
+  project.basePlate = { mode: 'recessed', recessMm: 5 };
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 30 };
+  const lid = computePieces(project).find((p) => p.id === 'lid');
+  assertClose(computePiecePlacement3D(project.grid, project, lid).origin.z, 5 + 3 + 30, 1e-9, 'origin.z = recessMm + outerThicknessMm + insertHeightMm');
 });
 
 test('the outer bottom wall (r=rows) extrudes entirely outward (+Y), its inner face flush with the far compartment boundary', () => {

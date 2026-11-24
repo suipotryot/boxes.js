@@ -347,9 +347,10 @@ export function lidMode(project) {
   return project.lid?.mode ?? 'recessed';
 }
 
-/** Total assembled outer height of the box, base plate to topmost point —
+/** Total assembled outer height of the box, lowest to topmost point —
  *  unlike perimeterHeight (walls only; v=0 sits at the base plate's own
- *  TOP face), this adds the base plate's own material below v=0. A
+ *  TOP face), this adds the base plate's own material below v=0, plus the
+ *  outer walls' extension below it when the base plate is recessed. A
  *  recessed lid sits below the walls' own top edge (the walls form a rim
  *  above it) and adds nothing beyond perimeterHeight; a disabled lid
  *  leaves the box open at the walls' top edge, same result. An 'onTop'
@@ -364,20 +365,24 @@ export function lidMode(project) {
 export function outerBoxHeight(grid, project) {
   const { lid } = project;
   const lidOnTop = !!lid && lid.enabled && lidMode(project) === 'onTop';
-  return floorRecessMm(project) + project.outerThicknessMm + perimeterHeight(grid, project) + (lidOnTop ? project.outerThicknessMm : 0);
+  return basePlateRecessMm(project) + project.outerThicknessMm + perimeterHeight(grid, project) + (lidOnTop ? project.outerThicknessMm : 0);
+}
+
+export function basePlateMode(project) {
+  return project.basePlate?.mode ?? 'flush';
 }
 
 export function isBasePlateRecessed(project) {
-  return project.basePlate?.mode === 'recessed';
+  return basePlateMode(project) === 'recessed';
 }
 
-export function floorRecessMm(project) {
+export function basePlateRecessMm(project) {
   if (!isBasePlateRecessed(project)) return 0;
   return project.basePlate.recessMm ?? project.outerThicknessMm;
 }
 
-export function validateFloorRecess(recessMm) {
-  return { ok: recessMm > 0 };
+export function isBasePlateRecessValid(recessMm) {
+  return recessMm > 0;
 }
 
 /** Total exterior footprint width (X) / depth (Y), outer face to outer

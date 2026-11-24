@@ -1,7 +1,8 @@
 // Shared base for one side of a Panel (Bordure in the plan/design
 // discussion — SmoothEdge/FingerEdge below are its two concrete shapes).
 //
-// An Edge's own local frame is always (u, y): u runs [0, lengthMm] along
+// An Edge's own local frame is always (u, y): u runs [0, lengthMm] (shifted
+// by originMm only in points()'s output) along
 // whichever axis this edge tiles along (a wall's own length for its
 // bottom/top edges, or its height for its left/right end edges — an Edge
 // itself never knows or cares which); y is a magnitude toward this edge's

@@ -20,7 +20,7 @@
 // (perimeter) wall extrudes its thickness entirely OUTWARD from the
 // compartment boundary; an interior divider extrudes CENTERED on the grid
 // line (half each side) — see isOuterSegment.
-import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, lidMode, floorRecessMm } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, lidMode, basePlateRecessMm } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
 import { Drawer, DRAWER_PREFIX, OPEN_SIDE } from './oo/Drawer.js';
 
@@ -49,11 +49,12 @@ function identityPlacement() {
  *  already-resolved sleeve grid/project, would try to resolve the prefix a
  *  second time. */
 function computeLocalPlacement(grid, project, pieceId, piece) {
-  const baseZ = floorRecessMm(project) + project.outerThicknessMm;
+  const basePlateBottomZ = basePlateRecessMm(project);
+  const baseZ = basePlateBottomZ + project.outerThicknessMm;
 
   if (piece.kind === 'basePlate') {
     const placement = identityPlacement();
-    placement.origin.z = floorRecessMm(project);
+    placement.origin.z = basePlateBottomZ;
     return placement;
   }
   if (piece.kind === 'lid') {
