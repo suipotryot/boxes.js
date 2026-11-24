@@ -18,8 +18,8 @@ test('segments() matches a direct fingerEdgePath call with the same parameters',
   assert(JSON.stringify(edge.segments()) === JSON.stringify(direct));
 });
 
-test('FingerEdge() should pass originMm through to its points', () => {
-  const edge = new FingerEdge({ lengthMm: 123, fingerJoint: fj, startWithFinger: true, mateThicknessMm: 3, originMm: -6 });
+test('FingerEdge() should pass startsAtMm through to its points', () => {
+  const edge = new FingerEdge({ lengthMm: 123, fingerJoint: fj, startWithFinger: true, mateThicknessMm: 3, startsAtMm: -6 });
   const pts = edge.points();
   assertClose(pts[0].u, -6, 1e-9);
   assertClose(pts[pts.length - 1].u, 117, 1e-9);

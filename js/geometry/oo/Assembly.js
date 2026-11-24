@@ -191,11 +191,11 @@ export function wallSmoothEdges(run, grid, project) {
   return edges;
 }
 
-function holdsRecessedBasePlate(run, project) {
+function wallHoldsRecessedBasePlate(run, project) {
   return isBasePlateRecessed(project) && run.seg.thicknessGroup === 'outer';
 }
 
-function mortiseRowAt(centerMm, run, grid, project) {
+function mortiseHolesAt(centerMm, run, grid, project) {
   return MortiseHole.manyFromFingerSegments(combSegmentsFor(run, grid, project), {
     axis: 'x', centerMm, thicknessMm: project.outerThicknessMm,
   });
@@ -226,7 +226,7 @@ export function buildWallPiece(run, grid, project) {
   const { active: lidActive, mode, lid } = lidState(run, project);
   const lidOnTop = lidActive && mode === 'onTop';
   const lidRecessed = lidActive && mode === 'recessed';
-  const holdsBasePlate = holdsRecessedBasePlate(run, project);
+  const holdsRecessedBasePlate = wallHoldsRecessedBasePlate(run, project);
   const pieceId = wallPieceId(run);
 
   // Grip notches only ever splice into a genuinely un-jointed edge (see
@@ -266,8 +266,8 @@ export function buildWallPiece(run, grid, project) {
       })
     : [];
 
-  const bottomMm = holdsBasePlate ? -(project.outerThicknessMm + basePlateRecessMm(project)) : 0;
-  const bottomEdge = holdsBasePlate
+  const bottomMm = holdsRecessedBasePlate ? -(project.outerThicknessMm + basePlateRecessMm(project)) : 0;
+  const bottomEdge = holdsRecessedBasePlate
     ? new SmoothEdge({ lengthMm: run.length, heightProfile: [{ uStart: 0, uEnd: run.length, height: bottomMm }] })
     : new FingerEdge({
         lengthMm: run.length, fingerJoint: fj, startWithFinger,
@@ -279,12 +279,12 @@ export function buildWallPiece(run, grid, project) {
   const rightEdgeLengthMm = spans[spans.length - 1].height - bottomMm;
   const rightEdge = protrusionB === 0
     ? new SmoothEdge({
-        lengthMm: rightEdgeLengthMm, originMm: bottomMm,
+        lengthMm: rightEdgeLengthMm, startsAtMm: bottomMm,
         heightProfile: [{ uStart: 0, uEnd: rightEdgeLengthMm, height: run.length }],
         fragments: rightGripFragments,
       })
     : new FingerEdge({
-        lengthMm: rightEdgeLengthMm, originMm: bottomMm, fingerJoint: fj, startWithFinger,
+        lengthMm: rightEdgeLengthMm, startsAtMm: bottomMm, fingerJoint: fj, startWithFinger,
         mateThicknessMm: protrusionB, extendToTips,
         baselineMm: run.length - correctionB, signMm: 1,
       });
@@ -325,12 +325,12 @@ export function buildWallPiece(run, grid, project) {
   const leftEdgeLengthMm = spans[0].height - bottomMm;
   const leftEdge = protrusionA === 0
     ? new SmoothEdge({
-        lengthMm: leftEdgeLengthMm, originMm: bottomMm,
+        lengthMm: leftEdgeLengthMm, startsAtMm: bottomMm,
         heightProfile: [{ uStart: 0, uEnd: leftEdgeLengthMm, height: 0 }],
         fragments: leftGripFragments,
       })
     : new FingerEdge({
-        lengthMm: leftEdgeLengthMm, originMm: bottomMm, fingerJoint: fj, startWithFinger,
+        lengthMm: leftEdgeLengthMm, startsAtMm: bottomMm, fingerJoint: fj, startWithFinger,
         mateThicknessMm: protrusionA, extendToTips,
         baselineMm: correctionA, signMm: -1,
       });
@@ -341,8 +341,8 @@ export function buildWallPiece(run, grid, project) {
   // (OuterBoundary), so a hole can never drift out of sync with the tab
   // meant to sit in it. An onTop lid never needs holes — it joints through
   // the free edge itself (above).
-  const lidHoles = lidRecessed ? mortiseRowAt(lid.insertHeightMm + project.outerThicknessMm / 2, run, grid, project) : [];
-  const basePlateHoles = holdsBasePlate ? mortiseRowAt(-project.outerThicknessMm / 2, run, grid, project) : [];
+  const lidHoles = lidRecessed ? mortiseHolesAt(lid.insertHeightMm + project.outerThicknessMm / 2, run, grid, project) : [];
+  const basePlateHoles = holdsRecessedBasePlate ? mortiseHolesAt(-project.outerThicknessMm / 2, run, grid, project) : [];
 
   const PanelClass = run.seg.thicknessGroup === 'outer' ? Panel : Divider;
   return new PanelClass({

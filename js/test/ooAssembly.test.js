@@ -378,7 +378,7 @@ test('buildWallPiece() should also match the base plate tabs on a vertical outer
 });
 
 function fingerRanges(edge) {
-  return edge.segments().filter((s) => s.kind === 'finger').map((s) => [edge.originMm + s.start, edge.originMm + s.start + s.length]);
+  return edge.segments().filter((s) => s.kind === 'finger').map((s) => [edge.startsAtMm + s.start, edge.startsAtMm + s.start + s.length]);
 }
 
 test('buildWallPiece() should keep the two outer walls meeting at a corner complementary over their whole extended height', () => {
