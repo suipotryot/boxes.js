@@ -12,7 +12,7 @@
 // method runs (see the plan's own "construire() est unique" analysis).
 import {
   enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, lidMode,
-  heightProfile, heightAt, junctionExclusionRanges, wallPieceId,
+  heightProfile, heightAt, junctionExclusionRanges, wallPieceId, isBasePlateRecessed, floorRecessMm,
 } from '../../model/GridQuery.js';
 import { isOuterSegment } from '../../model/Grid.js';
 import { Notch } from './Notch.js';
@@ -191,6 +191,14 @@ export function wallSmoothEdges(run, grid, project) {
   return edges;
 }
 
+function isAroundRecessedFloor(run, project) {
+  return isBasePlateRecessed(project) && run.seg.thicknessGroup === 'outer';
+}
+
+function wallBottomMm(run, project) {
+  return isAroundRecessedFloor(run, project) ? -(project.outerThicknessMm + floorRecessMm(project)) : 0;
+}
+
 export function buildWallPiece(run, grid, project) {
   const spans = heightProfile(run, grid, project);
   const fj = project.fingerJoint;
@@ -255,21 +263,25 @@ export function buildWallPiece(run, grid, project) {
       })
     : [];
 
-  const bottomEdge = new FingerEdge({
-    lengthMm: run.length, fingerJoint: fj, startWithFinger,
-    mateThicknessMm: project.outerThicknessMm, baselineMm: 0, signMm: -1,
-    exclusions: junctionExclusionRanges(run, grid, project),
-    fragments: run.kind === 'h' ? crossingFragments : [],
-    startClipMm: cappedStartClip, endClipMm: cappedEndClip,
-  });
+  const bottomMm = wallBottomMm(run, project);
+  const bottomEdge = isAroundRecessedFloor(run, project)
+    ? new SmoothEdge({ lengthMm: run.length, heightProfile: [{ uStart: 0, uEnd: run.length, height: bottomMm }] })
+    : new FingerEdge({
+        lengthMm: run.length, fingerJoint: fj, startWithFinger,
+        mateThicknessMm: project.outerThicknessMm, baselineMm: 0, signMm: -1,
+        exclusions: junctionExclusionRanges(run, grid, project),
+        fragments: run.kind === 'h' ? crossingFragments : [],
+        startClipMm: cappedStartClip, endClipMm: cappedEndClip,
+      });
+  const rightEndLengthMm = spans[spans.length - 1].height - bottomMm;
   const rightEdge = protrusionB === 0
     ? new SmoothEdge({
-        lengthMm: spans[spans.length - 1].height,
-        heightProfile: [{ uStart: 0, uEnd: spans[spans.length - 1].height, height: run.length }],
+        lengthMm: rightEndLengthMm, originMm: bottomMm,
+        heightProfile: [{ uStart: 0, uEnd: rightEndLengthMm, height: run.length }],
         fragments: rightGripFragments,
       })
     : new FingerEdge({
-        lengthMm: spans[spans.length - 1].height, fingerJoint: fj, startWithFinger,
+        lengthMm: rightEndLengthMm, originMm: bottomMm, fingerJoint: fj, startWithFinger,
         mateThicknessMm: protrusionB, extendToTips,
         baselineMm: run.length - correctionB, signMm: 1,
       });
@@ -307,14 +319,15 @@ export function buildWallPiece(run, grid, project) {
         // here, so this end always reaches a perfect, step-free corner.
         startClipMm: correctionA, endClipMm: correctionB,
       });
+  const leftEndLengthMm = spans[0].height - bottomMm;
   const leftEdge = protrusionA === 0
     ? new SmoothEdge({
-        lengthMm: spans[0].height,
-        heightProfile: [{ uStart: 0, uEnd: spans[0].height, height: 0 }],
+        lengthMm: leftEndLengthMm, originMm: bottomMm,
+        heightProfile: [{ uStart: 0, uEnd: leftEndLengthMm, height: 0 }],
         fragments: leftGripFragments,
       })
     : new FingerEdge({
-        lengthMm: spans[0].height, fingerJoint: fj, startWithFinger,
+        lengthMm: leftEndLengthMm, originMm: bottomMm, fingerJoint: fj, startWithFinger,
         mateThicknessMm: protrusionA, extendToTips,
         baselineMm: correctionA, signMm: -1,
       });
@@ -330,6 +343,11 @@ export function buildWallPiece(run, grid, project) {
         axis: 'x', centerMm: lid.insertHeightMm + project.outerThicknessMm / 2, thicknessMm: project.outerThicknessMm,
       })
     : [];
+  const floorHoles = isAroundRecessedFloor(run, project)
+    ? MortiseHole.manyFromFingerSegments(combSegmentsFor(run, grid, project), {
+        axis: 'x', centerMm: -project.outerThicknessMm / 2, thicknessMm: project.outerThicknessMm,
+      })
+    : [];
 
   const PanelClass = run.seg.thicknessGroup === 'outer' ? Panel : Divider;
   return new PanelClass({
@@ -338,7 +356,7 @@ export function buildWallPiece(run, grid, project) {
     thicknessGroup: run.seg.thicknessGroup,
     thicknessMm: resolveThickness(run.seg, project),
     bottomEdge, rightEdge, topEdge, leftEdge,
-    holes: [...mortiseHoles, ...lidHoles, ...Hole.listFor(project.pieceHoles, pieceId)],
+    holes: [...mortiseHoles, ...lidHoles, ...floorHoles, ...Hole.listFor(project.pieceHoles, pieceId)],
   });
 }
 
@@ -414,12 +432,12 @@ function buildBoundaryEdges(grid, project, protrude, pieceId) {
 }
 
 // The box's floor (Socle in the plan/design discussion): a BasePlatePanel
-// whose outer boundary always uses protrude:false, plus one MortiseHole per
+// whose outer boundary protrudes only when recessed, plus one MortiseHole per
 // finger segment of each interior Divider's own bottom comb (never touching
 // the boundary — always fully interior, so unlike the boundary's own
 // notches these are safe as independent closed holes).
 export function buildBasePlate(grid, project) {
-  const { bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides } = buildBoundaryEdges(grid, project, false, 'base-plate');
+  const { bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides } = buildBoundaryEdges(grid, project, isBasePlateRecessed(project), 'base-plate');
   const runs = enumerateWallRuns(grid, project);
   const innerRuns = runs.filter((run) => !isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
 

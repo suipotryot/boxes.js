@@ -25,6 +25,7 @@ export function createDefaultProject(name = 'Nouveau projet') {
     // to be perimeterHeight). See GridQuery.validateLid/outerBoxHeight and
     // Assembly.buildWallPiece/buildLid.
     lid: { enabled: false, mode: 'recessed', insertHeightMm: null },
+    basePlate: { mode: 'flush', recessMm: null },
     drawer: { enabled: false, playMm: 1, thicknessMm: 3, openSide: 'top' },
     pieceNotches: {}, // { [pieceId]: GripNotch } — see js/geometry/GripNotch.js
     pieceHoles: {}, // { [pieceId]: Hole[] } — see js/geometry/Hole.js

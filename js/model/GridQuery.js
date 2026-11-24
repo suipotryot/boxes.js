@@ -364,7 +364,20 @@ export function lidMode(project) {
 export function outerBoxHeight(grid, project) {
   const { lid } = project;
   const lidOnTop = !!lid && lid.enabled && lidMode(project) === 'onTop';
-  return project.outerThicknessMm + perimeterHeight(grid, project) + (lidOnTop ? project.outerThicknessMm : 0);
+  return floorRecessMm(project) + project.outerThicknessMm + perimeterHeight(grid, project) + (lidOnTop ? project.outerThicknessMm : 0);
+}
+
+export function isBasePlateRecessed(project) {
+  return project.basePlate?.mode === 'recessed';
+}
+
+export function floorRecessMm(project) {
+  if (!isBasePlateRecessed(project)) return 0;
+  return project.basePlate.recessMm ?? project.outerThicknessMm;
+}
+
+export function validateFloorRecess(recessMm) {
+  return { ok: recessMm > 0 };
 }
 
 /** Total exterior footprint width (X) / depth (Y), outer face to outer

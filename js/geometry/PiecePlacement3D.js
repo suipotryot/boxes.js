@@ -1,9 +1,9 @@
 // Places every piece of computePieces() into one shared 3D world space,
 // ahead of the 3D preview's own extrusion step (ThreeJsScene.js, via
 // three.js's ExtrudeGeometry). X = width, Y = depth, Z = height, Z=0 at
-// the true floor (the base plate's own bottom face) — baseZ =
-// outerThicknessMm is the world Z of GridQuery's own v=0 convention (a
-// wall's bottom mating edge / the base plate's top face).
+// the box's true underside (the base plate's bottom face, or the outer
+// walls' bottom edge around a recessed base plate) — baseZ is the world Z
+// of GridQuery's own v=0 convention (the base plate's top face).
 //
 // Returns a full orthonormal basis (origin + 3 unit axes) instead of
 // Euler rotate angles: this keeps 100% of the placement arithmetic
@@ -20,7 +20,7 @@
 // (perimeter) wall extrudes its thickness entirely OUTWARD from the
 // compartment boundary; an interior divider extrudes CENTERED on the grid
 // line (half each side) — see isOuterSegment.
-import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, lidMode } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, lidMode, floorRecessMm } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
 import { Drawer, DRAWER_PREFIX, OPEN_SIDE } from './oo/Drawer.js';
 
@@ -49,9 +49,13 @@ function identityPlacement() {
  *  already-resolved sleeve grid/project, would try to resolve the prefix a
  *  second time. */
 function computeLocalPlacement(grid, project, pieceId, piece) {
-  const baseZ = project.outerThicknessMm;
+  const baseZ = floorRecessMm(project) + project.outerThicknessMm;
 
-  if (piece.kind === 'basePlate') return identityPlacement();
+  if (piece.kind === 'basePlate') {
+    const placement = identityPlacement();
+    placement.origin.z = floorRecessMm(project);
+    return placement;
+  }
   if (piece.kind === 'lid') {
     const placement = identityPlacement();
     // onTop has no insertHeightMm of its own — its bottom face always

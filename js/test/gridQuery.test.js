@@ -4,7 +4,7 @@
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent, toggleWall } from '../model/Grid.js';
-import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateLid } from '../model/GridQuery.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateLid, floorRecessMm, validateFloorRecess } from '../model/GridQuery.js';
 import { createDefaultProject } from '../state/Project.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
@@ -184,6 +184,28 @@ test('outerBoxHeight adds one outerThicknessMm for an onTop lid — it rests on 
   project.outerHeightMm = 40;
   project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null };
   assertClose(outerBoxHeight(project.grid, project), 46, 1e-9, 'outerThicknessMm (base) + perimeterHeight + outerThicknessMm (lid)');
+});
+
+test('outerBoxHeight() should add the floor recess when the base plate is recessed', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [100]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.basePlate = { mode: 'recessed', recessMm: 5 };
+  assertClose(outerBoxHeight(project.grid, project), 48, 1e-9, 'recessMm + outerThicknessMm (base) + perimeterHeight');
+});
+
+test('floorRecessMm() should default to the outer thickness when a recessed base plate has no recess set', () => {
+  const project = createDefaultProject();
+  project.outerThicknessMm = 4;
+  project.basePlate = { mode: 'recessed', recessMm: null };
+  assertClose(floorRecessMm(project), 4, 1e-9);
+});
+
+test('validateFloorRecess() should reject a recess that leaves no wood below the floor mortise holes', () => {
+  assert(!validateFloorRecess(0).ok, 'a zero recess turns every mortise hole into an open notch');
+  assert(!validateFloorRecess(-1).ok, 'a negative recess is meaningless');
+  assert(validateFloorRecess(0.5).ok, 'any positive recess keeps wood below the holes');
 });
 
 test('validateLid still governs a recessed lid\'s valid insertion-height range, unaffected by the onTop mode\'s existence', () => {

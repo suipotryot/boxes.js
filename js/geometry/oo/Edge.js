@@ -13,7 +13,7 @@
 // own sign convention independently. Keeping Edge itself sign-agnostic
 // means one shared algorithm serves every edge role.
 export class Edge {
-  constructor(lengthMm, fragments = [], { startClipMm = 0, endClipMm = 0 } = {}) {
+  constructor(lengthMm, fragments = [], { startClipMm = 0, endClipMm = 0, originMm = 0 } = {}) {
     this.lengthMm = lengthMm;
     // Fragments splice an override into a u-range of this edge's own
     // trace — either {uStart, uEnd, points:[{u,y}...]} (a full polyline,
@@ -30,6 +30,7 @@ export class Edge {
     // points() below for the fragment-straddling safety fallback.
     this.startClipMm = startClipMm;
     this.endClipMm = endClipMm;
+    this.originMm = originMm;
   }
 
   /** u-positions (besides 0 and lengthMm) where this edge's OWN base
@@ -101,6 +102,6 @@ export class Edge {
       const y = fragment ? fragment.depth : this.intervalValue(mid, uStart, uEnd);
       pts.push({ u: uStart, y }, { u: uEnd, y });
     }
-    return pts;
+    return pts.map((p) => ({ u: p.u + this.originMm, y: p.y }));
   }
 }
