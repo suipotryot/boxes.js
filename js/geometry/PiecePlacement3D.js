@@ -20,7 +20,7 @@
 // (perimeter) wall extrudes its thickness entirely OUTWARD from the
 // compartment boundary; an interior divider extrudes CENTERED on the grid
 // line (half each side) — see isOuterSegment.
-import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, lidMode, basePlateRecessMm } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, lidMode, basePlateRecessMm, coverageRectangle, lidCoverage } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
 import { Drawer, DRAWER_PREFIX, OPEN_SIDE } from './oo/Drawer.js';
 
@@ -63,7 +63,8 @@ function computeLocalPlacement(grid, project, pieceId, piece) {
     // rests exactly at the walls' own top edge (see GridQuery.outerBoxHeight
     // and Assembly.buildLid).
     const insertHeightMm = lidMode(project) === 'onTop' ? perimeterHeight(grid, project) : project.lid.insertHeightMm;
-    placement.origin.z = baseZ + insertHeightMm;
+    const { xMm, yMm } = coverageRectangle(grid, project, lidCoverage(project));
+    placement.origin = { x: xMm, y: yMm, z: baseZ + insertHeightMm };
     return placement;
   }
   if (piece.kind !== 'wall') {

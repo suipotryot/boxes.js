@@ -6,7 +6,7 @@
 import { test, assert, run } from './testHarness.js';
 import { createGrid, setSegmentPresent } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { enumerateSmoothFlatEdges } from '../geometry/PieceContext.js';
+import { enumerateSmoothFlatEdges, resolvePieceHoleContext } from '../geometry/PieceContext.js';
 
 test('enumerateSmoothFlatEdges: a plain, fully-walled box has no smooth edges on its base plate', () => {
   const project = createDefaultProject();
@@ -30,6 +30,14 @@ test('enumerateSmoothFlatEdges: returns nothing for a wall piece id (not base-pl
   const project = createDefaultProject();
   project.grid = createGrid([100], [80]);
   assert(enumerateSmoothFlatEdges(project.grid, project, 'wall-h-0-0').length === 0, 'a wall piece id has no flat-edge notion at all');
+});
+
+test('resolvePieceHoleContext() should size a covered lid to its coverage rectangle, so its holes are validated inside the strip', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([60], [30]);
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: { side: 'left', depthMm: 12 } };
+  const { widthMm, heightMm } = resolvePieceHoleContext(project, 'lid');
+  assert(widthMm === 12 && heightMm === 30, `expected 12x30, got ${widthMm}x${heightMm}`);
 });
 
 run();

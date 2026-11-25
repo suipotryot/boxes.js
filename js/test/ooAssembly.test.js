@@ -8,8 +8,8 @@
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent } from '../model/Grid.js';
 import { createDefaultProject, createM2ExampleProject } from '../state/Project.js';
-import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt, junctionKindAt, wallPieceId } from '../model/GridQuery.js';
-import { buildWallPiece, buildLid, buildBasePlate, wallSmoothEdges } from '../geometry/oo/Assembly.js';
+import { enumerateWallRuns, heightProfile, heightAt, xAt, yAt, junctionKindAt, wallPieceId, coverageRectangle } from '../model/GridQuery.js';
+import { buildWallPiece, buildLid, buildBasePlate, wallSmoothEdges, coverageHoldsFlankTabs } from '../geometry/oo/Assembly.js';
 import { SmoothEdge } from '../geometry/oo/SmoothEdge.js';
 import { Drawer } from '../geometry/oo/Drawer.js';
 import { Box } from '../geometry/oo/Box.js';
@@ -703,6 +703,145 @@ test('a grip notch stored under the plain pieceId key no longer applies to a dra
   const withStaleNotch = buildWallPiece(run, grid, project).toPiece();
   const without = buildWallPiece(run, grid, { ...project, pieceNotches: {} }).toPiece();
   assert(JSON.stringify(withStaleNotch.outline) === JSON.stringify(without.outline), 'a notch under the plain key should no longer affect this wall\'s outline at all, since its topEdge is jointed, not free');
+});
+
+function coveredLidFixtureProject(coverage) {
+  const project = lidFixtureProject();
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage };
+  return project;
+}
+
+const COVERAGE_SIDES = ['top', 'bottom', 'left', 'right'];
+const WALL_BY_SIDE = {
+  top: { kind: 'h', line: 0 },
+  bottom: { kind: 'h', line: 1 },
+  left: { kind: 'v', line: 0 },
+  right: { kind: 'v', line: 1 },
+};
+const FACING_SIDE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+const FLANK_SIDES = { top: ['left', 'right'], bottom: ['left', 'right'], left: ['top', 'bottom'], right: ['top', 'bottom'] };
+const LID_FIELD_BY_SIDE = { top: 'bottomEdge', right: 'rightEdge', bottom: 'topEdge', left: 'leftEdge' };
+
+function outerRun(project, kind, line) {
+  return enumerateWallRuns(project.grid, project).find((r) => r.kind === kind && (kind === 'h' ? r.r : r.c) === line);
+}
+
+function wallOnSide(project, side) {
+  const { kind, line } = WALL_BY_SIDE[side];
+  return buildWallPiece(outerRun(project, kind, line), project.grid, project);
+}
+
+function outlineExtremeTowards(outline, side) {
+  if (side === 'top') return Math.min(...outline.map((p) => p.y));
+  if (side === 'bottom') return Math.max(...outline.map((p) => p.y));
+  if (side === 'left') return Math.min(...outline.map((p) => p.x));
+  return Math.max(...outline.map((p) => p.x));
+}
+
+function nominalEdgeTowards(rectangle, side) {
+  if (side === 'bottom') return rectangle.depthMm;
+  if (side === 'right') return rectangle.widthMm;
+  return 0;
+}
+
+for (const coverageSide of COVERAGE_SIDES) {
+  test(`buildLid() should end a ${coverageSide} coverage in a flat open edge, with no tab past it`, () => {
+    const project = coveredLidFixtureProject({ side: coverageSide, depthMm: 12 });
+    const outline = buildLid(project.grid, project).toPiece().outline;
+    const rectangle = coverageRectangle(project.grid, project, project.lid.coverage);
+    const facingSide = FACING_SIDE[coverageSide];
+    assertClose(outlineExtremeTowards(outline, facingSide), nominalEdgeTowards(rectangle, facingSide), 1e-6, `the ${facingSide} open edge should sit exactly on the coverage rectangle`);
+  });
+}
+
+for (const coverageSide of COVERAGE_SIDES) {
+  test(`buildLid() should give a ${coverageSide} coverage a simple outline fitting its coverage rectangle plus the outer thickness`, () => {
+    const project = coveredLidFixtureProject({ side: coverageSide, depthMm: 12 });
+    const tabMm = project.outerThicknessMm;
+    const outline = buildLid(project.grid, project).toPiece().outline;
+    const { widthMm, depthMm } = coverageRectangle(project.grid, project, project.lid.coverage);
+    assert(isSimplePolygon(outline), 'expected a simple polygon');
+    for (const p of outline) {
+      const inside = p.x >= -tabMm - 1e-6 && p.x <= widthMm + tabMm + 1e-6 && p.y >= -tabMm - 1e-6 && p.y <= depthMm + tabMm + 1e-6;
+      assert(inside, `point ${JSON.stringify(p)} outside the ${widthMm}x${depthMm} coverage plus its tabs`);
+    }
+  });
+}
+
+test('buildWallPiece() should only cut lid mortises under the coverage on a flank wall', () => {
+  const project = coveredLidFixtureProject({ side: 'top', depthMm: 12 });
+  const holes = wallOnSide(project, 'left').holes;
+  assert(holes.length > 0, 'expected the flank wall to still hold the covered strip');
+  for (const hole of holes) {
+    assert(hole.xMm >= 0 && hole.xMm + hole.widthMm <= 12 + 1e-6, `expected every mortise within the 12mm coverage, got one spanning [${hole.xMm}, ${hole.xMm + hole.widthMm}]`);
+  }
+});
+
+for (const coverageSide of COVERAGE_SIDES) {
+  test(`buildWallPiece() should keep the full row of lid mortises on the wall a ${coverageSide} coverage leans against`, () => {
+    const project = coveredLidFixtureProject({ side: coverageSide, depthMm: 12 });
+    const fullProject = coveredLidFixtureProject(null);
+    const covered = wallOnSide(project, coverageSide).holes;
+    const full = wallOnSide(fullProject, coverageSide).holes;
+    assert(JSON.stringify(covered) === JSON.stringify(full), `expected the same ${full.length} mortises as a full lid, got ${covered.length}`);
+  });
+}
+
+for (const coverageSide of COVERAGE_SIDES) {
+  test(`buildWallPiece() should cut no lid mortise at all on the wall facing the open edge of a ${coverageSide} coverage`, () => {
+    const project = coveredLidFixtureProject({ side: coverageSide, depthMm: 50 });
+    const holes = wallOnSide(project, FACING_SIDE[coverageSide]).holes;
+    assert(holes.length === 0, `expected no mortise on the facing wall, got ${holes.length}`);
+  });
+}
+
+for (const coverageSide of COVERAGE_SIDES) {
+  test(`buildLid() should land every flank tab of a ${coverageSide} coverage on a mortise of the matching wall`, () => {
+    const project = coveredLidFixtureProject({ side: coverageSide, depthMm: 50 });
+    const lid = buildLid(project.grid, project);
+    const { xMm, yMm } = coverageRectangle(project.grid, project, project.lid.coverage);
+    for (const flankSide of FLANK_SIDES[coverageSide]) {
+      const offsetMm = WALL_BY_SIDE[flankSide].kind === 'v' ? yMm : xMm;
+      const tabs = lid[LID_FIELD_BY_SIDE[flankSide]].segments()
+        .filter((s) => s.kind === 'finger')
+        .map((s) => [s.start + offsetMm, s.length]);
+      const mortises = wallOnSide(project, flankSide).holes.map((h) => [h.xMm, h.widthMm]);
+      assert(tabs.length > 0, `sanity check: the ${flankSide} flank should carry at least one tab`);
+      assert(JSON.stringify(tabs) === JSON.stringify(mortises), `${flankSide} flank: tabs ${JSON.stringify(tabs)} vs mortises ${JSON.stringify(mortises)}`);
+    }
+  });
+}
+
+test('buildLid() should skip the divider junction a coverage crosses, exactly where the flank wall skips it', () => {
+  const project = createM2ExampleProject();
+  project.innerHeightMm = 30;
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 35, coverage: { side: 'top', depthMm: 120 } };
+  const lid = buildLid(project.grid, project);
+  const tabs = lid.leftEdge.segments().filter((s) => s.kind === 'finger').map((s) => [s.start, s.length]);
+  const lidMortises = buildWallPiece(outerRun(project, 'v', 0), project.grid, project).holes
+    .filter((h) => Math.abs(h.yMm - project.lid.insertHeightMm) < 1e-6)
+    .map((h) => [h.xMm, h.widthMm]);
+  const dividerY = yAt(project.grid, project, 1);
+  const dividerHalfThicknessMm = project.innerThicknessMm / 2;
+  const tabClearsDivider = ([start, length]) => start > dividerY + dividerHalfThicknessMm || start + length < dividerY - dividerHalfThicknessMm;
+  assert(tabs.every(tabClearsDivider), `expected no tab across the divider at y=${dividerY}, got ${JSON.stringify(tabs)}`);
+  assert(JSON.stringify(tabs) === JSON.stringify(lidMortises), `tabs ${JSON.stringify(tabs)} vs mortises ${JSON.stringify(lidMortises)}`);
+  assert(isSimplePolygon(lid.toPiece().outline), 'expected a simple polygon');
+});
+
+test('coverageHoldsFlankTabs() should say a 10mm coverage has no flank tab with the default 5mm margin', () => {
+  const project = coveredLidFixtureProject({ side: 'top', depthMm: 10 });
+  assert(coverageHoldsFlankTabs(project.grid, project, project.lid.coverage) === false, 'expected no room for a tab between the two 5mm margins');
+});
+
+test('coverageHoldsFlankTabs() should say a 12mm coverage holds a tab on each flank', () => {
+  const project = coveredLidFixtureProject({ side: 'top', depthMm: 12 });
+  assert(coverageHoldsFlankTabs(project.grid, project, project.lid.coverage) === true, 'expected one tab to fit once the coverage is wider than the two margins');
+});
+
+test('coverageHoldsFlankTabs() should hold a tab on each flank of a 12mm left coverage, just like a top one', () => {
+  const project = coveredLidFixtureProject({ side: 'left', depthMm: 12 });
+  assert(coverageHoldsFlankTabs(project.grid, project, project.lid.coverage) === true, 'expected the flanks to start with a tab whatever the wall orientation');
 });
 
 run();

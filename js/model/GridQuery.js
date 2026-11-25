@@ -347,6 +347,21 @@ export function lidMode(project) {
   return project.lid?.mode ?? 'recessed';
 }
 
+export const OPPOSITE_SIDE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+
+function assertKnownSide(side, caller) {
+  if (!(side in OPPOSITE_SIDE)) throw new Error(`${caller}: unknown coverage side "${side}"`);
+}
+
+export function lidCoverage(project) {
+  if (lidMode(project) === 'onTop') return null;
+  const coverage = project.lid.coverage ?? null;
+  if (!coverage) return null;
+  assertKnownSide(coverage.side, 'lidCoverage');
+  if (!Number.isFinite(coverage.depthMm)) throw new Error(`lidCoverage: coverage depth must be a number, got ${JSON.stringify(coverage.depthMm)}`);
+  return coverage;
+}
+
 /** Total assembled outer height of the box, lowest to topmost point —
  *  unlike perimeterHeight (walls only; v=0 sits at the base plate's own
  *  TOP face), this adds the base plate's own material below v=0, plus the
@@ -399,6 +414,34 @@ export function outerBoxWidth(grid, project) {
 
 export function outerBoxDepth(grid, project) {
   return yAt(grid, project, grid.sy.length) + 2 * project.outerThicknessMm;
+}
+
+export function coverageRectangle(grid, project, coverage) {
+  const interiorWidthMm = xAt(grid, project, grid.sx.length);
+  const interiorDepthMm = yAt(grid, project, grid.sy.length);
+  if (!coverage) return { xMm: 0, yMm: 0, widthMm: interiorWidthMm, depthMm: interiorDepthMm };
+  assertKnownSide(coverage.side, 'coverageRectangle');
+  const stripMm = coverage.depthMm;
+  if (coverage.side === 'top') return { xMm: 0, yMm: 0, widthMm: interiorWidthMm, depthMm: stripMm };
+  if (coverage.side === 'bottom') return { xMm: 0, yMm: interiorDepthMm - stripMm, widthMm: interiorWidthMm, depthMm: stripMm };
+  if (coverage.side === 'left') return { xMm: 0, yMm: 0, widthMm: stripMm, depthMm: interiorDepthMm };
+  return { xMm: interiorWidthMm - stripMm, yMm: 0, widthMm: stripMm, depthMm: interiorDepthMm };
+}
+
+function isHorizontalSide(side) {
+  return side === 'top' || side === 'bottom';
+}
+
+export function interiorExtentAcross(grid, project, side) {
+  assertKnownSide(side, 'interiorExtentAcross');
+  return isHorizontalSide(side)
+    ? yAt(grid, project, grid.sy.length)
+    : xAt(grid, project, grid.sx.length);
+}
+
+export function validateCoverage(grid, project, coverage) {
+  const max = interiorExtentAcross(grid, project, coverage.side);
+  return { ok: coverage.depthMm > 0 && coverage.depthMm < max, max };
 }
 
 /** Pure validation for a RECESSED lid's insertion height (the height its
