@@ -8,6 +8,7 @@
 // rely on Storage.key(i)/.length enumeration — a fake test storage only
 // ever needs to implement the 3 methods above, nothing more.
 import { createDefaultProject } from './Project.js';
+import { migrateLegacyLid } from './ProjectMigration.js';
 
 const PROJECT_PREFIX = 'boxes.js:project:';
 const INDEX_KEY = 'boxes.js:index';
@@ -60,17 +61,12 @@ export function createProjectRepository(storage = window.localStorage, detectLoc
   // own value for it — the loaded project's own fields always win where
   // present, this only fills genuine gaps. Without this, a field added to
   // createDefaultProject() after a project was already saved comes back
-  // `undefined` forever (this storage layer has no other migration path),
-  // crashing anything downstream that reads it unconditionally, e.g.
+  // `undefined` forever, crashing anything downstream that reads it unconditionally, e.g.
   // SettingsPanel.js's drawerSection reading `project.drawer.enabled`.
   function load(id) {
-    try {
-      const raw = storage.getItem(PROJECT_PREFIX + id);
-      if (!raw) return null;
-      return { ...createDefaultProject(), ...JSON.parse(raw) };
-    } catch {
-      return null;
-    }
+    const saved = readJson(storage, PROJECT_PREFIX + id, null);
+    if (!saved) return null;
+    return migrateLegacyLid({ ...createDefaultProject(), ...saved });
   }
 
   function getLastActiveId() {

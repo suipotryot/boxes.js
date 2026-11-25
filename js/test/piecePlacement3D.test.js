@@ -67,12 +67,19 @@ test('computePiecePlacement3D() should anchor every wall on the recessed base pl
   }
 });
 
-test('computePiecePlacement3D() should raise a recessed lid by the base plate recess too', () => {
-  const project = fixtureProject();
+function withOnePanel(project, coverage = null) {
+  project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: 30, coverage }];
+  return project;
+}
+
+function onlyPanelPiece(project) {
+  return computePieces(project).find((p) => p.id === 'horizontal-panel-1');
+}
+
+test('computePiecePlacement3D() should raise a horizontal panel by the base plate recess too', () => {
+  const project = withOnePanel(fixtureProject());
   project.basePlate = { mode: 'recessed', recessMm: 5 };
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 30 };
-  const lid = computePieces(project).find((p) => p.id === 'lid');
-  assertClose(computePiecePlacement3D(project.grid, project, lid).origin.z, 5 + 3 + 30, 1e-9, 'origin.z = recessMm + outerThicknessMm + insertHeightMm');
+  assertClose(computePiecePlacement3D(project.grid, project, onlyPanelPiece(project)).origin.z, 5 + 3 + 30, 1e-9, 'origin.z = recessMm + outerThicknessMm + heightMm');
 });
 
 test('the outer bottom wall (r=rows) extrudes entirely outward (+Y), its inner face flush with the far compartment boundary', () => {
@@ -120,23 +127,22 @@ test('an interior h-divider (r=1) centers its thickness on the grid line, unlike
   assertVec(placement.wAxis, { x: 0, y: 1, z: 0 }, 'interior dividers extrude toward +Y by convention');
 });
 
-test('a recessed lid placement sits flat at outerThicknessMm + insertHeightMm above the base plate, same orientation as the base plate', () => {
-  const project = fixtureProject();
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 30 };
-  const lid = computePieces(project).find((p) => p.id === 'lid');
-  assert(lid, 'expected a lid piece once project.lid is enabled');
-  const placement = computePiecePlacement3D(project.grid, project, lid);
-  assertVec(placement.origin, { x: 0, y: 0, z: 3 + 30 }, 'origin.z = outerThicknessMm + insertHeightMm');
+test('computePiecePlacement3D() should lay a horizontal panel flat at outerThicknessMm + heightMm above the base plate, same orientation as the base plate', () => {
+  const project = withOnePanel(fixtureProject());
+  const piece = onlyPanelPiece(project);
+  assert(piece, 'expected a horizontal panel piece');
+  const placement = computePiecePlacement3D(project.grid, project, piece);
+  assertVec(placement.origin, { x: 0, y: 0, z: 3 + 30 }, 'origin.z = outerThicknessMm + heightMm');
   assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'flat, same orientation as the base plate');
 });
 
-test('an onTop lid placement sits flat at outerThicknessMm + perimeterHeight (its insertHeightMm is always implicit, never read from project.lid)', () => {
+test('computePiecePlacement3D() should lay the lid flat at outerThicknessMm + perimeterHeight', () => {
   const project = fixtureProject(); // grid=[50,50]x[50,50], outerHeightMm defaults to 50 (createDefaultProject)
-  project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null };
+  project.lid = { enabled: true };
   const lid = computePieces(project).find((p) => p.id === 'lid');
   assert(lid, 'expected a lid piece once project.lid is enabled');
   const placement = computePiecePlacement3D(project.grid, project, lid);
-  assertVec(placement.origin, { x: 0, y: 0, z: 3 + 50 }, 'origin.z = outerThicknessMm + perimeterHeight, not any stored insertHeightMm');
+  assertVec(placement.origin, { x: 0, y: 0, z: 3 + 50 }, 'origin.z = outerThicknessMm + perimeterHeight');
   assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'flat, same orientation as the base plate');
 });
 
@@ -200,11 +206,19 @@ test('toWorld combines a placement and a local point via the basis + origin', ()
   assertVec(world, { x: 15, y: 20 - 1, z: 30 + 2 }, 'origin + local.x*uAxis + local.y*vAxis + local.z*wAxis');
 });
 
-test('computePiecePlacement3D() should shift a bottom-covered lid against the bottom wall', () => {
+test('computePiecePlacement3D() should shift a bottom-covered horizontal panel against the bottom wall', () => {
+  const project = withOnePanel(fixtureProject(), { side: 'bottom', depthMm: 12 });
+  assertVec(computePiecePlacement3D(project.grid, project, onlyPanelPiece(project)).origin, { x: 0, y: 102 - 12, z: 3 + 30 }, 'origin at the coverage rectangle\'s own corner');
+});
+
+test('computePiecePlacement3D() should place each horizontal panel at its own height', () => {
   const project = fixtureProject();
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 30, coverage: { side: 'bottom', depthMm: 12 } };
-  const lid = computePieces(project).find((p) => p.id === 'lid');
-  assertVec(computePiecePlacement3D(project.grid, project, lid).origin, { x: 0, y: 102 - 12, z: 3 + 30 }, 'origin at the coverage rectangle\'s own corner');
+  project.horizontalPanels = [
+    { id: 'horizontal-panel-1', heightMm: 10, coverage: null },
+    { id: 'horizontal-panel-4', heightMm: 30, coverage: null },
+  ];
+  const heights = computePieces(project).filter((p) => p.kind === 'horizontalPanel').map((p) => computePiecePlacement3D(project.grid, project, p).origin.z);
+  assert(JSON.stringify(heights) === JSON.stringify([3 + 10, 3 + 30]), `got ${JSON.stringify(heights)}`);
 });
 
 run();

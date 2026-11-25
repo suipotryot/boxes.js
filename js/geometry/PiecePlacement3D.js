@@ -20,7 +20,7 @@
 // (perimeter) wall extrudes its thickness entirely OUTWARD from the
 // compartment boundary; an interior divider extrudes CENTERED on the grid
 // line (half each side) — see isOuterSegment.
-import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, lidMode, basePlateRecessMm, coverageRectangle, lidCoverage } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId, outerBoxWidth, outerBoxDepth, perimeterHeight, basePlateRecessMm, coverageRectangle, horizontalPanelCoverage, findBuiltHorizontalPanel } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
 import { Drawer, DRAWER_PREFIX, OPEN_SIDE } from './oo/Drawer.js';
 
@@ -59,12 +59,14 @@ function computeLocalPlacement(grid, project, pieceId, piece) {
   }
   if (piece.kind === 'lid') {
     const placement = identityPlacement();
-    // onTop has no insertHeightMm of its own — its bottom face always
-    // rests exactly at the walls' own top edge (see GridQuery.outerBoxHeight
-    // and Assembly.buildLid).
-    const insertHeightMm = lidMode(project) === 'onTop' ? perimeterHeight(grid, project) : project.lid.insertHeightMm;
-    const { xMm, yMm } = coverageRectangle(grid, project, lidCoverage(project));
-    placement.origin = { x: xMm, y: yMm, z: baseZ + insertHeightMm };
+    placement.origin.z = baseZ + perimeterHeight(grid, project);
+    return placement;
+  }
+  if (piece.kind === 'horizontalPanel') {
+    const placement = identityPlacement();
+    const panel = findBuiltHorizontalPanel(project, pieceId);
+    const { xMm, yMm } = coverageRectangle(grid, project, horizontalPanelCoverage(panel));
+    placement.origin = { x: xMm, y: yMm, z: baseZ + panel.heightMm };
     return placement;
   }
   if (piece.kind !== 'wall') {
@@ -94,7 +96,7 @@ function computeLocalPlacement(grid, project, pieceId, piece) {
  * @param {object} grid
  * @param {object} project
  * @param {object} piece one entry from computePieces(project) — kind must
- *   be 'basePlate', 'lid', or 'wall'. A drawer-prefixed id (see
+ *   be 'basePlate', 'lid', 'horizontalPanel' or 'wall'. A drawer-prefixed id (see
  *   DrawerBuilder.DRAWER_PREFIX) is placed against the sleeve's own
  *   synthetic grid/project (buildSleeveContext), then translated into the
  *   main box's world space by computeDrawerOffset.

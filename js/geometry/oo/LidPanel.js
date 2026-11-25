@@ -1,7 +1,6 @@
 // A LidPanel is a FlatPanel, in the fullest sense — no fields or behavior
 // of its own beyond fixing id/kind, since there is only ever one lid per
-// box (see Assembly.buildLid for what actually goes into building one,
-// including its own onTop/recessed mode).
+// box (see Assembly.buildLid for what actually goes into building one).
 import { FlatPanel } from './FlatPanel.js';
 
 export class LidPanel extends FlatPanel {

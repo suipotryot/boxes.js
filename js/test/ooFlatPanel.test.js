@@ -99,7 +99,7 @@ test('FlatPanel(): a grip notch on an open right side cuts INTO the panel (x dec
   assert(!nearPoint({ x: widthMm + 8, y: 30 }), 'the notch must never cut OUTWARD past the nominal width');
 });
 
-test('FlatPanel(): with protrude=true (recessed lid) matches the known-correct outline, no special-casing needed', () => {
+test('FlatPanel() should match the known-correct outline with protrude=true (horizontal panel), no special-casing needed', () => {
   const widthMm = 100, depthMm = 80, marginMm = 3;
   const fingerJoint = { fingerMm: 20, spaceMm: 20, marginMm: 5 };
 

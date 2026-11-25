@@ -18,13 +18,8 @@ export function createDefaultProject(name = 'Nouveau projet') {
       playMm: 0.1,
     },
     laserBed: { widthMm: 600, heightMm: 400, spacingMm: 5 },
-    // mode: 'recessed' (fixed lid sunk insertHeightMm below the walls' own
-    // top, joints via mid-height mortise holes) or 'onTop' (a cap resting
-    // on the walls' own top edge, adding its own thickness to the box's
-    // total height — insertHeightMm is meaningless there, always implied
-    // to be perimeterHeight). See GridQuery.validateLid/outerBoxHeight and
-    // Assembly.buildWallPiece/buildLid.
-    lid: { enabled: false, mode: 'recessed', insertHeightMm: null, coverage: null },
+    lid: { enabled: false },
+    horizontalPanels: [],
     basePlate: { mode: 'flush', recessMm: null },
     drawer: { enabled: false, playMm: 1, thicknessMm: 3, openSide: 'top' },
     pieceNotches: {}, // { [pieceId]: GripNotch } — see js/geometry/GripNotch.js

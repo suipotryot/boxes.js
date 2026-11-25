@@ -5,9 +5,10 @@
 
 /** One compass side's FingerEdge, pre-configured so its own points() come
  *  out as a magnitude already in the right sign for its role: `protrude`
- *  false (base plate, flush lid) means finger recedes to the compartment
+ *  false (flush base plate, lid) means finger recedes to the compartment
  *  boundary (val=0) and flush extends outward by `marginMm` (val=
- *  -marginMm); `protrude` true (recessed lid) is the reverse. `marginMm`
+ *  -marginMm); `protrude` true (horizontal panel, recessed base plate)
+ *  is the reverse. `marginMm`
  *  is always the full outer thickness (a notch/tab always reaches or
  *  recedes the full material thickness, never half — the by-now-familiar
  *  rule already enforced everywhere else in this codebase). */

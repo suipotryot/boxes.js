@@ -8,7 +8,7 @@
 // Doubles as the "is this even a wall?" gate for free: enumerateWallRuns
 // never produces a run for the base plate or lid ids, so this returns null
 // for those without any separate kind check.
-import { enumerateWallRuns, xAt, yAt, wallPieceId, coverageRectangle, lidCoverage } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId, coverageRectangle, horizontalPanelCoverage, findBuiltHorizontalPanel, isLidEnabled } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
 import { Drawer, DRAWER_PREFIX } from './oo/Drawer.js';
 
@@ -39,27 +39,35 @@ export function resolveWallRunContext(project, pieceId) {
   return run ? { grid, project: runProject, run, rawId } : null;
 }
 
-const FLAT_PIECE_IDS = new Set(['base-plate', 'lid']);
+const FIXED_FLAT_PIECE_IDS = new Set(['base-plate', 'lid']);
 
-/** Like resolveWallRunContext, but also resolves the base plate/lid (and
- *  their drawer equivalents) — needed for the hole editor (Hole.js/
- *  HoleEditor.js), which applies to any flat piece, not just walls. A
- *  wall resolves to `{kind:'wall', run, grid, project, rawId}` (the same
- *  shape resolveWallRunContext returns, tagged); base-plate/lid resolve to
- *  `{kind:'flat', grid, project, rawId, widthMm, heightMm}` — the plate's
- *  own nominal W×D rectangle (BasePlateBuilder.buildOuterEdgeOutline's own
- *  xAt/yAt(...,cols/rows), the same rectangle a user hole must stay
- *  MIN_EDGE_MARGIN_MM inside of). */
+function isBuiltFixedFlatPiece(project, rawId) {
+  if (rawId === 'lid') return isLidEnabled(project);
+  return rawId === 'base-plate';
+}
+
+function flatPieceHoleContext(grid, project, rawId, coverage = null) {
+  const { widthMm, depthMm: heightMm } = coverageRectangle(grid, project, coverage);
+  return { kind: 'flat', grid, project, rawId, widthMm, heightMm };
+}
+
+/** Like resolveWallRunContext, but also resolves the base plate, the lid
+ *  and every horizontal panel (and their drawer equivalents) — needed for
+ *  the hole editor (Hole.js/HoleEditor.js), which applies to any flat
+ *  piece, not just walls. A wall resolves to `{kind:'wall', run, grid,
+ *  project, rawId}` (the same shape resolveWallRunContext returns,
+ *  tagged); a flat piece resolves to `{kind:'flat', grid, project, rawId,
+ *  widthMm, heightMm}` — its own nominal rectangle (the coverage strip
+ *  for a partial horizontal panel), the same rectangle a user hole must
+ *  stay MIN_EDGE_MARGIN_MM inside of. */
 export function resolvePieceHoleContext(project, pieceId) {
   const gridCtx = resolveGridContext(project, pieceId);
   if (!gridCtx) return null;
   const { rawId, grid, runProject } = gridCtx;
 
-  if (FLAT_PIECE_IDS.has(rawId)) {
-    const coverage = rawId === 'lid' ? lidCoverage(runProject) : null;
-    const { widthMm, depthMm: heightMm } = coverageRectangle(grid, runProject, coverage);
-    return { kind: 'flat', grid, project: runProject, rawId, widthMm, heightMm };
-  }
+  if (isBuiltFixedFlatPiece(runProject, rawId)) return flatPieceHoleContext(grid, runProject, rawId);
+  const horizontalPanel = findBuiltHorizontalPanel(runProject, rawId);
+  if (horizontalPanel) return flatPieceHoleContext(grid, runProject, rawId, horizontalPanelCoverage(horizontalPanel));
 
   const run = enumerateWallRuns(grid, runProject).find((r) => wallPieceId(r) === rawId);
   return run ? { kind: 'wall', grid, project: runProject, run, rawId } : null;
@@ -78,7 +86,7 @@ const COMPASS_SIDES = ['top', 'right', 'bottom', 'left'];
  *  side cuts into (see NotchValidation.validateFlatEdgeNotch), the same
  *  quantity used to build that side's own SmoothEdge in Assembly.js. */
 export function enumerateSmoothFlatEdges(grid, project, rawId) {
-  if (!FLAT_PIECE_IDS.has(rawId)) return [];
+  if (!FIXED_FLAT_PIECE_IDS.has(rawId)) return [];
 
   const cols = grid.sx.length, rows = grid.sy.length;
   const widthMm = xAt(grid, project, cols);

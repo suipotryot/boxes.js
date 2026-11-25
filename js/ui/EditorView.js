@@ -97,7 +97,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   let showLabels = false;
   // Épaisseurs & hauteurs starts open (the fields a new box always needs);
   // the rest are lower-frequency settings, closed by default.
-  let openSections = { thickness: true, options: false, fingerJoint: false, basePlate: false, lid: false, drawer: false, laserBed: false };
+  let openSections = { thickness: true, options: false, fingerJoint: false, basePlate: false, horizontalPanels: false, lid: false, drawer: false, laserBed: false };
 
   // '2d' (the clickable grid) or '3d' (the three.js preview). `threeDContainer`
   // is created ONCE and never recreated — render() rebuilds the rest of

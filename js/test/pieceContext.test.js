@@ -32,12 +32,30 @@ test('enumerateSmoothFlatEdges: returns nothing for a wall piece id (not base-pl
   assert(enumerateSmoothFlatEdges(project.grid, project, 'wall-h-0-0').length === 0, 'a wall piece id has no flat-edge notion at all');
 });
 
-test('resolvePieceHoleContext() should size a covered lid to its coverage rectangle, so its holes are validated inside the strip', () => {
+test('resolvePieceHoleContext() should size a partial horizontal panel to its coverage rectangle, so its holes are validated inside the strip', () => {
   const project = createDefaultProject();
   project.grid = createGrid([60], [30]);
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: { side: 'left', depthMm: 12 } };
-  const { widthMm, heightMm } = resolvePieceHoleContext(project, 'lid');
-  assert(widthMm === 12 && heightMm === 30, `expected 12x30, got ${widthMm}x${heightMm}`);
+  project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: 20, coverage: { side: 'left', depthMm: 12 } }];
+  const { kind, widthMm, heightMm } = resolvePieceHoleContext(project, 'horizontal-panel-1');
+  assert(kind === 'flat' && widthMm === 12 && heightMm === 30, `expected a 12x30 flat piece, got ${kind} ${widthMm}x${heightMm}`);
+});
+
+test('resolvePieceHoleContext() should not resolve the id of a horizontal panel that no longer exists', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([60], [30]);
+  project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: 20, coverage: null }];
+  assert(resolvePieceHoleContext(project, 'horizontal-panel-2') === null, 'expected a stale panel id to resolve to nothing');
+});
+
+test('resolvePieceHoleContext() should not resolve the lid while it is disabled, since there is no lid piece to edit', () => {
+  const project = createDefaultProject();
+  assert(resolvePieceHoleContext(project, 'lid') === null, 'expected a disabled lid to resolve to nothing');
+});
+
+test('resolvePieceHoleContext() should not resolve a horizontal panel whose height is not set, since it is not built', () => {
+  const project = createDefaultProject();
+  project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: null, coverage: null }];
+  assert(resolvePieceHoleContext(project, 'horizontal-panel-1') === null, 'expected a panel with no height to resolve to nothing');
 });
 
 run();

@@ -142,6 +142,7 @@ h3:first-child { margin-top: 0; }
   color: var(--muted);
 }
 .threed-control { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+.threed-control[hidden] { display: none; }
 .threed-slider { gap: 0.5rem; }
 .threed-slider input[type="range"] { width: 120px; }
 

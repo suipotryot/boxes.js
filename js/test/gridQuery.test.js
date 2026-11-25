@@ -4,7 +4,7 @@
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent, toggleWall } from '../model/Grid.js';
-import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateLid, basePlateRecessMm, isBasePlateRecessValid, coverageRectangle, validateCoverage, lidCoverage, interiorExtentAcross } from '../model/GridQuery.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateHorizontalPanelHeight, basePlateRecessMm, isBasePlateRecessValid, coverageRectangle, validateCoverage, horizontalPanelCoverage, interiorExtentAcross } from '../model/GridQuery.js';
 import { createDefaultProject } from '../state/Project.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
@@ -159,30 +159,21 @@ test('outerBoxHeight is the base plate plus the perimeter wall height, with no l
   assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'outerThicknessMm + perimeterHeight, lid disabled by default');
 });
 
-test('outerBoxHeight is unchanged by a recessed lid, even at the top of its valid range (its rim just shrinks to nothing)', () => {
+test('outerBoxHeight() should be unchanged by a horizontal panel, even at the top of its valid range', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [100]);
   project.outerThicknessMm = 3;
   project.outerHeightMm = 40;
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 40 - 3 }; // top of validateLid's own range
+  project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: 40 - 3, coverage: null }];
   assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'same as the no-lid case: outerThicknessMm + perimeterHeight');
 });
 
-test('outerBoxHeight is unchanged by a recessed lid when project.lid.mode is missing (backward compatibility with projects saved before mode existed)', () => {
+test('outerBoxHeight() should add one outer thickness for the lid, which rests on the walls like the base plate does below them', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [100]);
   project.outerThicknessMm = 3;
   project.outerHeightMm = 40;
-  project.lid = { enabled: true, insertHeightMm: 10 }; // no `mode` field at all
-  assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'missing mode defaults to recessed, which adds nothing');
-});
-
-test('outerBoxHeight adds one outerThicknessMm for an onTop lid — it rests on the walls and adds its own material above them, like the base plate does below', () => {
-  const project = createDefaultProject();
-  project.grid = createGrid([100], [100]);
-  project.outerThicknessMm = 3;
-  project.outerHeightMm = 40;
-  project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null };
+  project.lid = { enabled: true };
   assertClose(outerBoxHeight(project.grid, project), 46, 1e-9, 'outerThicknessMm (base) + perimeterHeight + outerThicknessMm (lid)');
 });
 
@@ -202,13 +193,13 @@ test('basePlateRecessMm() should default to the outer thickness when a recessed 
   assertClose(basePlateRecessMm(project), 4, 1e-9);
 });
 
-test('outerBoxHeight() should add both the base plate recess and an onTop lid', () => {
+test('outerBoxHeight() should add both the base plate recess and the lid', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [100]);
   project.outerThicknessMm = 3;
   project.outerHeightMm = 40;
   project.basePlate = { mode: 'recessed', recessMm: 5 };
-  project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null };
+  project.lid = { enabled: true };
   assertClose(outerBoxHeight(project.grid, project), 51, 1e-9, 'recessMm + outerThicknessMm (base) + perimeterHeight + outerThicknessMm (lid)');
 });
 
@@ -233,15 +224,26 @@ test('isBasePlateRecessValid() should accept any positive recess', () => {
   assert(isBasePlateRecessValid(0.5) === true);
 });
 
-test('validateLid still governs a recessed lid\'s valid insertion-height range, unaffected by the onTop mode\'s existence', () => {
+test('validateHorizontalPanelHeight() should accept a panel whose top face is flush with the top of the walls', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [100]);
   project.outerThicknessMm = 3;
   project.outerHeightMm = 40;
-  const { ok, min, max } = validateLid(project.grid, project, 37);
-  assert(ok, 'insertHeightMm=37 (perimeterHeight-outerThicknessMm) should be the top of the valid recessed range');
+  const { ok, min, max } = validateHorizontalPanelHeight(project.grid, project, 37);
+  assert(ok, 'heightMm=37 (perimeterHeight-outerThicknessMm) should be the top of the valid range');
   assertClose(min, 0, 1e-9);
   assertClose(max, 37, 1e-9);
+});
+
+test('validateHorizontalPanelHeight() should keep a panel one thickness below the top of the walls when the lid rests on them, so its mortises never undercut the lid fingers', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [100]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.lid = { enabled: true };
+  const { ok, max } = validateHorizontalPanelHeight(project.grid, project, 37);
+  assert(!ok, 'expected a panel flush with the top of the walls to be rejected under a lid');
+  assertClose(max, 40 - 3 - 3, 1e-9);
 });
 
 // junctionKindAt: the additive, endpoint-aware generalization of
@@ -362,37 +364,27 @@ test('validateCoverage() should reject a missing coverage depth', () => {
   assert(!validateCoverage(project.grid, project, { side: 'top', depthMm: null }).ok, 'expected a missing depth to be rejected');
 });
 
-test('lidCoverage() should return the coverage of an enabled recessed lid', () => {
-  const project = coverageFixtureProject();
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: { side: 'top', depthMm: 12 } };
-  assert(JSON.stringify(lidCoverage(project)) === JSON.stringify({ side: 'top', depthMm: 12 }), `got ${JSON.stringify(lidCoverage(project))}`);
+test('horizontalPanelCoverage() should return the coverage of a partial panel', () => {
+  const panel = { id: 'horizontal-panel-1', heightMm: 20, coverage: { side: 'top', depthMm: 12 } };
+  assert(JSON.stringify(horizontalPanelCoverage(panel)) === JSON.stringify({ side: 'top', depthMm: 12 }), `got ${JSON.stringify(horizontalPanelCoverage(panel))}`);
 });
 
-test('lidCoverage() should be null for a lid saved before coverage existed', () => {
-  const project = coverageFixtureProject();
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20 };
-  assert(lidCoverage(project) === null, `got ${JSON.stringify(lidCoverage(project))}`);
+test('horizontalPanelCoverage() should be null for a fully covering panel', () => {
+  const panel = { id: 'horizontal-panel-1', heightMm: 20, coverage: null };
+  assert(horizontalPanelCoverage(panel) === null, `got ${JSON.stringify(horizontalPanelCoverage(panel))}`);
 });
 
-test('lidCoverage() should be null for an onTop lid, which only exists in full coverage', () => {
-  const project = coverageFixtureProject();
-  project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null, coverage: { side: 'top', depthMm: 12 } };
-  assert(lidCoverage(project) === null, `got ${JSON.stringify(lidCoverage(project))}`);
-});
-
-test('lidCoverage() should throw on a stored coverage with an unknown side instead of silently defaulting it', () => {
-  const project = coverageFixtureProject();
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: { side: 'north', depthMm: 12 } };
+test('horizontalPanelCoverage() should throw on a stored coverage with an unknown side instead of silently defaulting it', () => {
+  const panel = { id: 'horizontal-panel-1', heightMm: 20, coverage: { side: 'north', depthMm: 12 } };
   let thrown = null;
-  try { lidCoverage(project); } catch (err) { thrown = err; }
+  try { horizontalPanelCoverage(panel); } catch (err) { thrown = err; }
   assert(thrown && /north/.test(thrown.message), `expected an error naming the unknown side, got ${thrown}`);
 });
 
-test('lidCoverage() should throw on a stored coverage whose depth is not a number', () => {
-  const project = coverageFixtureProject();
-  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: { side: 'top', depthMm: '20' } };
+test('horizontalPanelCoverage() should throw on a stored coverage whose depth is not a number', () => {
+  const panel = { id: 'horizontal-panel-1', heightMm: 20, coverage: { side: 'top', depthMm: '20' } };
   let thrown = null;
-  try { lidCoverage(project); } catch (err) { thrown = err; }
+  try { horizontalPanelCoverage(panel); } catch (err) { thrown = err; }
   assert(thrown && /depth/.test(thrown.message), `expected an error about the depth, got ${thrown}`);
 });
 
