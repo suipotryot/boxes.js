@@ -8,7 +8,7 @@
 // rely on Storage.key(i)/.length enumeration — a fake test storage only
 // ever needs to implement the 3 methods above, nothing more.
 import { createDefaultProject } from './Project.js';
-import { migrateRecessedLid } from './ProjectMigration.js';
+import { migrateLegacyLid } from './ProjectMigration.js';
 
 const PROJECT_PREFIX = 'boxes.js:project:';
 const INDEX_KEY = 'boxes.js:index';
@@ -66,7 +66,7 @@ export function createProjectRepository(storage = window.localStorage, detectLoc
   function load(id) {
     const saved = readJson(storage, PROJECT_PREFIX + id, null);
     if (!saved) return null;
-    return migrateRecessedLid({ ...createDefaultProject(), ...saved });
+    return migrateLegacyLid({ ...createDefaultProject(), ...saved });
   }
 
   function getLastActiveId() {

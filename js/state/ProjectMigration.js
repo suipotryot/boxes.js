@@ -14,7 +14,7 @@ function withLidKeysRenamed(entries, panelId) {
 }
 
 function assertLidIsAnObject(lid) {
-  if (typeof lid !== 'object' || lid === null) throw new Error(`migrateRecessedLid: the saved lid should be an object, got ${JSON.stringify(lid)}`);
+  if (typeof lid !== 'object' || lid === null) throw new Error(`migrateLegacyLid: the saved lid should be an object, got ${JSON.stringify(lid)}`);
 }
 
 function isLegacyLid(lid) {
@@ -25,7 +25,7 @@ function isEnabledRecessedLid(lid) {
   return lid.enabled && (lid.mode ?? 'recessed') === 'recessed';
 }
 
-export function migrateRecessedLid(project) {
+export function migrateLegacyLid(project) {
   const { lid } = project;
   assertLidIsAnObject(lid);
   if (!isLegacyLid(lid)) return project;
