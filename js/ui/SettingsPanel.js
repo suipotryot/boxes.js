@@ -4,10 +4,11 @@
 // interior wall/floor customization that no longer fits), so it's the one
 // field that asks first.
 import { el } from './dom.js';
-import { numberField, textField, infoIcon } from './fields.js';
+import { numberField, textField, infoIcon, trashIcon } from './fields.js';
 import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP, DRAWER_PLAY_HELP, DRAWER_THICKNESS_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
-import { validateLid, basePlateMode, basePlateRecessMm, isBasePlateRecessValid, lidCoverage, validateCoverage, interiorExtentAcross } from '../model/GridQuery.js';
+import { validateHorizontalPanelHeight, basePlateMode, basePlateRecessMm, isBasePlateRecessValid, horizontalPanelCoverage, validateCoverage, interiorExtentAcross } from '../model/GridQuery.js';
+import { addHorizontalPanel, removeHorizontalPanel, updateHorizontalPanel, horizontalPanelNumber } from '../model/HorizontalPanels.js';
 import { coverageHoldsFlankTabs } from '../geometry/oo/Assembly.js';
 import { t } from '../i18n/index.js';
 
@@ -45,10 +46,6 @@ function collapsibleSection(openSections, onToggleSection, key, title, children)
   }, [el('summary', { text: title }), ...children]);
 }
 
-function lidModeLabels() {
-  return { recessed: t('settingsPanel.lidModeRecessed'), onTop: t('settingsPanel.lidModeOnTop') };
-}
-
 function sideLabels() {
   return { top: t('settingsPanel.sideTop'), bottom: t('settingsPanel.sideBottom'), right: t('settingsPanel.sideRight'), left: t('settingsPanel.sideLeft') };
 }
@@ -78,125 +75,122 @@ function partialCoverageToggle(project, coverage, setCoverage) {
       type: 'checkbox', checked: !!coverage,
       onChange: (evt) => setCoverage(evt.target.checked ? defaultCoverage(project, 'top') : null),
     }),
-    el('span', { text: ` ${t('settingsPanel.lidCoverage')}` }),
-    infoIcon(t('settingsPanel.lidCoverageHelp')),
+    el('span', { text: ` ${t('settingsPanel.horizontalPanelCoverage')}` }),
+    infoIcon(t('settingsPanel.horizontalPanelCoverageHelp')),
   ]);
 }
 
-function coverageSideField(coverage, setCoverage) {
+function coverageSideField(panelId, coverage, setCoverage) {
   return sideRadioField({
-    label: t('settingsPanel.lidCoverageSide'),
-    help: t('settingsPanel.lidCoverageSideHelp'),
-    name: 'lid-coverage-side',
+    label: t('settingsPanel.horizontalPanelCoverageSide'),
+    help: t('settingsPanel.horizontalPanelCoverageSideHelp'),
+    name: `${panelId}-coverage-side`,
     checkedSide: coverage.side,
     onPick: (side) => setCoverage({ ...coverage, side }),
   });
 }
 
 function coverageDepthField(coverage, setCoverage) {
-  return numberField(t('settingsPanel.lidCoverageDepth'), coverage.depthMm, (depthMm) => setCoverage({ ...coverage, depthMm }), '1', t('settingsPanel.lidCoverageDepthHelp'));
+  return numberField(t('settingsPanel.horizontalPanelCoverageDepth'), coverage.depthMm, (depthMm) => setCoverage({ ...coverage, depthMm }), '1', t('settingsPanel.horizontalPanelCoverageDepthHelp'));
 }
 
 function coverageFeedback(project, coverage, setCoverage) {
   const validation = validateCoverage(project.grid, project, coverage);
   if (!validation.ok) {
     return el('div', { class: 'field' }, [
-      el('span', { class: 'warning', text: t('settingsPanel.lidCoverageInvalid', { max: validation.max }) }),
+      el('span', { class: 'warning', text: t('settingsPanel.horizontalPanelCoverageInvalid', { max: validation.max }) }),
       el('button', { class: 'btn', text: t('shared.autoFix'), onClick: () => setCoverage(defaultCoverage(project, coverage.side)) }),
     ]);
   }
   if (!coverageHoldsFlankTabs(project.grid, project, coverage)) {
-    return el('div', { class: 'field' }, [el('span', { class: 'hint', text: t('settingsPanel.lidCoverageNoFlankTabs') })]);
+    return el('div', { class: 'field' }, [el('span', { class: 'hint', text: t('settingsPanel.horizontalPanelCoverageNoFlankTabs') })]);
   }
   return null;
 }
 
-function coverageFields(project, store) {
-  const coverage = lidCoverage(project);
-  const setCoverage = (next) => store.apply((p) => ({ ...p, lid: { ...p.lid, coverage: next } }));
+function coverageFields(project, panel, updatePanel) {
+  const coverage = horizontalPanelCoverage(panel);
+  const setCoverage = (next) => updatePanel({ coverage: next });
   const toggle = partialCoverageToggle(project, coverage, setCoverage);
   if (!coverage) return [toggle];
   return [
     toggle,
-    coverageSideField(coverage, setCoverage),
+    coverageSideField(panel.id, coverage, setCoverage),
     coverageDepthField(coverage, setCoverage),
     coverageFeedback(project, coverage, setCoverage),
   ];
 }
 
-// Fixed lid only (see the plan's 2026-08-20 scope cut — no floating
-// variant): a checkbox, a mode choice, and — only in 'recessed' mode — its
-// insertion height, with the pure GridQuery.validateLid() check surfaced
-// directly rather than silently clamped — an out-of-range height shows
-// why, and offers a one-click fix instead of correcting it behind the
-// user's back. 'onTop' shows no height field at all: its own insertion
-// height is always implicit (the walls' own nominal top), never a value
-// to pick — offering a number there would invite exactly the kind of
-// "one forbidden value in the middle of a range" confusion this mode
-// split was introduced to avoid (see the plan's own account of the
-// now-retired "flush" special case).
-function lidSection(project, store, openSections, onToggleSection) {
-  const { lid, grid } = project;
-  const mode = lid.mode ?? 'recessed';
+function horizontalPanelHeader(panel, store) {
+  const deleteLabel = t('settingsPanel.horizontalPanelDelete');
+  return el('div', { class: 'compact-item-row' }, [
+    el('span', { class: 'field-label', text: t('settingsPanel.horizontalPanelTitle', { number: horizontalPanelNumber(panel) }) }),
+    el('button', {
+      class: 'icon-btn', title: deleteLabel, 'aria-label': deleteLabel,
+      onClick: () => store.apply((p) => removeHorizontalPanel(p, panel.id)),
+    }, [trashIcon()]),
+  ]);
+}
 
+function horizontalPanelHeightField(panel, validation, updatePanel) {
+  return el('label', { class: 'field' }, [
+    el('span', { class: 'field-label' }, [t('settingsPanel.horizontalPanelHeight'), infoIcon(t('settingsPanel.horizontalPanelHeightHelp'))]),
+    el('input', {
+      type: 'number', step: '1', min: '0',
+      value: panel.heightMm != null ? String(panel.heightMm) : '',
+      onChange: (evt) => {
+        const raw = evt.target.value.trim();
+        updatePanel({ heightMm: raw === '' ? null : Number(raw) });
+      },
+    }),
+    el('span', { class: 'hint', text: t('settingsPanel.horizontalPanelValidRange', { min: validation.min, max: validation.max }) }),
+  ]);
+}
+
+function heightClampedIntoRange(heightMm, { min, max }) {
+  if (heightMm == null) return max;
+  return Math.min(Math.max(heightMm, min), max);
+}
+
+function horizontalPanelHeightWarning(panel, validation, updatePanel) {
+  if (validation.ok) return null;
+  return el('div', { class: 'field' }, [
+    el('span', { class: 'warning', text: t('settingsPanel.horizontalPanelInvalid', { min: validation.min, max: validation.max }) }),
+    el('button', {
+      class: 'btn', text: t('shared.autoFix'),
+      onClick: () => updatePanel({ heightMm: heightClampedIntoRange(panel.heightMm, validation) }),
+    }),
+  ]);
+}
+
+function horizontalPanelFields(project, panel, store) {
+  const updatePanel = (changes) => store.apply((p) => updateHorizontalPanel(p, panel.id, changes));
+  const validation = validateHorizontalPanelHeight(project.grid, project, panel.heightMm);
+  return el('div', { class: 'horizontal-panel' }, [
+    horizontalPanelHeader(panel, store),
+    horizontalPanelHeightField(panel, validation, updatePanel),
+    horizontalPanelHeightWarning(panel, validation, updatePanel),
+    ...coverageFields(project, panel, updatePanel),
+  ]);
+}
+
+function horizontalPanelsSection(project, store, openSections, onToggleSection) {
+  const intro = el('p', { class: 'hint', text: t('settingsPanel.horizontalPanelsHelp') });
+  const addButton = el('button', { class: 'btn', text: t('settingsPanel.horizontalPanelAdd'), onClick: () => store.apply(addHorizontalPanel) });
+  const panels = project.horizontalPanels.map((panel) => horizontalPanelFields(project, panel, store));
+  return collapsibleSection(openSections, onToggleSection, 'horizontalPanels', t('settingsPanel.horizontalPanelsSection'), [intro, ...panels, addButton]);
+}
+
+function lidSection(project, store, openSections, onToggleSection) {
   const enabledRow = el('label', { class: 'field lid-enabled' }, [
     el('input', {
-      type: 'checkbox', checked: lid.enabled,
+      type: 'checkbox', checked: project.lid.enabled,
       onChange: (evt) => store.apply((p) => ({ ...p, lid: { ...p.lid, enabled: evt.target.checked } })),
     }),
     el('span', { text: ` ${t('settingsPanel.lidEnabled')}` }),
     infoIcon(t('settingsPanel.lidHelp')),
   ]);
-
-  if (!lid.enabled) {
-    return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow]);
-  }
-
-  const modeField = el('div', { class: 'field' }, [
-    el('span', { class: 'field-label' }, [t('settingsPanel.lidMode'), infoIcon(t('settingsPanel.lidModeHelp'))]),
-    el('div', { class: 'radio-group' }, Object.entries(lidModeLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
-      el('input', {
-        type: 'radio', name: 'lid-mode', value, checked: mode === value,
-        onChange: () => store.apply((p) => ({ ...p, lid: { ...p.lid, mode: value } })),
-      }),
-      el('span', { text: ` ${label}` }),
-    ]))),
-  ]);
-
-  if (mode === 'onTop') {
-    return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, modeField]);
-  }
-
-  const validation = validateLid(grid, project, lid.insertHeightMm);
-
-  const heightField = el('label', { class: 'field' }, [
-    el('span', { class: 'field-label' }, [t('settingsPanel.lidInsertHeight'), infoIcon(t('settingsPanel.lidInsertHeightHelp'))]),
-    el('input', {
-      type: 'number', step: '1', min: '0',
-      value: lid.insertHeightMm != null ? String(lid.insertHeightMm) : '',
-      onChange: (evt) => {
-        const raw = evt.target.value.trim();
-        const insertHeightMm = raw === '' ? null : Number(raw);
-        store.apply((p) => ({ ...p, lid: { ...p.lid, insertHeightMm } }));
-      },
-    }),
-    el('span', { class: 'hint', text: t('settingsPanel.lidValidRange', { min: validation.min, max: validation.max }) }),
-  ]);
-
-  const warning = !validation.ok ? el('div', { class: 'field' }, [
-    el('span', { class: 'warning', text: t('settingsPanel.lidInvalid', { min: validation.min, max: validation.max }) }),
-    el('button', {
-      class: 'btn', text: t('shared.autoFix'),
-      onClick: () => {
-        const clamped = lid.insertHeightMm == null
-          ? validation.max
-          : Math.min(Math.max(lid.insertHeightMm, validation.min), validation.max);
-        store.apply((p) => ({ ...p, lid: { ...p.lid, insertHeightMm: clamped } }));
-      },
-    }),
-  ]) : null;
-
-  return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, modeField, heightField, warning, ...coverageFields(project, store)]);
+  return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow]);
 }
 
 function basePlateModeLabels() {
@@ -319,6 +313,7 @@ export function renderSettingsPanel(project, store, openSections, onToggleSectio
     optionsSection(openSections, onToggleSection, showLabels, onToggleLabels),
 
     basePlateSection(project, store, openSections, onToggleSection),
+    horizontalPanelsSection(project, store, openSections, onToggleSection),
     lidSection(project, store, openSections, onToggleSection),
     drawerSection(project, store, openSections, onToggleSection),
 

@@ -338,38 +338,36 @@ export function perimeterHeight(grid, project) {
   return project.outerHeightMm;
 }
 
-// project.lid.mode, defaulting to 'recessed' for any project saved before
-// this field existed (ProjectRepository.load only backfills top-level
-// fields, never merges inside an already-present nested object — see its
-// own header comment — so an old saved `lid: {enabled, insertHeightMm}`
-// blob needs this fallback at every read site instead).
-export function lidMode(project) {
-  return project.lid?.mode ?? 'recessed';
-}
-
 export const OPPOSITE_SIDE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
 
 function assertKnownSide(side, caller) {
   if (!(side in OPPOSITE_SIDE)) throw new Error(`${caller}: unknown coverage side "${side}"`);
 }
 
-export function lidCoverage(project) {
-  if (lidMode(project) === 'onTop') return null;
-  const coverage = project.lid.coverage ?? null;
+export function horizontalPanelCoverage(panel) {
+  const { coverage } = panel;
   if (!coverage) return null;
-  assertKnownSide(coverage.side, 'lidCoverage');
-  if (!Number.isFinite(coverage.depthMm)) throw new Error(`lidCoverage: coverage depth must be a number, got ${JSON.stringify(coverage.depthMm)}`);
+  assertKnownSide(coverage.side, 'horizontalPanelCoverage');
+  if (!Number.isFinite(coverage.depthMm)) throw new Error(`horizontalPanelCoverage: coverage depth must be a number, got ${JSON.stringify(coverage.depthMm)}`);
   return coverage;
+}
+
+export function findHorizontalPanel(project, id) {
+  return project.horizontalPanels.find((panel) => panel.id === id) ?? null;
+}
+
+export function horizontalPanelsWithHeight(project) {
+  return project.horizontalPanels.filter((panel) => panel.heightMm != null);
 }
 
 /** Total assembled outer height of the box, lowest to topmost point —
  *  unlike perimeterHeight (walls only; v=0 sits at the base plate's own
  *  TOP face), this adds the base plate's own material below v=0, plus the
  *  outer walls' extension below it when the base plate is recessed. A
- *  recessed lid sits below the walls' own top edge (the walls form a rim
- *  above it) and adds nothing beyond perimeterHeight; a disabled lid
- *  leaves the box open at the walls' top edge, same result. An 'onTop'
- *  lid, by contrast, rests ON the walls' own top edge and DOES add its
+ *  horizontal panel sits below the walls' own top edge and adds nothing
+ *  beyond perimeterHeight; a disabled lid leaves the box open at the
+ *  walls' top edge, same result. An enabled lid, by contrast, rests ON
+ *  the walls' own top edge and DOES add its
  *  own material above perimeterHeight — exactly mirroring how the base
  *  plate already adds its own thickness below v=0. Needed wherever
  *  something has to clear the box's real physical envelope rather than
@@ -378,8 +376,7 @@ export function lidCoverage(project) {
  *  perimeterHeight alone, which always undersized the sleeve by at least
  *  the base plate's thickness). */
 export function outerBoxHeight(grid, project) {
-  const { lid } = project;
-  const lidOnTop = !!lid && lid.enabled && lidMode(project) === 'onTop';
+  const lidOnTop = !!project.lid?.enabled;
   return basePlateRecessMm(project) + project.outerThicknessMm + perimeterHeight(grid, project) + (lidOnTop ? project.outerThicknessMm : 0);
 }
 
@@ -444,22 +441,18 @@ export function validateCoverage(grid, project, coverage) {
   return { ok: coverage.depthMm > 0 && coverage.depthMm < max, max };
 }
 
-/** Pure validation for a RECESSED lid's insertion height (the height its
- *  own BOTTOM face rests at) — meaningless for an 'onTop' lid, whose
- *  insertion height is always implicitly perimeterHeight, never a value a
- *  caller picks (see lidMode/outerBoxHeight). Must clear every interior
- *  divider directly — the lid only joints with the OUTER walls, and a
- *  stem taller than the lid's underside would collide with it instead of
- *  clearing it, see LidBuilder — and its top face (one lid-thickness above
- *  insertHeightMm) can never exceed the perimeter's own height, since a
- *  recessed lid can't float above the walls that carry it (an 'onTop' lid
- *  is the separate, explicit way to get a lid at/above that line — see
- *  Assembly.buildWallPiece/buildLid). Returns the valid range alongside
- *  `ok` so a caller can render both the warning and a ready-to-use "clamp
- *  to range" suggestion without recomputing it. */
-export function validateLid(grid, project, insertHeightMm) {
+/** Pure validation for a horizontal panel's height (the height its own
+ *  BOTTOM face rests at). Must clear every interior divider directly — a
+ *  panel only joints with the OUTER walls, and a stem taller than its
+ *  underside would collide with it — and its top face (one thickness above
+ *  heightMm) can never exceed the perimeter's own height, since a panel
+ *  can't float above the walls that carry it (an onTop lid is the separate,
+ *  explicit way to close the box at that line). Returns the valid range
+ *  alongside `ok` so a caller can render both the warning and a
+ *  ready-to-use "clamp to range" suggestion without recomputing it. */
+export function validateHorizontalPanelHeight(grid, project, heightMm) {
   const min = tallestInnerHeight(grid, project);
   const max = perimeterHeight(grid, project) - project.outerThicknessMm;
-  const ok = insertHeightMm != null && insertHeightMm >= min && insertHeightMm <= max;
+  const ok = heightMm != null && heightMm >= min && heightMm <= max;
   return { ok, min, max };
 }

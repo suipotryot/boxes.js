@@ -11,7 +11,7 @@ import { el } from './dom.js';
 import { toggleWall, setSegmentHeight, isOuterSegment } from '../model/Grid.js';
 import { resolveHeight, resolveThickness } from '../model/GridQuery.js';
 import { resolveWallRunContext, resolvePieceHoleContext, enumerateSmoothFlatEdges } from '../geometry/PieceContext.js';
-import { buildWallPiece, buildBasePlate, buildLid, wallSmoothEdges } from '../geometry/oo/Assembly.js';
+import { buildWallPiece, buildFlatPiece, wallSmoothEdges } from '../geometry/oo/Assembly.js';
 import { burnCorrect } from '../geometry/BurnCorrection.js';
 import { pieceToStandaloneSvg } from '../geometry/SvgPath.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
@@ -32,20 +32,18 @@ function kindLabel(kind) {
 // key off the identical enumerateWallRuns(...).find(...) lookup, so for
 // any wall they always resolve in lockstep, and holeContext is a strict
 // superset of wallContext (same run/grid/project, plus `kind`) — while
-// holeContext is the ONLY one that ever resolves for the base plate/lid,
-// which have no wall run at all. Keying this off wallContext instead would
-// silently produce no preview for those two pieces.
+// holeContext is the ONLY one that ever resolves for a flat piece (base
+// plate, lid, horizontal panel), which has no wall run at all. Keying this
+// off wallContext instead would silently produce no preview for those.
 function buildInspectedPiece(holeContext) {
   const panel = holeContext.kind === 'wall'
     ? buildWallPiece(holeContext.run, holeContext.grid, holeContext.project)
-    : holeContext.rawId === 'base-plate'
-      ? buildBasePlate(holeContext.grid, holeContext.project)
-      : buildLid(holeContext.grid, holeContext.project);
+    : buildFlatPiece(holeContext.grid, holeContext.project, holeContext.rawId);
   return burnCorrect(panel.toPiece(), holeContext.project.burnMm);
 }
 
 // Built from the REAL pipeline, folding in every notch/hole currently
-// stored for this piece (buildWallPanel/buildBasePlate/buildLid all read
+// stored for this piece (buildWallPiece/buildFlatPiece all read
 // project.pieceNotches/pieceHoles directly) — what you see here IS what
 // gets exported, rendered exactly once regardless of which sections below
 // apply to the current piece.

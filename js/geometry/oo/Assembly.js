@@ -1,6 +1,6 @@
 // Shared construction logic behind Box and Drawer: reads a Grid + Project
-// and builds every Panel/Divider + the BasePlatePanel/LidPanel (both
-// FlatPanel — see FlatPanel.js) — the OO replacement for
+// and builds every Panel/Divider + the BasePlatePanel/LidPanel/
+// HorizontalPanels (all FlatPanel — see FlatPanel.js) — the OO replacement for
 // PieceFactory.computePieces' orchestration plus the now-retired
 // PanelBuilder/BasePlateBuilder/LidBuilder/DrawerBuilder's own per-piece
 // decisions.
@@ -11,9 +11,9 @@
 // Drawer differs only in how ITS OWN grid gets synthesized before this
 // method runs (see the plan's own "construire() est unique" analysis).
 import {
-  enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, lidMode,
+  enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint,
   heightProfile, heightAt, junctionExclusionRanges, wallPieceId, isBasePlateRecessed, basePlateRecessMm,
-  coverageRectangle, lidCoverage, OPPOSITE_SIDE,
+  coverageRectangle, horizontalPanelCoverage, horizontalPanelsWithHeight, findHorizontalPanel, OPPOSITE_SIDE,
 } from '../../model/GridQuery.js';
 import { isOuterSegment } from '../../model/Grid.js';
 import { Notch } from './Notch.js';
@@ -27,20 +27,15 @@ import { HalfLapNotch } from './HalfLapNotch.js';
 import { MortiseHole } from './MortiseHole.js';
 import { BasePlatePanel } from './BasePlatePanel.js';
 import { LidPanel } from './LidPanel.js';
+import { HorizontalPanel } from './HorizontalPanel.js';
 import { outerBoundarySide } from './OuterBoundary.js';
 
-/** Whether/how `run` joints with a fixed lid — a lid only ever joints with
- *  OUTER runs (an interior divider's own geometry is entirely unaffected
- *  by it — GridQuery.validateLid guarantees a recessed lid always clears
- *  every divider, so there's structurally nothing for it to joint against
- *  there). `mode` is only meaningful when `active`; 'onTop' needs no
- *  insertHeightMm at all (it's always implicitly perimeterHeight), so
- *  unlike 'recessed' it doesn't require one to be set. */
-function lidState(run, project) {
-  const lid = project.lid;
-  const mode = lidMode(project);
-  const active = !!lid && lid.enabled && run.seg.thicknessGroup === 'outer' && (mode === 'onTop' || lid.insertHeightMm != null);
-  return { active, mode };
+function isOuterRun(run) {
+  return run.seg.thicknessGroup === 'outer';
+}
+
+function isJointedToLid(run, project) {
+  return !!project.lid?.enabled && isOuterRun(run);
 }
 
 /** Every mid-run junction along `run`'s own length, split into what it
@@ -178,8 +173,7 @@ function combSegmentsFor(run, grid, project) {
  *  wall's own height. */
 export function wallSmoothEdges(run, grid, project) {
   const spans = heightProfile(run, grid, project);
-  const { active: lidActive, mode } = lidState(run, project);
-  const lidOnTop = lidActive && mode === 'onTop';
+  const lidOnTop = isJointedToLid(run, project);
   const protrusionA = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.aPoint[0], run.aPoint[1]), project);
   const protrusionB = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.bPoint[0], run.bPoint[1]), project);
   const aCompass = run.kind === 'h' ? 'left' : 'top';
@@ -193,7 +187,7 @@ export function wallSmoothEdges(run, grid, project) {
 }
 
 function wallHoldsRecessedBasePlate(run, project) {
-  return isBasePlateRecessed(project) && run.seg.thicknessGroup === 'outer';
+  return isBasePlateRecessed(project) && isOuterRun(run);
 }
 
 function mortiseHolesAt(centerMm, run, grid, project) {
@@ -282,9 +276,9 @@ function flankMortiseHolesAt(centerMm, flankRun, grid, project, coverage) {
   });
 }
 
-function lidMortiseHoles(run, grid, project) {
-  const centerMm = project.lid.insertHeightMm + project.outerThicknessMm / 2;
-  const coverage = lidCoverage(project);
+function horizontalPanelMortiseHoles(run, grid, project, panel) {
+  const centerMm = panel.heightMm + project.outerThicknessMm / 2;
+  const coverage = horizontalPanelCoverage(panel);
   if (!coverage) return mortiseHolesAt(centerMm, run, grid, project);
   const side = outerSideOf(run, grid, project);
   if (isBackingSide(side, coverage)) return mortiseHolesAt(centerMm, run, grid, project);
@@ -296,7 +290,7 @@ export function buildWallPiece(run, grid, project) {
   const spans = heightProfile(run, grid, project);
   const fj = project.fingerJoint;
   const startWithFinger = run.kind === 'v';
-  const extendToTips = run.seg.thicknessGroup === 'outer';
+  const extendToTips = isOuterRun(run);
 
   const protrusionA = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.aPoint[0], run.aPoint[1]), project);
   const protrusionB = maxMateThickness(perpendicularMatesAtPoint(grid, run.kind, run.bPoint[0], run.bPoint[1]), project);
@@ -314,9 +308,7 @@ export function buildWallPiece(run, grid, project) {
   const cappedStartClip = cornerClipMm(correctionA, startMarginMm);
   const cappedEndClip = cornerClipMm(correctionB, endMarginMm);
   const { crossingFragments, mortiseHoles } = crossingData(run, grid, project, spans);
-  const { active: lidActive, mode } = lidState(run, project);
-  const lidOnTop = lidActive && mode === 'onTop';
-  const lidRecessed = lidActive && mode === 'recessed';
+  const lidOnTop = isJointedToLid(run, project);
   const holdsRecessedBasePlate = wallHoldsRecessedBasePlate(run, project);
   const pieceId = wallPieceId(run);
 
@@ -393,9 +385,9 @@ export function buildWallPiece(run, grid, project) {
   // phase would protrude the wall's corner into space the Lid's own
   // (independently-snapped) corner never receded to make room for,
   // producing exactly the malformed corner shapes the old "flush" case
-  // had. Otherwise (no lid, disabled, or recessed) the free edge stays a
-  // plain SmoothEdge, unaffected — a recessed lid joints via holes instead
-  // (below), never through the free edge itself.
+  // had. Otherwise (no lid) the free edge stays a plain SmoothEdge,
+  // unaffected — a horizontal panel joints via holes instead (below),
+  // never through the free edge itself.
   const topEdge = lidOnTop
     ? new FingerEdge({
         lengthMm: run.length, fingerJoint: fj, startWithFinger,
@@ -426,23 +418,24 @@ export function buildWallPiece(run, grid, project) {
         baselineMm: correctionA, signMm: -1,
       });
 
-  // A RECESSED lid pokes its own tabs into a row of enclosed holes
-  // mid-height on the wall's face instead — one hole per 'finger' segment
-  // of the SAME bottomCombSegments tiling the lid's own tabs use
-  // (OuterBoundary), so a hole can never drift out of sync with the tab
-  // meant to sit in it. An onTop lid never needs holes — it joints through
-  // the free edge itself (above).
-  const lidHoles = lidRecessed ? lidMortiseHoles(run, grid, project) : [];
+  // Each horizontal panel pokes its own tabs into a row of enclosed holes
+  // mid-height on the wall's face — one hole per 'finger' segment of the
+  // SAME tiling the panel's own tabs use (OuterBoundary), so a hole can
+  // never drift out of sync with the tab meant to sit in it. An onTop lid
+  // never needs holes — it joints through the free edge itself (above).
+  const horizontalPanelHoles = isOuterRun(run)
+    ? horizontalPanelsWithHeight(project).flatMap((panel) => horizontalPanelMortiseHoles(run, grid, project, panel))
+    : [];
   const basePlateHoles = holdsRecessedBasePlate ? mortiseHolesAt(-project.outerThicknessMm / 2, run, grid, project) : [];
 
-  const PanelClass = run.seg.thicknessGroup === 'outer' ? Panel : Divider;
+  const PanelClass = isOuterRun(run) ? Panel : Divider;
   return new PanelClass({
     id: pieceId,
     kind: 'wall',
     thicknessGroup: run.seg.thicknessGroup,
     thicknessMm: resolveThickness(run.seg, project),
     bottomEdge, rightEdge, topEdge, leftEdge,
-    holes: [...mortiseHoles, ...lidHoles, ...basePlateHoles, ...Hole.listFor(project.pieceHoles, pieceId)],
+    holes: [...mortiseHoles, ...horizontalPanelHoles, ...basePlateHoles, ...Hole.listFor(project.pieceHoles, pieceId)],
   });
 }
 
@@ -546,28 +539,35 @@ export function buildBasePlate(grid, project) {
   });
 }
 
-// The box's fixed lid (Plafond in the plan/design discussion): a LidPanel,
-// either mode: 'onTop' (protrude:false, mirrors the base plate exactly —
-// the walls ADD fingers to meet it, see Assembly.buildWallPiece) or mode:
-// 'recessed' (protrude:true, its own tabs poke outward into holes cut
-// mid-height into the walls). Never gets divider holes — a lid only ever
-// joints with the OUTER walls (GridQuery.validateLid guarantees a recessed
-// lid's own bottom face clears every interior divider, so there's
-// structurally nothing for it to joint against there).
+// The box's fixed lid (Plafond in the plan/design discussion): a LidPanel
+// resting on the walls' own top edge, mirroring the base plate exactly
+// (protrude:false) — the walls ADD fingers to meet it, see buildWallPiece.
 export function buildLid(grid, project) {
-  const { lid } = project;
-  const mode = lidMode(project);
-  if (!lid || !lid.enabled || (mode === 'recessed' && lid.insertHeightMm == null)) return null;
-  // Recessed: the lid's own tabs poke OUT into the walls' mid-height holes
-  // (protrude:true). onTop: the lid mirrors the base plate exactly
-  // (protrude:false) — the walls' own added fingers (buildWallPiece) do
-  // the same job bottomEdge/base-plate already do above.
-  const { bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides } = buildBoundaryEdges(grid, project, mode === 'recessed', 'lid', lidCoverage(project));
+  if (!project.lid?.enabled) return null;
+  const { bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides } = buildBoundaryEdges(grid, project, false, 'lid');
   return new LidPanel({
     thicknessMm: project.outerThicknessMm,
     bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
     holes: Hole.listFor(project.pieceHoles, 'lid'),
   });
+}
+
+export function buildHorizontalPanel(grid, project, panel) {
+  const { bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides } = buildBoundaryEdges(grid, project, true, panel.id, horizontalPanelCoverage(panel));
+  return new HorizontalPanel({
+    id: panel.id,
+    thicknessMm: project.outerThicknessMm,
+    bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
+    holes: Hole.listFor(project.pieceHoles, panel.id),
+  });
+}
+
+export function buildFlatPiece(grid, project, rawId) {
+  if (rawId === 'base-plate') return buildBasePlate(grid, project);
+  if (rawId === 'lid') return buildLid(grid, project);
+  const panel = findHorizontalPanel(project, rawId);
+  if (!panel) throw new Error(`buildFlatPiece: "${rawId}" is no flat piece of this project`);
+  return buildHorizontalPanel(grid, project, panel);
 }
 
 export class Assembly {
@@ -577,18 +577,21 @@ export class Assembly {
     this.panels = [];
     this.basePlate = null;
     this.lid = null;
+    this.horizontalPanels = [];
   }
 
   build() {
     this.panels = enumerateWallRuns(this.grid, this.project).map((run) => buildWallPiece(run, this.grid, this.project));
     this.basePlate = buildBasePlate(this.grid, this.project);
     this.lid = buildLid(this.grid, this.project);
+    this.horizontalPanels = horizontalPanelsWithHeight(this.project).map((panel) => buildHorizontalPanel(this.grid, this.project, panel));
     return this;
   }
 
   allPieces() {
     const pieces = [...this.panels.map((p) => p.toPiece()), this.basePlate.toPiece()];
     if (this.lid) pieces.push(this.lid.toPiece());
+    pieces.push(...this.horizontalPanels.map((panel) => panel.toPiece()));
     return pieces;
   }
 }

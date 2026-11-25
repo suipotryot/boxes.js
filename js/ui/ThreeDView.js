@@ -26,7 +26,7 @@ export function mountThreeDView(container, project) {
   // undo a checkbox the user unticked or a drawer position they set.
   let currentProject = project;
   let openT = 0;
-  const visible = { box: true, manchon: true, couvercle: true, couvercleManchon: true };
+  const visible = { box: true, manchon: true, couvercle: true, couvercleManchon: true, horizontalPanels: true };
 
   function refreshScene() {
     populateScene(pieceGroup, currentProject, { openT, visible });
@@ -36,6 +36,7 @@ export function mountThreeDView(container, project) {
   const boxCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.box = e.target.checked; refreshScene(); } });
   const manchonCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.manchon = e.target.checked; refreshScene(); } });
   const couvercleCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.couvercle = e.target.checked; refreshScene(); } });
+  const horizontalPanelsCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.horizontalPanels = e.target.checked; refreshScene(); } });
   const couvercleManchonCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.couvercleManchon = e.target.checked; refreshScene(); } });
   const openSlider = el('input', {
     type: 'range', min: 0, max: 100, value: 0,
@@ -44,6 +45,7 @@ export function mountThreeDView(container, project) {
 
   const manchonLabel = el('label', { class: 'threed-control' }, [manchonCheckbox, t('editor.view3dShowDrawer')]);
   const couvercleLabel = el('label', { class: 'threed-control' }, [couvercleCheckbox, t('editor.view3dShowLid')]);
+  const horizontalPanelsLabel = el('label', { class: 'threed-control' }, [horizontalPanelsCheckbox, t('editor.view3dShowHorizontalPanels')]);
   // Its own checkbox, separate from manchonLabel above: the sleeve's lid
   // is a fixed, permanent ceiling over its own base plate (unlike the
   // main box's own lid, it never slides open) — without a way to hide it
@@ -60,6 +62,7 @@ export function mountThreeDView(container, project) {
     manchonLabel,
     couvercleManchonLabel,
     couvercleLabel,
+    horizontalPanelsLabel,
     sliderLabel,
   ]);
 
@@ -68,6 +71,7 @@ export function mountThreeDView(container, project) {
     couvercleManchonLabel.hidden = !currentProject.drawer?.enabled;
     sliderLabel.hidden = !currentProject.drawer?.enabled;
     couvercleLabel.hidden = !currentProject.lid?.enabled;
+    horizontalPanelsLabel.hidden = currentProject.horizontalPanels.length === 0;
   }
 
   const canvas = el('canvas', { class: 'threed-canvas' });

@@ -46,4 +46,35 @@ test('populating the same scene twice in a row does not throw', () => {
   assert(scene.children.length > 0, 'expected meshes to survive a second populate call');
 });
 
+function projectWithOnePanel() {
+  const project = fixtureProject();
+  project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: 20, coverage: null }];
+  return project;
+}
+
+const ALL_GROUPS_VISIBLE = { box: true, manchon: true, couvercle: true, couvercleManchon: true, horizontalPanels: true };
+
+function panelMesh(scene) {
+  return scene.children.find((mesh) => mesh.userData.pieceId === 'horizontal-panel-1');
+}
+
+test('populateScene() should show each horizontal panel, and hide them all when their group is unticked', () => {
+  const shown = new THREE.Scene();
+  populateScene(shown, projectWithOnePanel(), { visible: ALL_GROUPS_VISIBLE });
+  const hidden = new THREE.Scene();
+  populateScene(hidden, projectWithOnePanel(), { visible: { ...ALL_GROUPS_VISIBLE, horizontalPanels: false } });
+  assert(panelMesh(shown), 'expected a mesh for the horizontal panel');
+  assert(!panelMesh(hidden), 'expected no horizontal panel mesh once its group is hidden');
+});
+
+test('populateScene() should slide the horizontal panels out with the box when the drawer opens', () => {
+  const closed = new THREE.Scene();
+  populateScene(closed, projectWithOnePanel(), { openT: 0, visible: ALL_GROUPS_VISIBLE });
+  const open = new THREE.Scene();
+  populateScene(open, projectWithOnePanel(), { openT: 1, visible: ALL_GROUPS_VISIBLE });
+  const closedOrigin = new THREE.Vector3().setFromMatrixPosition(panelMesh(closed).matrix);
+  const openOrigin = new THREE.Vector3().setFromMatrixPosition(panelMesh(open).matrix);
+  assert(closedOrigin.distanceTo(openOrigin) > 1, `expected the panel to move with the box, it stayed at ${JSON.stringify(closedOrigin)}`);
+});
+
 run();

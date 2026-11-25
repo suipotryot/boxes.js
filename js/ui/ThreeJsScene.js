@@ -12,15 +12,15 @@ import { Box } from '../geometry/oo/Box.js';
 import { computePiecePlacement3D, translatePlacement, computeDrawerSlideVector } from '../geometry/PiecePlacement3D.js';
 import { DRAWER_PREFIX } from '../geometry/oo/Drawer.js';
 
-// base plate, every wall run, and the lid — the same kinds computePieces()
+// base plate, every wall run, the lid and every horizontal panel — the same kinds computePieces()
 // itself groups drawer sleeve pieces under too (see PiecePlacement3D.js,
 // which resolves a drawer-prefixed id against the sleeve's own synthetic
 // grid and offsets the result into the main box's world space).
-const SUPPORTED_KINDS = new Set(['basePlate', 'lid', 'wall']);
+const SUPPORTED_KINDS = new Set(['basePlate', 'lid', 'horizontalPanel', 'wall']);
 
 const ZERO_VECTOR = { x: 0, y: 0, z: 0 };
 
-// The 4 independently-hideable/-slideable groups the 3D preview's own
+// The 5 independently-hideable/-slideable groups the 3D preview's own
 // checkboxes and "open the drawer" slider (see ThreeDView.js) operate on.
 // The sleeve's own lid gets its own group ('couvercleManchon'), split out
 // from the rest of the sleeve ('manchon', base + walls) rather than
@@ -31,12 +31,15 @@ const ZERO_VECTOR = { x: 0, y: 0, z: 0 };
 // hole cut into it — could ever be seen, since the camera is also never
 // allowed to look up from underneath (see ThreeDView.js's minPolarAngle/
 // maxPolarAngle). Neither sleeve group ever slides with the "open the
-// drawer" control — only the main box's own two groups do.
+// drawer" control — only the main box's own groups do.
 function pieceGroupName(piece) {
   const isDrawer = piece.id.startsWith(DRAWER_PREFIX);
   if (piece.kind === 'lid') return isDrawer ? 'couvercleManchon' : 'couvercle';
+  if (piece.kind === 'horizontalPanel') return 'horizontalPanels';
   return isDrawer ? 'manchon' : 'box';
 }
+
+const GROUPS_SLIDING_WITH_THE_BOX = new Set(['box', 'couvercle', 'horizontalPanels']);
 
 // Pseudo-realistic laser-cut plywood look: light beige panel faces, dark
 // burnt-edge sides — the same two colors for every piece, regardless of
@@ -113,11 +116,11 @@ function disposeMesh(mesh) {
  * @param {object} [opts]
  * @param {number} [opts.openT] 0 (closed/nested) to 1 (fully clear of the
  *   sleeve) — the "open the drawer" slider; only ever moves the main box's
- *   own pieces (box + couvercle groups), never the sleeve itself.
- * @param {{box:boolean, manchon:boolean, couvercle:boolean, couvercleManchon:boolean}} [opts.visible]
+ *   own pieces (box, couvercle and horizontalPanels groups), never the sleeve itself.
+ * @param {{box:boolean, manchon:boolean, couvercle:boolean, couvercleManchon:boolean, horizontalPanels:boolean}} [opts.visible]
  *   per-group checkbox state — a piece whose group is false is simply
  *   skipped, never added to the scene. */
-export function populateScene(scene, project, { openT = 0, visible = { box: true, manchon: true, couvercle: true, couvercleManchon: true } } = {}) {
+export function populateScene(scene, project, { openT = 0, visible = { box: true, manchon: true, couvercle: true, couvercleManchon: true, horizontalPanels: true } } = {}) {
   scene.children.slice().forEach((mesh) => {
     scene.remove(mesh);
     disposeMesh(mesh);
@@ -131,7 +134,7 @@ export function populateScene(scene, project, { openT = 0, visible = { box: true
     if (!visible[group]) continue;
 
     let placement = computePiecePlacement3D(project.grid, project, piece);
-    if (group === 'box' || group === 'couvercle') placement = translatePlacement(placement, slideVector);
+    if (GROUPS_SLIDING_WITH_THE_BOX.has(group)) placement = translatePlacement(placement, slideVector);
 
     const shape = buildShape(piece.outline);
     shape.holes = piece.holes.map(buildHolePath);
