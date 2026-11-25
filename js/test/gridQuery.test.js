@@ -4,7 +4,7 @@
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent, toggleWall } from '../model/Grid.js';
-import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateLid, basePlateRecessMm, isBasePlateRecessValid } from '../model/GridQuery.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateLid, basePlateRecessMm, isBasePlateRecessValid, coverageRectangle, validateCoverage, lidCoverage } from '../model/GridQuery.js';
 import { createDefaultProject } from '../state/Project.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
@@ -288,6 +288,92 @@ test('junctionKindAt: "none" when nothing is present in the perpendicular direct
   openGrid = setSegmentPresent(openGrid, 'h', 0, 0, false); // disable the whole top wall (an open side, like a drawer sleeve)
   const end = junctionKindAt(openGrid, 'v', 0, 0, true);
   assert(end.kind === 'none', `expected 'none' at an endpoint with nothing perpendicular (open side), got '${end.kind}'`);
+});
+
+function coverageFixtureProject() {
+  const project = createDefaultProject();
+  project.grid = createGrid([60], [30]);
+  return project;
+}
+
+test('coverageRectangle() should span the whole interior when there is no coverage', () => {
+  const project = coverageFixtureProject();
+  const rect = coverageRectangle(project.grid, project, null);
+  assert(JSON.stringify(rect) === JSON.stringify({ xMm: 0, yMm: 0, widthMm: 60, depthMm: 30 }), `got ${JSON.stringify(rect)}`);
+});
+
+test('coverageRectangle() should keep a top coverage against the top wall, full width', () => {
+  const project = coverageFixtureProject();
+  const rect = coverageRectangle(project.grid, project, { side: 'top', depthMm: 12 });
+  assert(JSON.stringify(rect) === JSON.stringify({ xMm: 0, yMm: 0, widthMm: 60, depthMm: 12 }), `got ${JSON.stringify(rect)}`);
+});
+
+test('coverageRectangle() should push a bottom coverage against the bottom wall', () => {
+  const project = coverageFixtureProject();
+  const rect = coverageRectangle(project.grid, project, { side: 'bottom', depthMm: 12 });
+  assert(JSON.stringify(rect) === JSON.stringify({ xMm: 0, yMm: 18, widthMm: 60, depthMm: 12 }), `got ${JSON.stringify(rect)}`);
+});
+
+test('coverageRectangle() should keep a left coverage against the left wall, full depth', () => {
+  const project = coverageFixtureProject();
+  const rect = coverageRectangle(project.grid, project, { side: 'left', depthMm: 12 });
+  assert(JSON.stringify(rect) === JSON.stringify({ xMm: 0, yMm: 0, widthMm: 12, depthMm: 30 }), `got ${JSON.stringify(rect)}`);
+});
+
+test('coverageRectangle() should push a right coverage against the right wall', () => {
+  const project = coverageFixtureProject();
+  const rect = coverageRectangle(project.grid, project, { side: 'right', depthMm: 12 });
+  assert(JSON.stringify(rect) === JSON.stringify({ xMm: 48, yMm: 0, widthMm: 12, depthMm: 30 }), `got ${JSON.stringify(rect)}`);
+});
+
+test('coverageRectangle() should throw on an unknown side instead of guessing one', () => {
+  const project = coverageFixtureProject();
+  let thrown = null;
+  try { coverageRectangle(project.grid, project, { side: 'north', depthMm: 12 }); } catch (err) { thrown = err; }
+  assert(thrown && /north/.test(thrown.message), `expected an error naming the unknown side, got ${thrown}`);
+});
+
+test('validateCoverage() should accept a top coverage shallower than the interior depth, reporting that depth as the maximum', () => {
+  const project = coverageFixtureProject();
+  const { ok, max } = validateCoverage(project.grid, project, { side: 'top', depthMm: 12 });
+  assert(ok, 'expected a 12mm strip to fit in a 30mm-deep interior');
+  assertClose(max, 30, 1e-9);
+});
+
+test('validateCoverage() should reject a coverage as deep as the interior, since it would no longer leave any opening', () => {
+  const project = coverageFixtureProject();
+  assert(!validateCoverage(project.grid, project, { side: 'bottom', depthMm: 30 }).ok, 'expected a 30mm strip in a 30mm-deep interior to be rejected');
+});
+
+test('validateCoverage() should measure a left or right coverage against the interior width', () => {
+  const project = coverageFixtureProject();
+  const { ok, max } = validateCoverage(project.grid, project, { side: 'right', depthMm: 40 });
+  assert(ok, 'expected a 40mm strip to fit in a 60mm-wide interior');
+  assertClose(max, 60, 1e-9);
+});
+
+test('validateCoverage() should reject a zero or empty coverage depth', () => {
+  const project = coverageFixtureProject();
+  assert(!validateCoverage(project.grid, project, { side: 'top', depthMm: 0 }).ok, 'expected a 0mm strip to be rejected');
+  assert(!validateCoverage(project.grid, project, { side: 'top', depthMm: null }).ok, 'expected a missing depth to be rejected');
+});
+
+test('lidCoverage() should return the coverage of an enabled recessed lid', () => {
+  const project = coverageFixtureProject();
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: { side: 'top', depthMm: 12 } };
+  assert(JSON.stringify(lidCoverage(project)) === JSON.stringify({ side: 'top', depthMm: 12 }), `got ${JSON.stringify(lidCoverage(project))}`);
+});
+
+test('lidCoverage() should be null for a lid saved before coverage existed', () => {
+  const project = coverageFixtureProject();
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20 };
+  assert(lidCoverage(project) === null, `got ${JSON.stringify(lidCoverage(project))}`);
+});
+
+test('lidCoverage() should be null for an onTop lid, which only exists in full coverage', () => {
+  const project = coverageFixtureProject();
+  project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null, coverage: { side: 'top', depthMm: 12 } };
+  assert(lidCoverage(project) === null, `got ${JSON.stringify(lidCoverage(project))}`);
 });
 
 run();

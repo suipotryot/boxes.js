@@ -8,7 +8,7 @@
 // Doubles as the "is this even a wall?" gate for free: enumerateWallRuns
 // never produces a run for the base plate or lid ids, so this returns null
 // for those without any separate kind check.
-import { enumerateWallRuns, xAt, yAt, wallPieceId } from '../model/GridQuery.js';
+import { enumerateWallRuns, xAt, yAt, wallPieceId, coverageRectangle, lidCoverage } from '../model/GridQuery.js';
 import { isOuterSegment } from '../model/Grid.js';
 import { Drawer, DRAWER_PREFIX } from './oo/Drawer.js';
 
@@ -56,8 +56,8 @@ export function resolvePieceHoleContext(project, pieceId) {
   const { rawId, grid, runProject } = gridCtx;
 
   if (FLAT_PIECE_IDS.has(rawId)) {
-    const widthMm = xAt(grid, runProject, grid.sx.length);
-    const heightMm = yAt(grid, runProject, grid.sy.length);
+    const coverage = rawId === 'lid' ? lidCoverage(runProject) : null;
+    const { widthMm, depthMm: heightMm } = coverageRectangle(grid, runProject, coverage);
     return { kind: 'flat', grid, project: runProject, rawId, widthMm, heightMm };
   }
 

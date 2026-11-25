@@ -200,4 +200,11 @@ test('toWorld combines a placement and a local point via the basis + origin', ()
   assertVec(world, { x: 15, y: 20 - 1, z: 30 + 2 }, 'origin + local.x*uAxis + local.y*vAxis + local.z*wAxis');
 });
 
+test('computePiecePlacement3D() should shift a bottom-covered lid against the bottom wall', () => {
+  const project = fixtureProject();
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 30, coverage: { side: 'bottom', depthMm: 12 } };
+  const lid = computePieces(project).find((p) => p.id === 'lid');
+  assertVec(computePiecePlacement3D(project.grid, project, lid).origin, { x: 0, y: 102 - 12, z: 3 + 30 }, 'origin at the coverage rectangle\'s own corner');
+});
+
 run();

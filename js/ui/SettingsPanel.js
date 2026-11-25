@@ -7,7 +7,8 @@ import { el } from './dom.js';
 import { numberField, textField, infoIcon } from './fields.js';
 import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP, DRAWER_PLAY_HELP, DRAWER_THICKNESS_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
-import { validateLid, basePlateMode, basePlateRecessMm, isBasePlateRecessValid } from '../model/GridQuery.js';
+import { validateLid, basePlateMode, basePlateRecessMm, isBasePlateRecessValid, lidCoverage, validateCoverage, interiorExtentAcross } from '../model/GridQuery.js';
+import { coverageHasSideTabs } from '../geometry/oo/Assembly.js';
 import { t } from '../i18n/index.js';
 
 function parseMmList(text) {
@@ -120,7 +121,54 @@ function lidSection(project, store, openSections, onToggleSection) {
     }),
   ]) : null;
 
-  return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, modeField, heightField, warning]);
+  return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, modeField, heightField, warning, ...coverageFields(project, store)]);
+}
+
+function defaultCoverage(project, side) {
+  return { side, depthMm: Math.round(interiorExtentAcross(project.grid, project, side) / 3) };
+}
+
+function coverageFields(project, store) {
+  const coverage = lidCoverage(project);
+  const setCoverage = (next) => store.apply((p) => ({ ...p, lid: { ...p.lid, coverage: next } }));
+
+  const partialRow = el('label', { class: 'field lid-enabled' }, [
+    el('input', {
+      type: 'checkbox', checked: !!coverage,
+      onChange: (evt) => setCoverage(evt.target.checked ? defaultCoverage(project, 'top') : null),
+    }),
+    el('span', { text: ` ${t('settingsPanel.lidCoverage')}` }),
+    infoIcon(t('settingsPanel.lidCoverageHelp')),
+  ]);
+
+  if (!coverage) return [partialRow];
+
+  const sideField = el('div', { class: 'field' }, [
+    el('span', { class: 'field-label' }, [t('settingsPanel.lidCoverageSide'), infoIcon(t('settingsPanel.lidCoverageSideHelp'))]),
+    el('div', { class: 'radio-group' }, Object.entries(sideLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
+      el('input', {
+        type: 'radio', name: 'lid-coverage-side', value, checked: coverage.side === value,
+        onChange: () => setCoverage({ ...coverage, side: value }),
+      }),
+      el('span', { text: ` ${label}` }),
+    ]))),
+  ]);
+
+  const depthField = numberField(t('settingsPanel.lidCoverageDepth'), coverage.depthMm, (depthMm) => setCoverage({ ...coverage, depthMm }), '1', t('settingsPanel.lidCoverageDepthHelp'));
+
+  const validation = validateCoverage(project.grid, project, coverage);
+  if (!validation.ok) {
+    const warning = el('div', { class: 'field' }, [
+      el('span', { class: 'warning', text: t('settingsPanel.lidCoverageInvalid', { max: validation.max }) }),
+      el('button', { class: 'btn', text: t('shared.autoFix'), onClick: () => setCoverage(defaultCoverage(project, coverage.side)) }),
+    ]);
+    return [partialRow, sideField, depthField, warning];
+  }
+
+  const noSideTabsHint = coverageHasSideTabs(project.grid, project)
+    ? null
+    : el('div', { class: 'field' }, [el('span', { class: 'hint', text: t('settingsPanel.lidCoverageNoSideTabs') })]);
+  return [partialRow, sideField, depthField, noSideTabsHint];
 }
 
 function basePlateModeLabels() {
@@ -173,7 +221,7 @@ function optionsSection(openSections, onToggleSection, showLabels, onToggleLabel
   return collapsibleSection(openSections, onToggleSection, 'options', t('settingsPanel.optionsSection'), [labelsRow]);
 }
 
-function openSideLabels() {
+function sideLabels() {
   return { top: t('settingsPanel.sideTop'), bottom: t('settingsPanel.sideBottom'), right: t('settingsPanel.sideRight'), left: t('settingsPanel.sideLeft') };
 }
 
@@ -200,7 +248,7 @@ function drawerSection(project, store, openSections, onToggleSection) {
 
   const sideField = el('div', { class: 'field' }, [
     el('span', { class: 'field-label' }, [t('settingsPanel.drawerOpenSide'), infoIcon(t('settingsPanel.drawerOpenSideHelp'))]),
-    el('div', { class: 'radio-group' }, Object.entries(openSideLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
+    el('div', { class: 'radio-group' }, Object.entries(sideLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
       el('input', {
         type: 'radio', name: 'drawer-open-side', value, checked: drawer.openSide === value,
         onChange: () => store.apply((p) => ({ ...p, drawer: { ...p.drawer, openSide: value } })),
