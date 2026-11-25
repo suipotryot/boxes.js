@@ -180,7 +180,7 @@ export const en = {
   'settingsPanel.lidCoverageDepth': 'Strip depth (mm)',
   'settingsPanel.lidCoverageDepthHelp': 'Measured from the inner face of the wall the strip leans against.',
   'settingsPanel.lidCoverageInvalid': 'Invalid depth — must be greater than 0 and less than {max}mm.',
-  'settingsPanel.lidCoverageNoSideTabs': 'Strip too narrow for a tab on its short sides (two finger margins do not fit): it is only held by the wall it leans against.',
+  'settingsPanel.lidCoverageNoFlankTabs': 'Strip too narrow for a tab on its short sides (two finger margins do not fit): it is only held by the wall it leans against.',
   'settingsPanel.drawerSection': 'Drawer box',
   'settingsPanel.drawerHelp': 'Adds an enclosing box around the current box, open on one side, to make it a sliding drawer.',
   'settingsPanel.drawerOpenSide': 'Open side',

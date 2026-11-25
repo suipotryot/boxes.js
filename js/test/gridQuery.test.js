@@ -4,7 +4,7 @@
 // PanelBuilder's comb depths right without any float-position matching.
 import { test, assert, assertClose, run } from './testHarness.js';
 import { createGrid, setSegmentHeight, setSegmentPresent, toggleWall } from '../model/Grid.js';
-import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateLid, basePlateRecessMm, isBasePlateRecessValid, coverageRectangle, validateCoverage, lidCoverage } from '../model/GridQuery.js';
+import { perpendicularMatesAtPoint, enumerateWallRuns, crossingAt, junctionKindAt, runAt, xAt, yAt, outerBoxWidth, outerBoxDepth, outerBoxHeight, validateLid, basePlateRecessMm, isBasePlateRecessValid, coverageRectangle, validateCoverage, lidCoverage, interiorExtentAcross } from '../model/GridQuery.js';
 import { createDefaultProject } from '../state/Project.js';
 
 test('a box corner has exactly one perpendicular mate', () => {
@@ -352,9 +352,13 @@ test('validateCoverage() should measure a left or right coverage against the int
   assertClose(max, 60, 1e-9);
 });
 
-test('validateCoverage() should reject a zero or empty coverage depth', () => {
+test('validateCoverage() should reject a zero coverage depth', () => {
   const project = coverageFixtureProject();
   assert(!validateCoverage(project.grid, project, { side: 'top', depthMm: 0 }).ok, 'expected a 0mm strip to be rejected');
+});
+
+test('validateCoverage() should reject a missing coverage depth', () => {
+  const project = coverageFixtureProject();
   assert(!validateCoverage(project.grid, project, { side: 'top', depthMm: null }).ok, 'expected a missing depth to be rejected');
 });
 
@@ -374,6 +378,29 @@ test('lidCoverage() should be null for an onTop lid, which only exists in full c
   const project = coverageFixtureProject();
   project.lid = { enabled: true, mode: 'onTop', insertHeightMm: null, coverage: { side: 'top', depthMm: 12 } };
   assert(lidCoverage(project) === null, `got ${JSON.stringify(lidCoverage(project))}`);
+});
+
+test('lidCoverage() should throw on a stored coverage with an unknown side instead of silently defaulting it', () => {
+  const project = coverageFixtureProject();
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: { side: 'north', depthMm: 12 } };
+  let thrown = null;
+  try { lidCoverage(project); } catch (err) { thrown = err; }
+  assert(thrown && /north/.test(thrown.message), `expected an error naming the unknown side, got ${thrown}`);
+});
+
+test('lidCoverage() should throw on a stored coverage whose depth is not a number', () => {
+  const project = coverageFixtureProject();
+  project.lid = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: { side: 'top', depthMm: '20' } };
+  let thrown = null;
+  try { lidCoverage(project); } catch (err) { thrown = err; }
+  assert(thrown && /depth/.test(thrown.message), `expected an error about the depth, got ${thrown}`);
+});
+
+test('interiorExtentAcross() should throw on an unknown side instead of treating it as left or right', () => {
+  const project = coverageFixtureProject();
+  let thrown = null;
+  try { interiorExtentAcross(project.grid, project, 'north'); } catch (err) { thrown = err; }
+  assert(thrown && /north/.test(thrown.message), `expected an error naming the unknown side, got ${thrown}`);
 });
 
 run();

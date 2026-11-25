@@ -13,7 +13,7 @@
 import {
   enumerateWallRuns, xAt, yAt, junctionKindAt, resolveThickness, resolveHeight, perpendicularMatesAtPoint, lidMode,
   heightProfile, heightAt, junctionExclusionRanges, wallPieceId, isBasePlateRecessed, basePlateRecessMm,
-  coverageRectangle, lidCoverage,
+  coverageRectangle, lidCoverage, OPPOSITE_SIDE,
 } from '../../model/GridQuery.js';
 import { isOuterSegment } from '../../model/Grid.js';
 import { Notch } from './Notch.js';
@@ -202,20 +202,6 @@ function mortiseHolesAt(centerMm, run, grid, project) {
   });
 }
 
-const OPPOSITE_SIDE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
-
-function partialSideTiling(run, grid, project, coverage) {
-  const lengthMm = coverage.depthMm;
-  const offsetMm = coverage.side === 'top' || coverage.side === 'left' ? 0 : run.length - lengthMm;
-  const exclusions = junctionExclusionRanges(run, grid, project)
-    .filter((ex) => ex.uEnd > offsetMm && ex.uStart < offsetMm + lengthMm)
-    .map((ex) => ({
-      uStart: Math.max(ex.uStart, offsetMm) - offsetMm,
-      uEnd: Math.min(ex.uEnd, offsetMm + lengthMm) - offsetMm,
-    }));
-  return { lengthMm, offsetMm, exclusions, startWithFinger: true };
-}
-
 function outerRunsBySide(grid, project) {
   const cols = grid.sx.length, rows = grid.sy.length;
   const outerRuns = enumerateWallRuns(grid, project).filter((run) => isOuterSegment(grid, run.kind, run.aPoint[0], run.aPoint[1]));
@@ -227,47 +213,83 @@ function outerRunsBySide(grid, project) {
   };
 }
 
-function partialSideSegments(run, grid, project, coverage) {
-  const { lengthMm, offsetMm, exclusions, startWithFinger } = partialSideTiling(run, grid, project, coverage);
+function outerSideOf(run, grid, project) {
+  const runBySide = outerRunsBySide(grid, project);
+  const side = Object.keys(runBySide).find((candidate) => runBySide[candidate] && wallPieceId(runBySide[candidate]) === wallPieceId(run));
+  if (!side) throw new Error(`outerSideOf: ${wallPieceId(run)} is not an outer wall`);
+  return side;
+}
+
+function isBackingSide(side, coverage) {
+  return side === coverage.side;
+}
+
+function isFacingSide(side, coverage) {
+  return side === OPPOSITE_SIDE[coverage.side];
+}
+
+function flankSides(coverage) {
+  return Object.keys(OPPOSITE_SIDE).filter((side) => !isBackingSide(side, coverage) && !isFacingSide(side, coverage));
+}
+
+function isAtFlankStart(side) {
+  return side === 'top' || side === 'left';
+}
+
+function stripOffsetAlong(flankRun, coverage) {
+  return isAtFlankStart(coverage.side) ? 0 : flankRun.length - coverage.depthMm;
+}
+
+function exclusionsWithinStrip(exclusions, offsetMm, lengthMm) {
+  return exclusions
+    .filter((ex) => ex.uEnd > offsetMm && ex.uStart < offsetMm + lengthMm)
+    .map((ex) => ({
+      uStart: Math.max(ex.uStart, offsetMm) - offsetMm,
+      uEnd: Math.min(ex.uEnd, offsetMm + lengthMm) - offsetMm,
+    }));
+}
+
+const FLANK_STARTS_WITH_TAB = true;
+
+function flankTiling(flankRun, grid, project, coverage) {
+  const lengthMm = coverage.depthMm;
+  const offsetMm = stripOffsetAlong(flankRun, coverage);
+  const exclusions = exclusionsWithinStrip(junctionExclusionRanges(flankRun, grid, project), offsetMm, lengthMm);
+  return { lengthMm, offsetMm, exclusions, startWithFinger: FLANK_STARTS_WITH_TAB };
+}
+
+function flankSegments(flankRun, grid, project, coverage) {
+  const { lengthMm, offsetMm, exclusions, startWithFinger } = flankTiling(flankRun, grid, project, coverage);
   const segments = new FingerEdge({
     lengthMm, fingerJoint: project.fingerJoint, startWithFinger, mateThicknessMm: 0, exclusions,
   }).segments();
   return { segments, offsetMm };
 }
 
-function partialMortiseHolesAt(centerMm, run, grid, project, coverage) {
-  const { segments, offsetMm } = partialSideSegments(run, grid, project, coverage);
+function hasAtLeastOneTab(segments) {
+  return segments.some((segment) => segment.kind === 'finger');
+}
+
+export function coverageHoldsFlankTabs(grid, project, coverage) {
+  const runBySide = outerRunsBySide(grid, project);
+  return flankSides(coverage).every((side) => hasAtLeastOneTab(flankSegments(runBySide[side], grid, project, coverage).segments));
+}
+
+function flankMortiseHolesAt(centerMm, flankRun, grid, project, coverage) {
+  const { segments, offsetMm } = flankSegments(flankRun, grid, project, coverage);
   return MortiseHole.manyFromFingerSegments(segments, {
     axis: 'x', centerMm, thicknessMm: project.outerThicknessMm, offsetMm,
   });
 }
 
-function sidesAcross(coverageSide) {
-  return Object.keys(OPPOSITE_SIDE).filter((side) => side !== coverageSide && side !== OPPOSITE_SIDE[coverageSide]);
-}
-
-export function coverageHasSideTabs(grid, project) {
-  const coverage = lidCoverage(project);
-  const runBySide = outerRunsBySide(grid, project);
-  return sidesAcross(coverage.side).every((side) => partialSideSegments(runBySide[side], grid, project, coverage)
-    .segments.some((segment) => segment.kind === 'finger'));
-}
-
-function outerSideOf(run, grid) {
-  if (run.kind === 'h' && run.r === 0) return 'top';
-  if (run.kind === 'h' && run.r === grid.sy.length) return 'bottom';
-  if (run.kind === 'v' && run.c === 0) return 'left';
-  if (run.kind === 'v' && run.c === grid.sx.length) return 'right';
-  throw new Error(`outerSideOf: ${wallPieceId(run)} is not an outer wall`);
-}
-
 function lidMortiseHoles(run, grid, project) {
   const centerMm = project.lid.insertHeightMm + project.outerThicknessMm / 2;
   const coverage = lidCoverage(project);
-  const side = outerSideOf(run, grid);
-  if (!coverage || side === coverage.side) return mortiseHolesAt(centerMm, run, grid, project);
-  if (side === OPPOSITE_SIDE[coverage.side]) return [];
-  return partialMortiseHolesAt(centerMm, run, grid, project, coverage);
+  if (!coverage) return mortiseHolesAt(centerMm, run, grid, project);
+  const side = outerSideOf(run, grid, project);
+  if (isBackingSide(side, coverage)) return mortiseHolesAt(centerMm, run, grid, project);
+  if (isFacingSide(side, coverage)) return [];
+  return flankMortiseHolesAt(centerMm, run, grid, project, coverage);
 }
 
 export function buildWallPiece(run, grid, project) {
@@ -465,33 +487,28 @@ function buildBoundaryEdges(grid, project, protrude, pieceId, coverage = null) {
     return fingerSide({ lengthMm: run.length, exclusions: junctionExclusionRanges(run, grid, project), startWithFinger: run.kind === 'v' });
   }
 
-  // An open side (no outer wall run there — e.g. a drawer sleeve's own
-  // openSide) used to be represented as `null`: no Edge object at all, so
-  // a grip notch had nowhere to anchor (unlike a wall's own free/top edge,
-  // which is already a real SmoothEdge — see buildWallPiece). Giving it a
-  // genuine SmoothEdge instead — flush at value 0 for its whole length —
-  // reproduces the exact same straight corner-to-corner line as before when
-  // there's no notch, while letting a grip-notch fragment splice in a real
-  // cut. FlatPanel.outline() derives the correct (flipped) inward vector
-  // for this side on its own from `openSides`, so this function itself no
-  // longer needs to compute axisPoint/inward/margin — only the raw Edge and
-  // the `openSides` flag FlatPanel needs to tell it apart from a real side
-  // sharing the same 0 margin (see FlatPanel.js's own comment on why that
-  // flag can never be derived from the edge alone).
-  function openSide(compass) {
-    const lengthMm = sideLengthMm[compass];
-    return new SmoothEdge({ lengthMm, heightProfile: [{ uStart: 0, uEnd: lengthMm, height: 0 }], fragments: flatGripFragments(pieceId, compass, project) });
+  function flankSide(run) {
+    return fingerSide(flankTiling(run, grid, project, coverage));
   }
 
-  function isOpen(compass) {
-    return !runBySide[compass] || (!!coverage && OPPOSITE_SIDE[coverage.side] === compass);
+  // An open side (no outer wall run there, e.g. a drawer sleeve's own
+  // openSide, or the side facing a partial coverage) is a flush SmoothEdge
+  // rather than null, so a grip-notch fragment can still splice into it.
+  // FlatPanel.outline() tells it apart from a real side via `openSides`.
+  function openSide(side) {
+    const lengthMm = sideLengthMm[side];
+    return new SmoothEdge({ lengthMm, heightProfile: [{ uStart: 0, uEnd: lengthMm, height: 0 }], fragments: flatGripFragments(pieceId, side, project) });
   }
 
-  function edgeFor(compass) {
-    const run = runBySide[compass];
-    if (isOpen(compass)) return openSide(compass);
-    if (!coverage || coverage.side === compass) return fullSide(run);
-    return fingerSide(partialSideTiling(run, grid, project, coverage));
+  function isOpenSide(side) {
+    return !runBySide[side] || (!!coverage && isFacingSide(side, coverage));
+  }
+
+  function edgeFor(side) {
+    if (isOpenSide(side)) return openSide(side);
+    const run = runBySide[side];
+    if (!coverage || isBackingSide(side, coverage)) return fullSide(run);
+    return flankSide(run);
   }
 
   return {
@@ -500,7 +517,7 @@ function buildBoundaryEdges(grid, project, protrude, pieceId, coverage = null) {
     topEdge: edgeFor('bottom'),
     leftEdge: edgeFor('left'),
     widthMm, depthMm, marginMm, protrude,
-    openSides: { top: isOpen('top'), right: isOpen('right'), bottom: isOpen('bottom'), left: isOpen('left') },
+    openSides: { top: isOpenSide('top'), right: isOpenSide('right'), bottom: isOpenSide('bottom'), left: isOpenSide('left') },
   };
 }
 

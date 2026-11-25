@@ -185,7 +185,7 @@ export const fr = {
   'settingsPanel.lidCoverageDepth': 'Profondeur de la bande (mm)',
   'settingsPanel.lidCoverageDepthHelp': 'Mesurée depuis la face intérieure de la paroi d’appui.',
   'settingsPanel.lidCoverageInvalid': 'Profondeur invalide — doit être supérieure à 0 et inférieure à {max}mm.',
-  'settingsPanel.lidCoverageNoSideTabs': 'Bande trop étroite pour un tenon sur ses côtés courts (deux marges de doigts n’y tiennent pas) : elle ne tient que par la paroi d’appui.',
+  'settingsPanel.lidCoverageNoFlankTabs': 'Bande trop étroite pour un tenon sur ses côtés courts (deux marges de doigts n’y tiennent pas) : elle ne tient que par la paroi d’appui.',
   'settingsPanel.drawerSection': 'Boîte en tiroir',
   'settingsPanel.drawerHelp': 'Ajoute une boîte englobante autour de la boîte actuelle, ouverte sur un côté, pour en faire un tiroir coulissant.',
   'settingsPanel.drawerOpenSide': 'Côté ouvert',

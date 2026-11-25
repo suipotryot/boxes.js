@@ -347,9 +347,19 @@ export function lidMode(project) {
   return project.lid?.mode ?? 'recessed';
 }
 
+export const OPPOSITE_SIDE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+
+function assertKnownSide(side, caller) {
+  if (!(side in OPPOSITE_SIDE)) throw new Error(`${caller}: unknown coverage side "${side}"`);
+}
+
 export function lidCoverage(project) {
   if (lidMode(project) === 'onTop') return null;
-  return project.lid.coverage ?? null;
+  const coverage = project.lid.coverage ?? null;
+  if (!coverage) return null;
+  assertKnownSide(coverage.side, 'lidCoverage');
+  if (!Number.isFinite(coverage.depthMm)) throw new Error(`lidCoverage: coverage depth must be a number, got ${JSON.stringify(coverage.depthMm)}`);
+  return coverage;
 }
 
 /** Total assembled outer height of the box, lowest to topmost point —
@@ -407,19 +417,24 @@ export function outerBoxDepth(grid, project) {
 }
 
 export function coverageRectangle(grid, project, coverage) {
-  const widthMm = xAt(grid, project, grid.sx.length);
-  const depthMm = yAt(grid, project, grid.sy.length);
-  if (!coverage) return { xMm: 0, yMm: 0, widthMm, depthMm };
-  const strip = coverage.depthMm;
-  if (coverage.side === 'top') return { xMm: 0, yMm: 0, widthMm, depthMm: strip };
-  if (coverage.side === 'bottom') return { xMm: 0, yMm: depthMm - strip, widthMm, depthMm: strip };
-  if (coverage.side === 'left') return { xMm: 0, yMm: 0, widthMm: strip, depthMm };
-  if (coverage.side === 'right') return { xMm: widthMm - strip, yMm: 0, widthMm: strip, depthMm };
-  throw new Error(`coverageRectangle: unknown coverage side "${coverage.side}"`);
+  const interiorWidthMm = xAt(grid, project, grid.sx.length);
+  const interiorDepthMm = yAt(grid, project, grid.sy.length);
+  if (!coverage) return { xMm: 0, yMm: 0, widthMm: interiorWidthMm, depthMm: interiorDepthMm };
+  assertKnownSide(coverage.side, 'coverageRectangle');
+  const stripMm = coverage.depthMm;
+  if (coverage.side === 'top') return { xMm: 0, yMm: 0, widthMm: interiorWidthMm, depthMm: stripMm };
+  if (coverage.side === 'bottom') return { xMm: 0, yMm: interiorDepthMm - stripMm, widthMm: interiorWidthMm, depthMm: stripMm };
+  if (coverage.side === 'left') return { xMm: 0, yMm: 0, widthMm: stripMm, depthMm: interiorDepthMm };
+  return { xMm: interiorWidthMm - stripMm, yMm: 0, widthMm: stripMm, depthMm: interiorDepthMm };
+}
+
+function isHorizontalSide(side) {
+  return side === 'top' || side === 'bottom';
 }
 
 export function interiorExtentAcross(grid, project, side) {
-  return side === 'top' || side === 'bottom'
+  assertKnownSide(side, 'interiorExtentAcross');
+  return isHorizontalSide(side)
     ? yAt(grid, project, grid.sy.length)
     : xAt(grid, project, grid.sx.length);
 }

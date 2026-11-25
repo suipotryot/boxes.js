@@ -8,7 +8,7 @@ import { numberField, textField, infoIcon } from './fields.js';
 import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP, DRAWER_PLAY_HELP, DRAWER_THICKNESS_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
 import { validateLid, basePlateMode, basePlateRecessMm, isBasePlateRecessValid, lidCoverage, validateCoverage, interiorExtentAcross } from '../model/GridQuery.js';
-import { coverageHasSideTabs } from '../geometry/oo/Assembly.js';
+import { coverageHoldsFlankTabs } from '../geometry/oo/Assembly.js';
 import { t } from '../i18n/index.js';
 
 function parseMmList(text) {
@@ -47,6 +47,81 @@ function collapsibleSection(openSections, onToggleSection, key, title, children)
 
 function lidModeLabels() {
   return { recessed: t('settingsPanel.lidModeRecessed'), onTop: t('settingsPanel.lidModeOnTop') };
+}
+
+function sideLabels() {
+  return { top: t('settingsPanel.sideTop'), bottom: t('settingsPanel.sideBottom'), right: t('settingsPanel.sideRight'), left: t('settingsPanel.sideLeft') };
+}
+
+function sideRadioField({ label, help, name, checkedSide, onPick }) {
+  return el('div', { class: 'field' }, [
+    el('span', { class: 'field-label' }, [label, infoIcon(help)]),
+    el('div', { class: 'radio-group' }, Object.entries(sideLabels()).map(([value, sideLabel]) => el('label', { class: 'radio-option' }, [
+      el('input', {
+        type: 'radio', name, value, checked: checkedSide === value,
+        onChange: () => onPick(value),
+      }),
+      el('span', { text: ` ${sideLabel}` }),
+    ]))),
+  ]);
+}
+
+const DEFAULT_COVERAGE_SHARE = 1 / 3;
+
+function defaultCoverage(project, side) {
+  return { side, depthMm: Math.round(interiorExtentAcross(project.grid, project, side) * DEFAULT_COVERAGE_SHARE) };
+}
+
+function partialCoverageToggle(project, coverage, setCoverage) {
+  return el('label', { class: 'field lid-enabled' }, [
+    el('input', {
+      type: 'checkbox', checked: !!coverage,
+      onChange: (evt) => setCoverage(evt.target.checked ? defaultCoverage(project, 'top') : null),
+    }),
+    el('span', { text: ` ${t('settingsPanel.lidCoverage')}` }),
+    infoIcon(t('settingsPanel.lidCoverageHelp')),
+  ]);
+}
+
+function coverageSideField(coverage, setCoverage) {
+  return sideRadioField({
+    label: t('settingsPanel.lidCoverageSide'),
+    help: t('settingsPanel.lidCoverageSideHelp'),
+    name: 'lid-coverage-side',
+    checkedSide: coverage.side,
+    onPick: (side) => setCoverage({ ...coverage, side }),
+  });
+}
+
+function coverageDepthField(coverage, setCoverage) {
+  return numberField(t('settingsPanel.lidCoverageDepth'), coverage.depthMm, (depthMm) => setCoverage({ ...coverage, depthMm }), '1', t('settingsPanel.lidCoverageDepthHelp'));
+}
+
+function coverageFeedback(project, coverage, setCoverage) {
+  const validation = validateCoverage(project.grid, project, coverage);
+  if (!validation.ok) {
+    return el('div', { class: 'field' }, [
+      el('span', { class: 'warning', text: t('settingsPanel.lidCoverageInvalid', { max: validation.max }) }),
+      el('button', { class: 'btn', text: t('shared.autoFix'), onClick: () => setCoverage(defaultCoverage(project, coverage.side)) }),
+    ]);
+  }
+  if (!coverageHoldsFlankTabs(project.grid, project, coverage)) {
+    return el('div', { class: 'field' }, [el('span', { class: 'hint', text: t('settingsPanel.lidCoverageNoFlankTabs') })]);
+  }
+  return null;
+}
+
+function coverageFields(project, store) {
+  const coverage = lidCoverage(project);
+  const setCoverage = (next) => store.apply((p) => ({ ...p, lid: { ...p.lid, coverage: next } }));
+  const toggle = partialCoverageToggle(project, coverage, setCoverage);
+  if (!coverage) return [toggle];
+  return [
+    toggle,
+    coverageSideField(coverage, setCoverage),
+    coverageDepthField(coverage, setCoverage),
+    coverageFeedback(project, coverage, setCoverage),
+  ];
 }
 
 // Fixed lid only (see the plan's 2026-08-20 scope cut — no floating
@@ -124,53 +199,6 @@ function lidSection(project, store, openSections, onToggleSection) {
   return collapsibleSection(openSections, onToggleSection, 'lid', t('settingsPanel.lidSection'), [enabledRow, modeField, heightField, warning, ...coverageFields(project, store)]);
 }
 
-function defaultCoverage(project, side) {
-  return { side, depthMm: Math.round(interiorExtentAcross(project.grid, project, side) / 3) };
-}
-
-function coverageFields(project, store) {
-  const coverage = lidCoverage(project);
-  const setCoverage = (next) => store.apply((p) => ({ ...p, lid: { ...p.lid, coverage: next } }));
-
-  const partialRow = el('label', { class: 'field lid-enabled' }, [
-    el('input', {
-      type: 'checkbox', checked: !!coverage,
-      onChange: (evt) => setCoverage(evt.target.checked ? defaultCoverage(project, 'top') : null),
-    }),
-    el('span', { text: ` ${t('settingsPanel.lidCoverage')}` }),
-    infoIcon(t('settingsPanel.lidCoverageHelp')),
-  ]);
-
-  if (!coverage) return [partialRow];
-
-  const sideField = el('div', { class: 'field' }, [
-    el('span', { class: 'field-label' }, [t('settingsPanel.lidCoverageSide'), infoIcon(t('settingsPanel.lidCoverageSideHelp'))]),
-    el('div', { class: 'radio-group' }, Object.entries(sideLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
-      el('input', {
-        type: 'radio', name: 'lid-coverage-side', value, checked: coverage.side === value,
-        onChange: () => setCoverage({ ...coverage, side: value }),
-      }),
-      el('span', { text: ` ${label}` }),
-    ]))),
-  ]);
-
-  const depthField = numberField(t('settingsPanel.lidCoverageDepth'), coverage.depthMm, (depthMm) => setCoverage({ ...coverage, depthMm }), '1', t('settingsPanel.lidCoverageDepthHelp'));
-
-  const validation = validateCoverage(project.grid, project, coverage);
-  if (!validation.ok) {
-    const warning = el('div', { class: 'field' }, [
-      el('span', { class: 'warning', text: t('settingsPanel.lidCoverageInvalid', { max: validation.max }) }),
-      el('button', { class: 'btn', text: t('shared.autoFix'), onClick: () => setCoverage(defaultCoverage(project, coverage.side)) }),
-    ]);
-    return [partialRow, sideField, depthField, warning];
-  }
-
-  const noSideTabsHint = coverageHasSideTabs(project.grid, project)
-    ? null
-    : el('div', { class: 'field' }, [el('span', { class: 'hint', text: t('settingsPanel.lidCoverageNoSideTabs') })]);
-  return [partialRow, sideField, depthField, noSideTabsHint];
-}
-
 function basePlateModeLabels() {
   return { flush: t('settingsPanel.basePlateModeFlush'), recessed: t('settingsPanel.basePlateModeRecessed') };
 }
@@ -221,10 +249,6 @@ function optionsSection(openSections, onToggleSection, showLabels, onToggleLabel
   return collapsibleSection(openSections, onToggleSection, 'options', t('settingsPanel.optionsSection'), [labelsRow]);
 }
 
-function sideLabels() {
-  return { top: t('settingsPanel.sideTop'), bottom: t('settingsPanel.sideBottom'), right: t('settingsPanel.sideRight'), left: t('settingsPanel.sideLeft') };
-}
-
 // The "boîte en tiroir" feature: an independent enclosing sleeve box (own
 // grid, own thickness, see DrawerBuilder.js) built around the current
 // box's own outer footprint, open on one side. Always 5 pieces (base +
@@ -246,16 +270,13 @@ function drawerSection(project, store, openSections, onToggleSection) {
     return collapsibleSection(openSections, onToggleSection, 'drawer', t('settingsPanel.drawerSection'), [enabledRow]);
   }
 
-  const sideField = el('div', { class: 'field' }, [
-    el('span', { class: 'field-label' }, [t('settingsPanel.drawerOpenSide'), infoIcon(t('settingsPanel.drawerOpenSideHelp'))]),
-    el('div', { class: 'radio-group' }, Object.entries(sideLabels()).map(([value, label]) => el('label', { class: 'radio-option' }, [
-      el('input', {
-        type: 'radio', name: 'drawer-open-side', value, checked: drawer.openSide === value,
-        onChange: () => store.apply((p) => ({ ...p, drawer: { ...p.drawer, openSide: value } })),
-      }),
-      el('span', { text: ` ${label}` }),
-    ]))),
-  ]);
+  const sideField = sideRadioField({
+    label: t('settingsPanel.drawerOpenSide'),
+    help: t('settingsPanel.drawerOpenSideHelp'),
+    name: 'drawer-open-side',
+    checkedSide: drawer.openSide,
+    onPick: (openSide) => store.apply((p) => ({ ...p, drawer: { ...p.drawer, openSide } })),
+  });
 
   return collapsibleSection(openSections, onToggleSection, 'drawer', t('settingsPanel.drawerSection'), [
     enabledRow,
