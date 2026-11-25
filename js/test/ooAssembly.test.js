@@ -238,9 +238,6 @@ test('a mortise hole at a T junction is capped by the through-piece\'s own LOCAL
   }
 });
 
-// A horizontal panel (mid-height mortise holes, walls unaffected at the
-// very top) vs an onTop lid (the walls' own top edge ADDS fingers beyond
-// their nominal height instead — see Assembly.buildWallPiece/buildLid).
 
 function lidFixtureProject() {
   const project = createDefaultProject();
@@ -270,7 +267,7 @@ test('buildWallPiece() should leave the free edge flat at its nominal height whe
   assert(piece.holes.length > 0, 'expected mid-height mortise holes carrying the horizontal panel joint');
 });
 
-test('an onTop lid makes the wall\'s free edge ADD fingers beyond its own nominal height, with no mortise holes at all', () => {
+test('buildWallPiece() should make the free edge ADD fingers beyond its nominal height under the lid, with no mortise holes at all', () => {
   const project = lidFixtureProject();
   project.lid = { enabled: true };
   const topRun = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
@@ -281,7 +278,7 @@ test('an onTop lid makes the wall\'s free edge ADD fingers beyond its own nomina
   assert(piece.holes.length === 0, 'an onTop lid joints entirely through the free edge — it should never also carry mortise holes');
 });
 
-test('an onTop lid: the wall\'s topEdge finger phase exactly matches the Lid\'s own boundary phase, so a protruding tooth always lands where the Lid recedes to receive it, never where the Lid\'s own material still is', () => {
+test('buildWallPiece() should match the lid boundary phase with its topEdge finger phase the Lid\'s own boundary phase, so a protruding tooth always lands where the Lid recedes to receive it, never where the Lid\'s own material still is', () => {
   const project = lidFixtureProject();
   project.lid = { enabled: true };
   const topRun = enumerateWallRuns(project.grid, project).find((r) => r.kind === 'h' && r.r === 0);
@@ -301,7 +298,7 @@ test('an onTop lid: the wall\'s topEdge finger phase exactly matches the Lid\'s 
   }
 });
 
-test('an onTop lid never forces the wall\'s own physical tip to the full protruding height regardless of its real comb phase — the tip must match whichever segment (finger or space) the tiling naturally puts there, or it overshoots past where the Lid\'s own independently-snapped corner recedes to receive it', () => {
+test('buildWallPiece() should never force the wall\'s own physical tip under the lid to the full protruding height regardless of its real comb phase — the tip must match whichever segment (finger or space) the tiling naturally puts there, or it overshoots past where the Lid\'s own independently-snapped corner recedes to receive it', () => {
   const project = lidFixtureProject();
   project.lid = { enabled: true };
   // fingerJoint.marginMm (5mm by default) puts a leading 'flush' segment
@@ -600,6 +597,13 @@ test('buildWallPiece() should cut one row of panel mortises per horizontal panel
   assert(holes.length === 2 * singleRow.length, `expected nothing but those two rows, got ${holes.length} mortises`);
 });
 
+test('buildWallPiece() should cut no mortise for a horizontal panel whose height is not set yet', () => {
+  const project = panelFixtureProject();
+  project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: null, coverage: null }];
+  const holes = wallOnSide(project, 'top').holes;
+  assert(holes.length === 0, `expected no mortise, got ${JSON.stringify(holes.map((h) => [h.xMm, h.yMm]))}`);
+});
+
 test('Box.fromProject() should build one piece per horizontal panel that has a height, skipping one whose height is not set yet', () => {
   const project = panelFixtureProject();
   project.horizontalPanels = [
@@ -618,11 +622,18 @@ test('buildFlatPiece() should rebuild any flat piece from its id: base plate, li
   assert(JSON.stringify(ids) === JSON.stringify(['base-plate', 'lid', 'horizontal-panel-1']), `got ${JSON.stringify(ids)}`);
 });
 
-test('buildFlatPiece() should throw on an id that is no flat piece of the project, instead of building the wrong one', () => {
+test('buildFlatPiece() should throw on an id that is not a flat piece of the project, instead of building the wrong one', () => {
   const project = panelFixtureProject();
   let thrown = null;
   try { buildFlatPiece(project.grid, project, 'horizontal-panel-2'); } catch (err) { thrown = err; }
   assert(thrown && /horizontal-panel-2/.test(thrown.message), `expected an error naming the unknown id, got ${thrown}`);
+});
+
+test('buildFlatPiece() should throw on the lid while it is disabled, instead of returning nothing to build', () => {
+  const project = panelFixtureProject();
+  let thrown = null;
+  try { buildFlatPiece(project.grid, project, 'lid'); } catch (err) { thrown = err; }
+  assert(thrown && /lid/.test(thrown.message), `expected an error about the lid, got ${thrown}`);
 });
 
 test('Box.fromProject() should keep the horizontal panels inside the box, giving the drawer sleeve none of them', () => {
@@ -654,7 +665,7 @@ test('wallSmoothEdges: an ordinary wall (no lid) reports its own free top edge, 
   assert(edges[0].compass === 'top' && edges[0].isFreeEdge === true, 'expected the free/top edge, flagged isFreeEdge');
 });
 
-test('wallSmoothEdges: an ordinary wall with an onTop lid has NO smooth edge at all (its top is jointed to the lid, its ends are jointed to their neighbors)', () => {
+test('wallSmoothEdges() should report NO smooth edge for an ordinary wall under the lid at all (its top is jointed to the lid, its ends are jointed to their neighbors)', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [80]);
   project.lid = { enabled: true };

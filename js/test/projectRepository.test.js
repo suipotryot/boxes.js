@@ -77,6 +77,15 @@ test('load() should turn the recessed lid of a project saved before horizontal p
   assert(loaded.lid.enabled === false, `got ${JSON.stringify(loaded.lid)}`);
 });
 
+test('load() should let a migration error surface, instead of reporting the project as missing', () => {
+  const storage = createFakeStorage();
+  const project = { ...createDefaultProject('lid cassé'), id: 'broken-lid', lid: null };
+  storage.setItem('boxes.js:project:broken-lid', JSON.stringify(project));
+  let thrown = null;
+  try { createProjectRepository(storage).load('broken-lid'); } catch (err) { thrown = err; }
+  assert(thrown && /lid/.test(thrown.message), `expected the migration error to surface, got ${thrown}`);
+});
+
 test('list() returns metadata for every saved project, most-recently-updated first', () => {
   const storage = createFakeStorage();
   const repo = createProjectRepository(storage);

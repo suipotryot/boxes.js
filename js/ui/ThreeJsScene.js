@@ -20,7 +20,7 @@ const SUPPORTED_KINDS = new Set(['basePlate', 'lid', 'horizontalPanel', 'wall'])
 
 const ZERO_VECTOR = { x: 0, y: 0, z: 0 };
 
-// The 5 independently-hideable/-slideable groups the 3D preview's own
+// The independently-hideable/-slideable groups the 3D preview's own
 // checkboxes and "open the drawer" slider (see ThreeDView.js) operate on.
 // The sleeve's own lid gets its own group ('couvercleManchon'), split out
 // from the rest of the sleeve ('manchon', base + walls) rather than
@@ -40,6 +40,8 @@ function pieceGroupName(piece) {
 }
 
 const GROUPS_SLIDING_WITH_THE_BOX = new Set(['box', 'couvercle', 'horizontalPanels']);
+
+export const ALL_GROUPS_VISIBLE = { box: true, manchon: true, couvercle: true, couvercleManchon: true, horizontalPanels: true };
 
 // Pseudo-realistic laser-cut plywood look: light beige panel faces, dark
 // burnt-edge sides — the same two colors for every piece, regardless of
@@ -120,7 +122,7 @@ function disposeMesh(mesh) {
  * @param {{box:boolean, manchon:boolean, couvercle:boolean, couvercleManchon:boolean, horizontalPanels:boolean}} [opts.visible]
  *   per-group checkbox state — a piece whose group is false is simply
  *   skipped, never added to the scene. */
-export function populateScene(scene, project, { openT = 0, visible = { box: true, manchon: true, couvercle: true, couvercleManchon: true, horizontalPanels: true } } = {}) {
+export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_VISIBLE } = {}) {
   scene.children.slice().forEach((mesh) => {
     scene.remove(mesh);
     disposeMesh(mesh);

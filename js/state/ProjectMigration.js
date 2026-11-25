@@ -3,14 +3,18 @@ import { nextHorizontalPanelId } from '../model/HorizontalPanels.js';
 const LEGACY_LID_ID = 'lid';
 const LEGACY_LID_EDGE_PREFIX = `${LEGACY_LID_ID}:`;
 
-function lidKeyRenamedTo(panelId, key) {
+function renamedLidKey(key, panelId) {
   if (key === LEGACY_LID_ID) return panelId;
   if (key.startsWith(LEGACY_LID_EDGE_PREFIX)) return `${panelId}:${key.slice(LEGACY_LID_EDGE_PREFIX.length)}`;
   return key;
 }
 
-function withLidKeysRenamedTo(panelId, entries) {
-  return Object.fromEntries(Object.entries(entries).map(([key, value]) => [lidKeyRenamedTo(panelId, key), value]));
+function withLidKeysRenamed(entries, panelId) {
+  return Object.fromEntries(Object.entries(entries).map(([key, value]) => [renamedLidKey(key, panelId), value]));
+}
+
+function assertLidIsAnObject(lid) {
+  if (typeof lid !== 'object' || lid === null) throw new Error(`migrateRecessedLid: the saved lid should be an object, got ${JSON.stringify(lid)}`);
 }
 
 function isLegacyLid(lid) {
@@ -23,6 +27,7 @@ function isEnabledRecessedLid(lid) {
 
 export function migrateRecessedLid(project) {
   const { lid } = project;
+  assertLidIsAnObject(lid);
   if (!isLegacyLid(lid)) return project;
   if (!isEnabledRecessedLid(lid)) return { ...project, lid: { enabled: lid.enabled } };
   const id = nextHorizontalPanelId(project.horizontalPanels);
@@ -30,7 +35,7 @@ export function migrateRecessedLid(project) {
     ...project,
     lid: { enabled: false },
     horizontalPanels: [...project.horizontalPanels, { id, heightMm: lid.insertHeightMm, coverage: lid.coverage ?? null }],
-    pieceHoles: withLidKeysRenamedTo(id, project.pieceHoles),
-    pieceNotches: withLidKeysRenamedTo(id, project.pieceNotches),
+    pieceHoles: withLidKeysRenamed(project.pieceHoles, id),
+    pieceNotches: withLidKeysRenamed(project.pieceNotches, id),
   };
 }

@@ -338,6 +338,14 @@ export function perimeterHeight(grid, project) {
   return project.outerHeightMm;
 }
 
+export function isLidEnabled(project) {
+  return !!project.lid?.enabled;
+}
+
+function lidThicknessMm(project) {
+  return isLidEnabled(project) ? project.outerThicknessMm : 0;
+}
+
 export const OPPOSITE_SIDE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
 
 function assertKnownSide(side, caller) {
@@ -352,12 +360,12 @@ export function horizontalPanelCoverage(panel) {
   return coverage;
 }
 
-export function findHorizontalPanel(project, id) {
-  return project.horizontalPanels.find((panel) => panel.id === id) ?? null;
-}
-
 export function horizontalPanelsWithHeight(project) {
   return project.horizontalPanels.filter((panel) => panel.heightMm != null);
+}
+
+export function findBuiltHorizontalPanel(project, id) {
+  return horizontalPanelsWithHeight(project).find((panel) => panel.id === id) ?? null;
 }
 
 /** Total assembled outer height of the box, lowest to topmost point —
@@ -376,8 +384,7 @@ export function horizontalPanelsWithHeight(project) {
  *  perimeterHeight alone, which always undersized the sleeve by at least
  *  the base plate's thickness). */
 export function outerBoxHeight(grid, project) {
-  const lidOnTop = !!project.lid?.enabled;
-  return basePlateRecessMm(project) + project.outerThicknessMm + perimeterHeight(grid, project) + (lidOnTop ? project.outerThicknessMm : 0);
+  return basePlateRecessMm(project) + project.outerThicknessMm + perimeterHeight(grid, project) + lidThicknessMm(project);
 }
 
 export function basePlateMode(project) {
@@ -441,18 +448,13 @@ export function validateCoverage(grid, project, coverage) {
   return { ok: coverage.depthMm > 0 && coverage.depthMm < max, max };
 }
 
-/** Pure validation for a horizontal panel's height (the height its own
- *  BOTTOM face rests at). Must clear every interior divider directly — a
- *  panel only joints with the OUTER walls, and a stem taller than its
- *  underside would collide with it — and its top face (one thickness above
- *  heightMm) can never exceed the perimeter's own height, since a panel
- *  can't float above the walls that carry it (an onTop lid is the separate,
- *  explicit way to close the box at that line). Returns the valid range
- *  alongside `ok` so a caller can render both the warning and a
- *  ready-to-use "clamp to range" suggestion without recomputing it. */
+export function highestHorizontalPanelHeight(grid, project) {
+  return perimeterHeight(grid, project) - project.outerThicknessMm - lidThicknessMm(project);
+}
+
 export function validateHorizontalPanelHeight(grid, project, heightMm) {
   const min = tallestInnerHeight(grid, project);
-  const max = perimeterHeight(grid, project) - project.outerThicknessMm;
+  const max = highestHorizontalPanelHeight(grid, project);
   const ok = heightMm != null && heightMm >= min && heightMm <= max;
   return { ok, min, max };
 }

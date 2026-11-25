@@ -1,7 +1,7 @@
 import { test, assert, run } from './testHarness.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { addHorizontalPanel, removeHorizontalPanel, updateHorizontalPanel, horizontalPanelNumber } from '../model/HorizontalPanels.js';
+import { addHorizontalPanel, removeHorizontalPanel, updateHorizontalPanel, horizontalPanelNumber, heightBroughtIntoRange } from '../model/HorizontalPanels.js';
 
 function boxProject() {
   const project = createDefaultProject();
@@ -14,6 +14,11 @@ function boxProject() {
 test('addHorizontalPanel() should add a fully covering panel flush with the top of the walls', () => {
   const project = addHorizontalPanel(boxProject());
   assert(JSON.stringify(project.horizontalPanels) === JSON.stringify([{ id: 'horizontal-panel-1', heightMm: 40 - 3, coverage: null }]), `got ${JSON.stringify(project.horizontalPanels)}`);
+});
+
+test('addHorizontalPanel() should start the new panel one thickness lower when the lid rests on the walls', () => {
+  const project = addHorizontalPanel({ ...boxProject(), lid: { enabled: true } });
+  assert(project.horizontalPanels[0].heightMm === 40 - 3 - 3, `got ${project.horizontalPanels[0].heightMm}`);
 });
 
 test('addHorizontalPanel() should number the new panel after the highest existing one, so a deleted panel id in the middle is never reused', () => {
@@ -51,6 +56,12 @@ test('updateHorizontalPanel() should change only the given panel', () => {
 
 test('horizontalPanelNumber() should read the number a panel was given when created', () => {
   assert(horizontalPanelNumber({ id: 'horizontal-panel-12', heightMm: 10, coverage: null }) === 12);
+});
+
+test('heightBroughtIntoRange() should clamp a height into the valid range, and pick the highest height when none is set', () => {
+  const range = { min: 10, max: 37 };
+  const heights = [5, 20, 50, null].map((heightMm) => heightBroughtIntoRange(heightMm, range));
+  assert(JSON.stringify(heights) === JSON.stringify([10, 20, 37, 37]), `got ${JSON.stringify(heights)}`);
 });
 
 run();

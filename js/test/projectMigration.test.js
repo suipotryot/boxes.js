@@ -6,14 +6,14 @@ function legacyProject(lid) {
   return { ...createDefaultProject(), lid, horizontalPanels: [] };
 }
 
+const RECESSED_LID = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: null };
+
 test('migrateRecessedLid() should turn an enabled recessed lid into a horizontal panel at the same height, with the same coverage', () => {
   const coverage = { side: 'top', depthMm: 12 };
-  const migrated = migrateRecessedLid(legacyProject({ enabled: true, mode: 'recessed', insertHeightMm: 20, coverage }));
+  const migrated = migrateRecessedLid(legacyProject({ ...RECESSED_LID, coverage }));
   assert(JSON.stringify(migrated.horizontalPanels) === JSON.stringify([{ id: 'horizontal-panel-1', heightMm: 20, coverage }]), `got ${JSON.stringify(migrated.horizontalPanels)}`);
   assert(JSON.stringify(migrated.lid) === JSON.stringify({ enabled: false }), `got ${JSON.stringify(migrated.lid)}`);
 });
-
-const RECESSED_LID = { enabled: true, mode: 'recessed', insertHeightMm: 20, coverage: null };
 
 test('migrateRecessedLid() should move the lid holes to the new panel, leaving the drawer sleeve lid holes alone', () => {
   const lidHoles = [{ xMm: 10, yMm: 10, widthMm: 5, heightMm: 5, radiusMm: 0 }];
@@ -61,6 +61,12 @@ test('migrateRecessedLid() should keep a recessed lid with no height yet as a pa
   const migrated = migrateRecessedLid(legacyProject({ ...RECESSED_LID, insertHeightMm: null }));
   const [panel] = migrated.horizontalPanels;
   assert(panel && panel.heightMm === null, `got ${JSON.stringify(migrated.horizontalPanels)}`);
+});
+
+test('migrateRecessedLid() should throw on a lid that is not an object, instead of guessing what it meant', () => {
+  let thrown = null;
+  try { migrateRecessedLid(legacyProject(null)); } catch (err) { thrown = err; }
+  assert(thrown && /lid/.test(thrown.message) && !(thrown instanceof TypeError), `expected an explicit error about the lid, got ${thrown}`);
 });
 
 run();

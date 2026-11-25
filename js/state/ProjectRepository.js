@@ -61,17 +61,12 @@ export function createProjectRepository(storage = window.localStorage, detectLoc
   // own value for it — the loaded project's own fields always win where
   // present, this only fills genuine gaps. Without this, a field added to
   // createDefaultProject() after a project was already saved comes back
-  // `undefined` forever (this storage layer has no other migration path),
-  // crashing anything downstream that reads it unconditionally, e.g.
+  // `undefined` forever, crashing anything downstream that reads it unconditionally, e.g.
   // SettingsPanel.js's drawerSection reading `project.drawer.enabled`.
   function load(id) {
-    try {
-      const raw = storage.getItem(PROJECT_PREFIX + id);
-      if (!raw) return null;
-      return migrateRecessedLid({ ...createDefaultProject(), ...JSON.parse(raw) });
-    } catch {
-      return null;
-    }
+    const saved = readJson(storage, PROJECT_PREFIX + id, null);
+    if (!saved) return null;
+    return migrateRecessedLid({ ...createDefaultProject(), ...saved });
   }
 
   function getLastActiveId() {

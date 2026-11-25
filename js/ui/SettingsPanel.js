@@ -8,7 +8,7 @@ import { numberField, textField, infoIcon, trashIcon } from './fields.js';
 import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP, DRAWER_PLAY_HELP, DRAWER_THICKNESS_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
 import { validateHorizontalPanelHeight, basePlateMode, basePlateRecessMm, isBasePlateRecessValid, horizontalPanelCoverage, validateCoverage, interiorExtentAcross } from '../model/GridQuery.js';
-import { addHorizontalPanel, removeHorizontalPanel, updateHorizontalPanel, horizontalPanelNumber } from '../model/HorizontalPanels.js';
+import { addHorizontalPanel, removeHorizontalPanel, updateHorizontalPanel, horizontalPanelNumber, heightBroughtIntoRange } from '../model/HorizontalPanels.js';
 import { coverageHoldsFlankTabs } from '../geometry/oo/Assembly.js';
 import { t } from '../i18n/index.js';
 
@@ -121,15 +121,20 @@ function coverageFields(project, panel, updatePanel) {
   ];
 }
 
-function horizontalPanelHeader(panel, store) {
+function horizontalPanelHeader(panel, removePanel) {
   const deleteLabel = t('settingsPanel.horizontalPanelDelete');
   return el('div', { class: 'compact-item-row' }, [
     el('span', { class: 'field-label', text: t('settingsPanel.horizontalPanelTitle', { number: horizontalPanelNumber(panel) }) }),
     el('button', {
       class: 'icon-btn', title: deleteLabel, 'aria-label': deleteLabel,
-      onClick: () => store.apply((p) => removeHorizontalPanel(p, panel.id)),
+      onClick: removePanel,
     }, [trashIcon()]),
   ]);
+}
+
+function optionalMmFrom(text) {
+  const trimmed = text.trim();
+  return trimmed === '' ? null : Number(trimmed);
 }
 
 function horizontalPanelHeightField(panel, validation, updatePanel) {
@@ -138,18 +143,10 @@ function horizontalPanelHeightField(panel, validation, updatePanel) {
     el('input', {
       type: 'number', step: '1', min: '0',
       value: panel.heightMm != null ? String(panel.heightMm) : '',
-      onChange: (evt) => {
-        const raw = evt.target.value.trim();
-        updatePanel({ heightMm: raw === '' ? null : Number(raw) });
-      },
+      onChange: (evt) => updatePanel({ heightMm: optionalMmFrom(evt.target.value) }),
     }),
     el('span', { class: 'hint', text: t('settingsPanel.horizontalPanelValidRange', { min: validation.min, max: validation.max }) }),
   ]);
-}
-
-function heightClampedIntoRange(heightMm, { min, max }) {
-  if (heightMm == null) return max;
-  return Math.min(Math.max(heightMm, min), max);
 }
 
 function horizontalPanelHeightWarning(panel, validation, updatePanel) {
@@ -158,16 +155,17 @@ function horizontalPanelHeightWarning(panel, validation, updatePanel) {
     el('span', { class: 'warning', text: t('settingsPanel.horizontalPanelInvalid', { min: validation.min, max: validation.max }) }),
     el('button', {
       class: 'btn', text: t('shared.autoFix'),
-      onClick: () => updatePanel({ heightMm: heightClampedIntoRange(panel.heightMm, validation) }),
+      onClick: () => updatePanel({ heightMm: heightBroughtIntoRange(panel.heightMm, validation) }),
     }),
   ]);
 }
 
 function horizontalPanelFields(project, panel, store) {
   const updatePanel = (changes) => store.apply((p) => updateHorizontalPanel(p, panel.id, changes));
+  const removePanel = () => store.apply((p) => removeHorizontalPanel(p, panel.id));
   const validation = validateHorizontalPanelHeight(project.grid, project, panel.heightMm);
   return el('div', { class: 'horizontal-panel' }, [
-    horizontalPanelHeader(panel, store),
+    horizontalPanelHeader(panel, removePanel),
     horizontalPanelHeightField(panel, validation, updatePanel),
     horizontalPanelHeightWarning(panel, validation, updatePanel),
     ...coverageFields(project, panel, updatePanel),

@@ -168,7 +168,7 @@ test('outerBoxHeight() should be unchanged by a horizontal panel, even at the to
   assertClose(outerBoxHeight(project.grid, project), 43, 1e-9, 'same as the no-lid case: outerThicknessMm + perimeterHeight');
 });
 
-test('outerBoxHeight adds one outerThicknessMm for an onTop lid — it rests on the walls and adds its own material above them, like the base plate does below', () => {
+test('outerBoxHeight() should add one outer thickness for the lid, which rests on the walls like the base plate does below them', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [100]);
   project.outerThicknessMm = 3;
@@ -193,7 +193,7 @@ test('basePlateRecessMm() should default to the outer thickness when a recessed 
   assertClose(basePlateRecessMm(project), 4, 1e-9);
 });
 
-test('outerBoxHeight() should add both the base plate recess and an onTop lid', () => {
+test('outerBoxHeight() should add both the base plate recess and the lid', () => {
   const project = createDefaultProject();
   project.grid = createGrid([100], [100]);
   project.outerThicknessMm = 3;
@@ -233,6 +233,17 @@ test('validateHorizontalPanelHeight() should accept a panel whose top face is fl
   assert(ok, 'heightMm=37 (perimeterHeight-outerThicknessMm) should be the top of the valid range');
   assertClose(min, 0, 1e-9);
   assertClose(max, 37, 1e-9);
+});
+
+test('validateHorizontalPanelHeight() should keep a panel one thickness below the top of the walls when the lid rests on them, so its mortises never undercut the lid fingers', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([100], [100]);
+  project.outerThicknessMm = 3;
+  project.outerHeightMm = 40;
+  project.lid = { enabled: true };
+  const { ok, max } = validateHorizontalPanelHeight(project.grid, project, 37);
+  assert(!ok, 'expected a panel flush with the top of the walls to be rejected under a lid');
+  assertClose(max, 40 - 3 - 3, 1e-9);
 });
 
 // junctionKindAt: the additive, endpoint-aware generalization of

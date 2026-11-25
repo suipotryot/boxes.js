@@ -136,7 +136,7 @@ test('computePiecePlacement3D() should lay a horizontal panel flat at outerThick
   assertVec(placement.wAxis, { x: 0, y: 0, z: 1 }, 'flat, same orientation as the base plate');
 });
 
-test('an onTop lid placement sits flat at outerThicknessMm + perimeterHeight', () => {
+test('computePiecePlacement3D() should lay the lid flat at outerThicknessMm + perimeterHeight', () => {
   const project = fixtureProject(); // grid=[50,50]x[50,50], outerHeightMm defaults to 50 (createDefaultProject)
   project.lid = { enabled: true };
   const lid = computePieces(project).find((p) => p.id === 'lid');

@@ -6,7 +6,7 @@ import { test, assert, run } from './testHarness.js';
 import * as THREE from 'three';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
-import { populateScene } from '../ui/ThreeJsScene.js';
+import { populateScene, ALL_GROUPS_VISIBLE } from '../ui/ThreeJsScene.js';
 
 function fixtureProject() {
   const project = createDefaultProject();
@@ -51,8 +51,6 @@ function projectWithOnePanel() {
   project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: 20, coverage: null }];
   return project;
 }
-
-const ALL_GROUPS_VISIBLE = { box: true, manchon: true, couvercle: true, couvercleManchon: true, horizontalPanels: true };
 
 function panelMesh(scene) {
   return scene.children.find((mesh) => mesh.userData.pieceId === 'horizontal-panel-1');

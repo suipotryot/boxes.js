@@ -47,4 +47,15 @@ test('resolvePieceHoleContext() should not resolve the id of a horizontal panel 
   assert(resolvePieceHoleContext(project, 'horizontal-panel-2') === null, 'expected a stale panel id to resolve to nothing');
 });
 
+test('resolvePieceHoleContext() should not resolve the lid while it is disabled, since there is no lid piece to edit', () => {
+  const project = createDefaultProject();
+  assert(resolvePieceHoleContext(project, 'lid') === null, 'expected a disabled lid to resolve to nothing');
+});
+
+test('resolvePieceHoleContext() should not resolve a horizontal panel whose height is not set, since it is not built', () => {
+  const project = createDefaultProject();
+  project.horizontalPanels = [{ id: 'horizontal-panel-1', heightMm: null, coverage: null }];
+  assert(resolvePieceHoleContext(project, 'horizontal-panel-1') === null, 'expected a panel with no height to resolve to nothing');
+});
+
 run();

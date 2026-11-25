@@ -7,10 +7,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { el, clear } from './dom.js';
 import { t } from '../i18n/index.js';
-import { outerBoxWidth, outerBoxDepth, outerBoxHeight } from '../model/GridQuery.js';
+import { outerBoxWidth, outerBoxDepth, outerBoxHeight, horizontalPanelsWithHeight } from '../model/GridQuery.js';
 import { Drawer } from '../geometry/oo/Drawer.js';
 import { computeDrawerOffset } from '../geometry/PiecePlacement3D.js';
-import { populateScene } from './ThreeJsScene.js';
+import { populateScene, ALL_GROUPS_VISIBLE } from './ThreeJsScene.js';
 
 /**
  * @param {HTMLElement} container appended into immediately; owned by the
@@ -26,7 +26,7 @@ export function mountThreeDView(container, project) {
   // undo a checkbox the user unticked or a drawer position they set.
   let currentProject = project;
   let openT = 0;
-  const visible = { box: true, manchon: true, couvercle: true, couvercleManchon: true, horizontalPanels: true };
+  const visible = { ...ALL_GROUPS_VISIBLE };
 
   function refreshScene() {
     populateScene(pieceGroup, currentProject, { openT, visible });
@@ -36,8 +36,8 @@ export function mountThreeDView(container, project) {
   const boxCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.box = e.target.checked; refreshScene(); } });
   const manchonCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.manchon = e.target.checked; refreshScene(); } });
   const couvercleCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.couvercle = e.target.checked; refreshScene(); } });
-  const horizontalPanelsCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.horizontalPanels = e.target.checked; refreshScene(); } });
   const couvercleManchonCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.couvercleManchon = e.target.checked; refreshScene(); } });
+  const horizontalPanelsCheckbox = el('input', { type: 'checkbox', checked: true, onChange: (e) => { visible.horizontalPanels = e.target.checked; refreshScene(); } });
   const openSlider = el('input', {
     type: 'range', min: 0, max: 100, value: 0,
     onInput: (e) => { openT = Number(e.target.value) / 100; refreshScene(); },
@@ -71,7 +71,7 @@ export function mountThreeDView(container, project) {
     couvercleManchonLabel.hidden = !currentProject.drawer?.enabled;
     sliderLabel.hidden = !currentProject.drawer?.enabled;
     couvercleLabel.hidden = !currentProject.lid?.enabled;
-    horizontalPanelsLabel.hidden = currentProject.horizontalPanels.length === 0;
+    horizontalPanelsLabel.hidden = horizontalPanelsWithHeight(currentProject).length === 0;
   }
 
   const canvas = el('canvas', { class: 'threed-canvas' });

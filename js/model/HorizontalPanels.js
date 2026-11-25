@@ -1,4 +1,4 @@
-import { validateHorizontalPanelHeight } from './GridQuery.js';
+import { highestHorizontalPanelHeight } from './GridQuery.js';
 
 const HORIZONTAL_PANEL_ID_PREFIX = 'horizontal-panel-';
 
@@ -11,12 +11,8 @@ export function nextHorizontalPanelId(horizontalPanels) {
   return `${HORIZONTAL_PANEL_ID_PREFIX}${Math.max(0, ...numbers) + 1}`;
 }
 
-function heightFlushWithTheWalls(project) {
-  return validateHorizontalPanelHeight(project.grid, project, null).max;
-}
-
 export function addHorizontalPanel(project) {
-  const panel = { id: nextHorizontalPanelId(project.horizontalPanels), heightMm: heightFlushWithTheWalls(project), coverage: null };
+  const panel = { id: nextHorizontalPanelId(project.horizontalPanels), heightMm: highestHorizontalPanelHeight(project.grid, project), coverage: null };
   return { ...project, horizontalPanels: [...project.horizontalPanels, panel] };
 }
 
@@ -42,4 +38,9 @@ export function updateHorizontalPanel(project, id, changes) {
     ...project,
     horizontalPanels: project.horizontalPanels.map((panel) => (panel.id === id ? { ...panel, ...changes } : panel)),
   };
+}
+
+export function heightBroughtIntoRange(heightMm, { min, max }) {
+  if (heightMm == null) return max;
+  return Math.min(Math.max(heightMm, min), max);
 }
