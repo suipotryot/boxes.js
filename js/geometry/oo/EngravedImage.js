@@ -47,6 +47,10 @@ export class EngravedImage {
     this.svg = svg;
   }
 
+  static listFor(pieceImages, pieceId) {
+    return ((pieceImages && pieceImages[pieceId]) || []).map((image) => new EngravedImage(image));
+  }
+
   static centeredIn(svg, areaWidthMm, areaHeightMm) {
     const { widthMm, heightMm } = readSvgSizeMm(svg);
     return new EngravedImage({
