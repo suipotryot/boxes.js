@@ -86,4 +86,10 @@ test('engravedImageMarkup: should keep a link to an element of the same SVG', ()
   assert(markup.includes('<use href="#shape"/>'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should remove iframe, embed and object elements from the pasted SVG content', () => {
+  const markup = markupOfContent('<rect width="1" height="1"/><iframe src="https://example.com"></iframe><embed src="x"/><object data="y"></object>');
+  assert(!/iframe|embed|object/i.test(markup), `got ${markup}`);
+  assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
+});
+
 run();
