@@ -66,4 +66,13 @@ test('listFor: should build the images stored for a piece, and none for an unkno
   assert(EngravedImage.listFor(undefined, 'lid').length === 0, 'expected no image without any stored map');
 });
 
+test('movedBy: should return a moved copy and leave the original untouched', () => {
+  const image = new EngravedImage({ xMm: 10, yMm: 20, widthMm: 30, heightMm: 40, svg: '<svg/>' });
+  const moved = image.movedBy(5, -3);
+  assertClose(moved.xMm, 15);
+  assertClose(moved.yMm, 17);
+  assertClose(moved.widthMm, 30);
+  assertClose(image.xMm, 10);
+});
+
 run();
