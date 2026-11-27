@@ -20,6 +20,8 @@ import { Notch } from '../geometry/oo/Notch.js';
 import { attachHoleDragOverlay } from './HoleDragOverlay.js';
 import { attachNotchDragOverlay } from './NotchDragOverlay.js';
 import { renderGripNotchSection } from './GripNotchEditor.js';
+import { renderImageSection } from './ImageEditor.js';
+import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { renderHoleSection } from './HoleEditor.js';
 import { t } from '../i18n/index.js';
 
@@ -47,7 +49,7 @@ function buildInspectedPiece(holeContext) {
 // project.pieceNotches/pieceHoles directly) — what you see here IS what
 // gets exported, rendered exactly once regardless of which sections below
 // apply to the current piece.
-function renderPieceVisual(piece, holes, onHoleChange, notches, onNotchChange, notchContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout) {
+function renderPieceVisual(piece, holes, onHoleChange, images, onImageChange, notches, onNotchChange, notchContext, holeSelectedIndex, imageSelectedIndex, notchSelectedIndex, onSelectCutout) {
   const svg = pieceToStandaloneSvg(piece, { padding: 8, minSize: 380, showLabels: false });
   const pieceSpace = svg.querySelector('.piece-space');
   // A pointerdown that reaches the group itself (never a cutout's own rect,
@@ -55,6 +57,7 @@ function renderPieceVisual(piece, holes, onHoleChange, notches, onNotchChange, n
   // clicked — clear the selection.
   pieceSpace.addEventListener('pointerdown', () => onSelectCutout(null));
   attachHoleDragOverlay(pieceSpace, holes, holeSelectedIndex, (index) => onSelectCutout({ kind: 'hole', index }), onHoleChange);
+  attachHoleDragOverlay(pieceSpace, images, imageSelectedIndex, (index) => onSelectCutout({ kind: 'image', index }), onImageChange);
   if (notchContext) {
     attachNotchDragOverlay(pieceSpace, notches, notchContext.frame, notchSelectedIndex, (index) => onSelectCutout({ kind: 'notch', index }), onNotchChange);
   }
@@ -187,6 +190,7 @@ export function renderInspector(project, selected, selectedWallId, store, select
   // inside the `if (holeContext)` block below) since renderGripNotchSection
   // is reached through its own, separate `if (notchContext)`.
   let holeSelectedIndex = null;
+  let imageSelectedIndex = null;
   let notchSelectedIndex = null;
 
   if (holeContext) {
@@ -195,14 +199,20 @@ export function renderInspector(project, selected, selectedWallId, store, select
       ...p,
       pieceHoles: { ...p.pieceHoles, [selectedWallId]: Cutout.replaceAt(Hole.listFor(p.pieceHoles, selectedWallId), index, patch) },
     }));
+    const images = EngravedImage.listFor(project.pieceImages, selectedWallId);
+    const onImageChange = (index, patch) => store.apply((p) => ({
+      ...p,
+      pieceImages: { ...p.pieceImages, [selectedWallId]: EngravedImage.replaceAt(EngravedImage.listFor(p.pieceImages, selectedWallId), index, patch) },
+    }));
     const notches = notchContext ? Notch.listFor(project.pieceNotches, notchPieceId) : [];
     const onNotchChange = (index, patch) => store.apply((p) => ({
       ...p,
       pieceNotches: { ...p.pieceNotches, [notchPieceId]: Cutout.replaceAt(Notch.listFor(p.pieceNotches, notchPieceId), index, patch) },
     }));
     holeSelectedIndex = selectedCutout && selectedCutout.kind === 'hole' && selectedCutout.index < holes.length ? selectedCutout.index : null;
+    imageSelectedIndex = selectedCutout && selectedCutout.kind === 'image' && selectedCutout.index < images.length ? selectedCutout.index : null;
     notchSelectedIndex = selectedCutout && selectedCutout.kind === 'notch' && selectedCutout.index < notches.length ? selectedCutout.index : null;
-    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, notches, onNotchChange, notchContext, holeSelectedIndex, notchSelectedIndex, onSelectCutout));
+    sections.push(renderPieceVisual(buildInspectedPiece(holeContext), holes, onHoleChange, images, onImageChange, notches, onNotchChange, notchContext, holeSelectedIndex, imageSelectedIndex, notchSelectedIndex, onSelectCutout));
   }
   if (selected) sections.push(renderSegmentFields(project, selected, store));
   // Only shown when there's an actual choice to make — a single open edge
@@ -211,6 +221,7 @@ export function renderInspector(project, selected, selectedWallId, store, select
   if (smoothEdges.length > 1) sections.push(renderEdgeSelector(smoothEdges, selectedFlatEdge, onSelectFlatEdge));
   if (notchContext) sections.push(renderGripNotchSection(project, notchPieceId, notchContext, store, notchSelectedIndex));
   if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store, holeSelectedIndex));
+  if (holeContext) sections.push(renderImageSection(project, selectedWallId, holeContext, store, imageSelectedIndex));
 
   if (!sections.length) {
     return el('div', { class: 'inspector empty' }, [
