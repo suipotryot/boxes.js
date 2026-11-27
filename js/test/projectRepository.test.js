@@ -212,4 +212,13 @@ test('setLocale()/getLocale() round-trip, taking priority over detectLocale()', 
   assert(repo.getLocale() === 'fr');
 });
 
+test('load() should give an empty pieceImages map to a project saved before images existed', () => {
+  const storage = createFakeStorage();
+  const repo = createProjectRepository(storage);
+  const { pieceImages, ...legacyProject } = createDefaultProject();
+  storage.setItem('boxes.js:project:legacy', JSON.stringify({ ...legacyProject, id: 'legacy' }));
+  const loaded = repo.load('legacy');
+  assert(JSON.stringify(loaded.pieceImages) === '{}', `got ${JSON.stringify(loaded.pieceImages)}`);
+});
+
 run();
