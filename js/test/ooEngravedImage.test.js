@@ -49,4 +49,11 @@ test('centeredIn: should place the image at the centre of the area with the size
   assert(image.svg === svg, 'expected the SVG text to be kept');
 });
 
+test('centeredIn: should still centre an image larger than the area', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="120mm" height="20mm"></svg>';
+  const image = EngravedImage.centeredIn(svg, 100, 60);
+  assertClose(image.xMm, -10);
+  assertClose(image.yMm, 20);
+});
+
 run();
