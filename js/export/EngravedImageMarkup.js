@@ -7,7 +7,7 @@ function prefixDeclarationsOf(svgText) {
   return (openingTag.match(/xmlns:\w+="[^"]*"/g) || []).map((declaration) => `${declaration} `).join('');
 }
 
-const ACTIVE_ELEMENTS = ['script', 'foreignObject'];
+const ACTIVE_ELEMENTS = ['script', 'foreignObject', 'iframe', 'embed', 'object'];
 
 function withoutElement(content, elementName) {
   const selfClosing = String.raw`<${elementName}\b[^>]*/>`;
