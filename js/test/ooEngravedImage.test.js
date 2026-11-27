@@ -111,4 +111,14 @@ test('readSvgSizeMm: should convert points at 72 per inch', () => {
   assertClose(size.heightMm, 12.7);
 });
 
+test('readSvgSizeMm: should throw when the SVG size is zero', () => {
+  let error = null;
+  try {
+    readSvgSizeMm('<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"></svg>');
+  } catch (e) {
+    error = e;
+  }
+  assert(error !== null && /size/i.test(error.message), `expected a size error, got ${error && error.message}`);
+});
+
 run();
