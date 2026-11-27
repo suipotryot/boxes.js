@@ -41,4 +41,10 @@ test('engravedImageMarkup: should keep the namespace prefixes declared on the pa
   assert(markup.includes('<svg xmlns:xlink="http://www.w3.org/1999/xlink" '), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should stretch the content to the image size like the preview does', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 5"></svg>';
+  const image = new EngravedImage({ xMm: 0, yMm: 0, widthMm: 50, heightMm: 5, svg });
+  assert(engravedImageMarkup(image).includes('preserveAspectRatio="none"'), 'expected preserveAspectRatio none');
+});
+
 run();
