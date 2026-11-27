@@ -11,8 +11,8 @@ function convertToMillimetres(lengthText) {
 }
 
 export function readAttribute(svgText, attributeName) {
-  const match = svgText.match(new RegExp(String.raw`<svg[^>]*\s${attributeName}="([^"]*)"`));
-  return match ? match[1] : null;
+  const match = svgText.match(new RegExp(String.raw`<svg[^>]*\s${attributeName}=(?:"([^"]*)"|'([^']*)')`));
+  return match ? (match[1] ?? match[2]) : null;
 }
 
 function hasWidthAndHeight(svgText) {
