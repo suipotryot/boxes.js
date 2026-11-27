@@ -1,7 +1,7 @@
 const MILLIMETRES_PATTERN = /^([\d.]+)mm$/;
 
 function readMillimetres(svgText, attributeName) {
-  const match = svgText.match(new RegExp(`<svg[^>]*\s${attributeName}="([^"]*)"`));
+  const match = svgText.match(new RegExp(String.raw`<svg[^>]*\s${attributeName}="([^"]*)"`));
   return Number(match[1].match(MILLIMETRES_PATTERN)[1]);
 }
 
