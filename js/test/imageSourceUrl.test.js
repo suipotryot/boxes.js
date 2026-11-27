@@ -20,4 +20,8 @@ test('parseImageSourceUrl: should throw an explicit error when the text is empty
   assert(thrownMessage(() => parseImageSourceUrl('   ')).includes('empty'), 'expected an error saying the URL is empty');
 });
 
+test('parseImageSourceUrl: should reject an address that is not https', () => {
+  assert(thrownMessage(() => parseImageSourceUrl('http://example.com/label')).includes('https'), 'expected an error mentioning https');
+});
+
 run();
