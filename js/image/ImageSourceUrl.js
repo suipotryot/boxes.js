@@ -6,9 +6,13 @@ function readUrl(text) {
   }
 }
 
+function isSecureOrLocal(url) {
+  return url.protocol === 'https:' || (url.protocol === 'http:' && url.hostname === 'localhost');
+}
+
 export function parseImageSourceUrl(text) {
   if (text.trim() === '') throw new Error('The image URL is empty');
   const url = readUrl(text);
-  if (url.protocol !== 'https:') throw new Error('The image URL must start with https://');
+  if (!isSecureOrLocal(url)) throw new Error('The image URL must start with https://');
   return url;
 }
