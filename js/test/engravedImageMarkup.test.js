@@ -76,4 +76,14 @@ test('engravedImageMarkup: should remove a javascript link from the pasted SVG c
   assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should remove a link to an external address from the pasted SVG content', () => {
+  const markup = markupOfContent('<image xlink:href="https://example.com/logo.png" width="1" height="1"/>');
+  assert(!/example\.com/.test(markup), `got ${markup}`);
+});
+
+test('engravedImageMarkup: should keep a link to an element of the same SVG', () => {
+  const markup = markupOfContent('<defs><path id="shape" d="M0 0"/></defs><use href="#shape"/>');
+  assert(markup.includes('<use href="#shape"/>'), `got ${markup}`);
+});
+
 run();
