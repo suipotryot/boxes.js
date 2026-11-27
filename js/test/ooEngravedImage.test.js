@@ -86,4 +86,13 @@ test('placementFromTextLine: should read x, y, width and height, and null when t
   assert(EngravedImage.placementFromTextLine('10, 20, abc, 40') === null, 'expected null for an unreadable line');
 });
 
+test('replaceAt: should change only the image at the given index', () => {
+  const first = new EngravedImage({ xMm: 1, yMm: 1, widthMm: 5, heightMm: 5, svg: '<svg/>' });
+  const second = new EngravedImage({ xMm: 2, yMm: 2, widthMm: 5, heightMm: 5, svg: '<svg/>' });
+  const replaced = EngravedImage.replaceAt([first, second], 1, { xMm: 9 });
+  assertClose(replaced[0].xMm, 1);
+  assertClose(replaced[1].xMm, 9);
+  assertClose(replaced[1].yMm, 2);
+});
+
 run();
