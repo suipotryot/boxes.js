@@ -80,4 +80,10 @@ test('toTextLine: should list x, y, width and height', () => {
   assert(image.toTextLine() === '10, 20, 30, 40', `got ${image.toTextLine()}`);
 });
 
+test('placementFromTextLine: should read x, y, width and height, and null when the text is unreadable', () => {
+  const placement = EngravedImage.placementFromTextLine('10, 20, 30, 40');
+  assert(JSON.stringify(placement) === JSON.stringify({ xMm: 10, yMm: 20, widthMm: 30, heightMm: 40 }), `got ${JSON.stringify(placement)}`);
+  assert(EngravedImage.placementFromTextLine('10, 20, abc, 40') === null, 'expected null for an unreadable line');
+});
+
 run();
