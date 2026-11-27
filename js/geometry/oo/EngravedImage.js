@@ -76,6 +76,13 @@ export class EngravedImage {
     return this.withChanges({ xMm: this.xMm + dx, yMm: this.yMm + dy });
   }
 
+  resizedToward(targetPoint, minSizeMm) {
+    return this.withChanges({
+      widthMm: Math.max(minSizeMm, targetPoint.x - this.xMm),
+      heightMm: Math.max(minSizeMm, targetPoint.y - this.yMm),
+    });
+  }
+
   centeredOn(axis, areaLengthMm) {
     const { startField, sizeField } = CENTERING_AXES[axis];
     return this.withChanges({ [startField]: (areaLengthMm - this[sizeField]) / 2 });
