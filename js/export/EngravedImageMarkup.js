@@ -35,8 +35,14 @@ function withoutUnsafeLinks(content) {
   return content.replace(LINK_ATTRIBUTE, (attribute, quotedTarget) => (isSafeLinkTarget(quotedTarget) ? attribute : ''));
 }
 
+const STYLE_IMPORT = /@import[^;]*;/gi;
+
+function withoutStyleImports(content) {
+  return content.replace(STYLE_IMPORT, '');
+}
+
 function withoutActiveContent(content) {
-  return withoutUnsafeLinks(withoutEventHandlers(withoutActiveElements(content)));
+  return withoutStyleImports(withoutUnsafeLinks(withoutEventHandlers(withoutActiveElements(content))));
 }
 
 function innerContentOf(svgText) {
