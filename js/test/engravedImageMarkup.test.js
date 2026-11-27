@@ -65,7 +65,7 @@ test('engravedImageMarkup: should remove foreignObject elements from the pasted 
 });
 
 test('engravedImageMarkup: should remove event handler attributes from the pasted SVG content', () => {
-  const markup = markupOfContent('<rect width="1" height="1" onclick="alert(1)" onload='alert(2)'/>');
+  const markup = markupOfContent(`<rect width="1" height="1" onclick="alert(1)" onload='alert(2)'/>`);
   assert(!/\son\w+=/i.test(markup), `got ${markup}`);
   assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
 });
