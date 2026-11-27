@@ -1,5 +1,5 @@
 import { test, assert, assertClose, run } from './testHarness.js';
-import { readSvgSizeMm } from '../geometry/oo/EngravedImage.js';
+import { EngravedImage, readSvgSizeMm } from '../geometry/oo/EngravedImage.js';
 
 test('readSvgSizeMm: should read width and height given in millimetres', () => {
   const size = readSvgSizeMm('<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="25mm"></svg>');
@@ -37,6 +37,16 @@ test('readSvgSizeMm: should throw an explicit error when the SVG has no readable
     error = e;
   }
   assert(error !== null && /size/i.test(error.message), 'expected an explicit error mentioning the size');
+});
+
+test('centeredIn: should place the image at the centre of the area with the size of the SVG', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="20mm"></svg>';
+  const image = EngravedImage.centeredIn(svg, 100, 60);
+  assertClose(image.xMm, 30);
+  assertClose(image.yMm, 20);
+  assertClose(image.widthMm, 40);
+  assertClose(image.heightMm, 20);
+  assert(image.svg === svg, 'expected the SVG text to be kept');
 });
 
 run();
