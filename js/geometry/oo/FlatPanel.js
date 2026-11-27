@@ -63,9 +63,9 @@ function fuseCorners(traces, widthMm, depthMm, margins) {
 export class FlatPanel extends Panel {
   constructor({
     id, kind, thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge,
-    widthMm, depthMm, marginMm, protrude, openSides, holes = [],
+    widthMm, depthMm, marginMm, protrude, openSides, holes = [], images = [],
   }) {
-    super({ id, kind, thicknessGroup: 'outer', thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, holes });
+    super({ id, kind, thicknessGroup: 'outer', thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, holes, images });
     this.widthMm = widthMm;
     this.depthMm = depthMm;
     this.marginMm = marginMm;

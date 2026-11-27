@@ -5,7 +5,7 @@
 import { FlatPanel } from './FlatPanel.js';
 
 export class BasePlatePanel extends FlatPanel {
-  constructor({ thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides, holes = [] }) {
-    super({ id: 'base-plate', kind: 'basePlate', thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides, holes });
+  constructor({ thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides, holes = [], images = [] }) {
+    super({ id: 'base-plate', kind: 'basePlate', thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides, holes, images });
   }
 }

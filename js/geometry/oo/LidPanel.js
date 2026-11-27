@@ -4,7 +4,7 @@
 import { FlatPanel } from './FlatPanel.js';
 
 export class LidPanel extends FlatPanel {
-  constructor({ thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides, holes = [] }) {
-    super({ id: 'lid', kind: 'lid', thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides, holes });
+  constructor({ thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides, holes = [], images = [] }) {
+    super({ id: 'lid', kind: 'lid', thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides, holes, images });
   }
 }
