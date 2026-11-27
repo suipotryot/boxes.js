@@ -23,4 +23,10 @@ test('readSvgSizeMm: should convert pixel dimensions at 96 dpi', () => {
   assertClose(size.heightMm, 12.7);
 });
 
+test('readSvgSizeMm: should fall back on the viewBox when width and height are missing', () => {
+  const size = readSvgSizeMm('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 48"></svg>');
+  assertClose(size.widthMm, 25.4);
+  assertClose(size.heightMm, 12.7);
+});
+
 run();
