@@ -4,7 +4,6 @@ import { Cutout } from '../geometry/oo/Cutout.js';
 import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { validateImageInRect } from '../geometry/oo/ImageValidation.js';
 import { wallHoleSpan } from '../geometry/oo/HoleValidation.js';
-import { centerOnAxis } from '../geometry/oo/CutoutAlignment.js';
 import { t } from '../i18n/index.js';
 
 const START_OF_WALL = { xMm: 0, widthMm: 0 };
@@ -64,21 +63,14 @@ export function renderImageSection(project, pieceId, context, store, selectedInd
 
   const selectedImage = selectedIndex == null ? START_OF_WALL : images[selectedIndex];
   const { widthMm, heightMm } = plateSizeMm(context, selectedImage);
+  const centerSelectedImageOn = (axis, areaLengthMm) => updateAt(selectedIndex, images[selectedIndex].centeredOn(axis, areaLengthMm));
+  const centerButton = (axis, labelKey, areaLengthMm) => el('button', {
+    class: 'btn', text: t(labelKey), disabled: selectedIndex == null,
+    onClick: () => centerSelectedImageOn(axis, areaLengthMm),
+  });
   const centerButtons = el('div', { class: 'button-row' }, [
-    el('button', {
-      class: 'btn', text: t('image.centerX'), disabled: selectedIndex == null,
-      onClick: () => {
-        const [centered] = centerOnAxis([images[selectedIndex]], widthMm, (i) => i.widthMm, (i, start) => i.withChanges({ xMm: start }));
-        updateAt(selectedIndex, { xMm: centered.xMm });
-      },
-    }),
-    el('button', {
-      class: 'btn', text: t('image.centerY'), disabled: selectedIndex == null,
-      onClick: () => {
-        const [centered] = centerOnAxis([images[selectedIndex]], heightMm, (i) => i.heightMm, (i, start) => i.withChanges({ yMm: start }));
-        updateAt(selectedIndex, { yMm: centered.yMm });
-      },
-    }),
+    centerButton('x', 'image.centerX', widthMm),
+    centerButton('y', 'image.centerY', heightMm),
   ]);
 
   return el('div', { class: 'inspector-section' }, [
