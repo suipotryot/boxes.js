@@ -18,4 +18,10 @@ test('validateImageInRect: should warn without throwing when the image exceeds t
   assert(result.problems.length === 1, `expected one warning, got ${result.problems.length}`);
 });
 
+test('validateImageInRect: should warn when the image size is not positive', () => {
+  const result = validateImageInRect(100, 60, imageAt(10, 10, 0, 20));
+  assert(!result.ok, 'expected not ok');
+  assert(result.problems.length === 1, `expected one warning, got ${result.problems.length}`);
+});
+
 run();
