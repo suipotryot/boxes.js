@@ -31,4 +31,9 @@ test('readEngravingAnswer: should throw when the message is not an engraving ans
   assert(message.includes('something-else'), `expected the unknown type in "${message}"`);
 });
 
+test('readEngravingAnswer: should throw when the image has no usable size', () => {
+  const message = thrownMessage(() => readEngravingAnswer({ type: 'engraving-image', svg: '<svg></svg>', widthMm: 0, heightMm: 20 }));
+  assert(message.includes('size'), `expected a size error in "${message}"`);
+});
+
 run();
