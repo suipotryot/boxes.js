@@ -116,4 +116,11 @@ test('centeredOn: should centre the image on the x axis only', () => {
   assertClose(centered.yMm, 7);
 });
 
+test('centeredOn: should centre the image on the y axis only', () => {
+  const image = new EngravedImage({ xMm: 5, yMm: 0, widthMm: 40, heightMm: 20, svg: '<svg/>' });
+  const centered = image.centeredOn('y', 60);
+  assertClose(centered.yMm, 20);
+  assertClose(centered.xMm, 5);
+});
+
 run();
