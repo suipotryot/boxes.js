@@ -70,4 +70,14 @@ test('requestEngravingImage: should report the refusal of the generator and clea
   assert(environment.frame.isRemoved, 'expected the frame to be removed');
 });
 
+test('requestEngravingImage: should report an error and remove its frame when nobody answers within ten seconds', () => {
+  const environment = fakeEnvironment();
+  const { calls, onImage, onError } = recordingCallbacks();
+  requestEngravingImage(LABEL_URL, environment, { onImage, onError });
+  assert(environment.timer.delayMs === 10000, 'expected a ten seconds timer');
+  environment.timer.onElapsed();
+  assert(calls.errors.length === 1 && calls.errors[0].message.includes('no answer'), 'expected a no-answer error');
+  assert(environment.frame.isRemoved && !environment.isListening, 'expected the frame to be removed and the listener stopped');
+});
+
 run();
