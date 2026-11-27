@@ -42,6 +42,17 @@ test('removeHorizontalPanel() should drop the panel along with its holes and edg
   assert(JSON.stringify(Object.keys(removed.pieceNotches)) === JSON.stringify(['horizontal-panel-2:bottom', 'horizontal-panel-10:top']), `got ${JSON.stringify(Object.keys(removed.pieceNotches))}`);
 });
 
+test('removeHorizontalPanel() should drop the images of the removed panel only', () => {
+  const image = [{ xMm: 1, yMm: 2, widthMm: 3, heightMm: 4, svg: '<svg/>' }];
+  const project = {
+    ...boxProject(),
+    horizontalPanels: [{ id: 'horizontal-panel-1', heightMm: 10, coverage: null }, { id: 'horizontal-panel-2', heightMm: 20, coverage: null }],
+    pieceImages: { 'horizontal-panel-1': image, 'horizontal-panel-2': image, 'horizontal-panel-10': image },
+  };
+  const removed = removeHorizontalPanel(project, 'horizontal-panel-1');
+  assert(JSON.stringify(Object.keys(removed.pieceImages)) === JSON.stringify(['horizontal-panel-2', 'horizontal-panel-10']), `got ${JSON.stringify(Object.keys(removed.pieceImages))}`);
+});
+
 test('updateHorizontalPanel() should change only the given panel', () => {
   const project = {
     ...boxProject(),
