@@ -30,6 +30,7 @@ export function removeHorizontalPanel(project, id) {
     horizontalPanels: project.horizontalPanels.filter((panel) => panel.id !== id),
     pieceHoles: withoutPieceEntries(project.pieceHoles, id),
     pieceNotches: withoutPieceEntries(project.pieceNotches, id),
+    pieceImages: withoutPieceEntries(project.pieceImages, id),
   };
 }
 
