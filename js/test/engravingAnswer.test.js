@@ -41,4 +41,11 @@ test('readEngravingAnswer: should throw when the image is not svg text', () => {
   assert(message.includes('svg'), `expected an svg error in "${message}"`);
 });
 
+test('readEngravingAnswer: should throw when the size is not a finite number', () => {
+  for (const widthMm of [Infinity, '60', NaN]) {
+    const message = thrownMessage(() => readEngravingAnswer({ type: 'engraving-image', svg: '<svg></svg>', widthMm, heightMm: 20 }));
+    assert(message.includes('size'), `expected a size error for ${String(widthMm)} in "${message}"`);
+  }
+});
+
 run();
