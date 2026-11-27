@@ -23,6 +23,20 @@ export function pieceToSvgElement(piece, { interactive = false } = {}) {
   return path;
 }
 
+function engravedImagePreviewElement(image) {
+  const centreX = image.xMm + image.widthMm / 2;
+  const centreY = image.yMm + image.heightMm / 2;
+  const element = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+  element.setAttribute('href', `data:image/svg+xml;charset=utf-8,${encodeURIComponent(image.svg)}`);
+  element.setAttribute('x', image.xMm);
+  element.setAttribute('y', image.yMm);
+  element.setAttribute('width', image.widthMm);
+  element.setAttribute('height', image.heightMm);
+  element.setAttribute('preserveAspectRatio', 'none');
+  element.setAttribute('transform', `rotate(180 ${centreX} ${centreY})`);
+  return element;
+}
+
 /** A ready-to-insert standalone <svg> for one piece, sized to its bounds
  *  plus padding. Used identically for the full-size preview strip and (in
  *  a smaller instance) anywhere else a quick piece thumbnail is needed. */
@@ -54,6 +68,7 @@ export function pieceToStandaloneSvg(piece, { padding = 10, minSize = 0, showLab
   group.setAttribute('class', 'piece-space');
   group.setAttribute('transform', `rotate(180 ${cx} ${cy})`);
   group.appendChild(pieceToSvgElement(piece));
+  piece.images.forEach((image) => group.appendChild(engravedImagePreviewElement(image)));
   if (showLabels) {
     const labelEl = pieceLabelElement(piece);
     if (labelEl) group.appendChild(labelEl);
