@@ -202,6 +202,7 @@ export const en = {
   'validation.notch.depthExceedsHeight': 'Depth must be less than the panel\'s local height at that point ({height}mm).',
   'validation.notch.crossesJunction': 'The notch crosses a junction (cross-notch or mortise) on this panel — move it.',
   'validation.notch.overlapsSibling': 'This notch overlaps another notch on the same panel — move this one or the other.',
+  'validation.image.exceedsPlate': 'This image extends beyond the plate — check that this is intended.',
   'validation.hole.xPositive': 'The X size must be positive.',
   'validation.hole.yPositive': 'The Y size must be positive.',
   'validation.hole.radiusTooBig': 'Corner radius cannot exceed {cap}mm (half the smaller dimension).',
