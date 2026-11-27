@@ -33,13 +33,24 @@ function assertIsSvg(svgText) {
   }
 }
 
-export function readSvgSizeMm(svgText) {
-  assertIsSvg(svgText);
+function assertIsPositive(size) {
+  if (!(size.widthMm > 0 && size.heightMm > 0)) {
+    throw new Error(`The SVG has no usable size: ${size.widthMm} x ${size.heightMm} mm`);
+  }
+  return size;
+}
+
+function readDeclaredSizeMm(svgText) {
   if (!hasWidthAndHeight(svgText)) return readViewBoxSizeMm(svgText);
   return {
     widthMm: convertToMillimetres(readAttribute(svgText, 'width')),
     heightMm: convertToMillimetres(readAttribute(svgText, 'height')),
   };
+}
+
+export function readSvgSizeMm(svgText) {
+  assertIsSvg(svgText);
+  return assertIsPositive(readDeclaredSizeMm(svgText));
 }
 
 export class EngravedImage {
