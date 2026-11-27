@@ -47,4 +47,15 @@ test('engravedImageMarkup: should stretch the content to the image size like the
   assert(engravedImageMarkup(image).includes('preserveAspectRatio="none"'), 'expected preserveAspectRatio none');
 });
 
+function markupOfContent(content) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 5">${content}</svg>`;
+  return engravedImageMarkup(new EngravedImage({ xMm: 0, yMm: 0, widthMm: 10, heightMm: 5, svg }));
+}
+
+test('engravedImageMarkup: should remove script elements from the pasted SVG', () => {
+  const markup = markupOfContent('<rect width="1" height="1"/><script>alert(1)</script>');
+  assert(!/script/i.test(markup), `got ${markup}`);
+  assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
+});
+
 run();
