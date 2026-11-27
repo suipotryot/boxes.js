@@ -142,4 +142,12 @@ test('resizedToward: should keep the corner fixed and floor each axis at the min
   assertClose(image.resizedToward({ x: 0, y: 0 }, 1).widthMm, 1);
 });
 
+test('centeredWithSize: should centre the image with the size given by its generator rather than the size written in the SVG', () => {
+  const image = EngravedImage.centeredWithSize({ svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>', widthMm: 60, heightMm: 20 }, 100, 60);
+  assertClose(image.xMm, 20);
+  assertClose(image.yMm, 20);
+  assertClose(image.widthMm, 60);
+  assertClose(image.heightMm, 20);
+});
+
 run();
