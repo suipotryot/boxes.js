@@ -121,4 +121,10 @@ test('readSvgSizeMm: should throw when the SVG size is zero', () => {
   assert(error !== null && /size/i.test(error.message), `expected a size error, got ${error && error.message}`);
 });
 
+test('readSvgSizeMm: should read attributes written with single quotes', () => {
+  const size = readSvgSizeMm("<svg xmlns='http://www.w3.org/2000/svg' width='40mm' height='25mm'></svg>");
+  assertClose(size.widthMm, 40);
+  assertClose(size.heightMm, 25);
+});
+
 run();
