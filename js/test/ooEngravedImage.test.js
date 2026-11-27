@@ -56,4 +56,14 @@ test('centeredIn: should still centre an image larger than the area', () => {
   assertClose(image.yMm, 20);
 });
 
+test('listFor: should build the images stored for a piece, and none for an unknown piece', () => {
+  const stored = { xMm: 1, yMm: 2, widthMm: 3, heightMm: 4, svg: '<svg/>' };
+  const pieceImages = { lid: [stored] };
+  const images = EngravedImage.listFor(pieceImages, 'lid');
+  assert(images.length === 1 && images[0] instanceof EngravedImage, 'expected one EngravedImage');
+  assertClose(images[0].widthMm, 3);
+  assert(EngravedImage.listFor(pieceImages, 'base-plate').length === 0, 'expected no image for another piece');
+  assert(EngravedImage.listFor(undefined, 'lid').length === 0, 'expected no image without any stored map');
+});
+
 run();
