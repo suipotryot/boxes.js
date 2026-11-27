@@ -43,4 +43,12 @@ test('requestEngravingImage: should give the image sent by the frame it created'
   assert(calls.images.length === 1 && calls.images[0].svg === '<svg></svg>', 'expected the image to be given');
 });
 
+test('requestEngravingImage: should ignore a message that does not come from its frame', () => {
+  const environment = fakeEnvironment();
+  const { calls, onImage, onError } = recordingCallbacks();
+  requestEngravingImage(LABEL_URL, environment, { onImage, onError });
+  environment.deliver({ source: { name: 'another window' }, data: LABEL_ANSWER });
+  assert(calls.images.length === 0 && calls.errors.length === 0, 'expected the foreign message to be ignored');
+});
+
 run();
