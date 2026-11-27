@@ -24,4 +24,8 @@ test('parseImageSourceUrl: should reject an address that is not https', () => {
   assert(thrownMessage(() => parseImageSourceUrl('http://example.com/label')).includes('https'), 'expected an error mentioning https');
 });
 
+test('parseImageSourceUrl: should reject a text that is not an address', () => {
+  assert(thrownMessage(() => parseImageSourceUrl('not an address')).includes('not a valid'), 'expected an error saying the address is not valid');
+});
+
 run();
