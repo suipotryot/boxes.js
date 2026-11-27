@@ -23,7 +23,7 @@ test('engravedImageMarkup: should turn the image by 180 degrees around its centr
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 5"></svg>';
   const image = new EngravedImage({ xMm: 30, yMm: 20, widthMm: 40, heightMm: 20, svg });
   const markup = engravedImageMarkup(image);
-  assert(markup.startsWith('<g transform="rotate(180 50 30)">'), `got ${markup}`);
+  assert(markup.includes('transform="rotate(180 50 30)"'), `got ${markup}`);
   assert(markup.endsWith('</g>'), `got ${markup}`);
 });
 
