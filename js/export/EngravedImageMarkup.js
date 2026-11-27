@@ -29,5 +29,5 @@ function centreOf(image) {
 
 export function engravedImageMarkup(image) {
   const { x, y } = centreOf(image);
-  return `<g xmlns="http://www.w3.org/2000/svg" transform="rotate(180 ${x} ${y})"><svg ${prefixDeclarationsOf(image.svg)}x="${image.xMm}" y="${image.yMm}" width="${image.widthMm}" height="${image.heightMm}" viewBox="${viewBoxOf(image.svg)}">${innerContentOf(image.svg)}</svg></g>`;
+  return `<g xmlns="http://www.w3.org/2000/svg" transform="rotate(180 ${x} ${y})"><svg ${prefixDeclarationsOf(image.svg)}x="${image.xMm}" y="${image.yMm}" width="${image.widthMm}" height="${image.heightMm}" viewBox="${viewBoxOf(image.svg)}" preserveAspectRatio="none">${innerContentOf(image.svg)}</svg></g>`;
 }
