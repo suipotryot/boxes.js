@@ -7,7 +7,7 @@ function refusalMessage(answer) {
 }
 
 function hasUsableSize({ widthMm, heightMm }) {
-  return widthMm > 0 && heightMm > 0;
+  return [widthMm, heightMm].every((lengthMm) => Number.isFinite(lengthMm) && lengthMm > 0);
 }
 
 function assertHasUsableSize(answer) {
