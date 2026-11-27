@@ -16,4 +16,9 @@ test('readEngravingAnswer: should return the svg and its size when the generator
   assert(answer.widthMm === 60 && answer.heightMm === 20, 'expected the size to be kept');
 });
 
+test('readEngravingAnswer: should throw naming the field and the reason when the generator refuses the request', () => {
+  const message = thrownMessage(() => readEngravingAnswer({ type: 'engraving-image-error', field: 'width', reason: 'missing' }));
+  assert(message.includes('width') && message.includes('missing'), `expected the field and the reason in "${message}"`);
+});
+
 run();
