@@ -14,18 +14,22 @@ function plateSizeMm(context, spanOnPlate = START_OF_WALL) {
   return { widthMm: context.run.length, heightMm: height };
 }
 
+function renderLineField(image, onUpdate) {
+  const unreadableLineMessage = el('span', { class: 'warning' });
+  const input = el('input', {
+    type: 'text', value: image.toTextLine(),
+    onChange: (evt) => {
+      const placement = EngravedImage.placementFromTextLine(evt.target.value);
+      evt.target.classList.toggle('invalid-input', !placement);
+      unreadableLineMessage.textContent = placement ? '' : t('image.lineUnreadable');
+      if (placement) onUpdate(placement);
+    },
+  });
+  return el('label', { class: 'field' }, [input, unreadableLineMessage]);
+}
+
 function renderOneImage(image, context, onUpdate, onRemove) {
-  const lineField = el('label', { class: 'field' }, [
-    el('input', {
-      type: 'text', value: image.toTextLine(),
-      onChange: (evt) => {
-        const placement = EngravedImage.placementFromTextLine(evt.target.value);
-        if (!placement) { evt.target.classList.add('invalid-input'); return; }
-        evt.target.classList.remove('invalid-input');
-        onUpdate(placement);
-      },
-    }),
-  ]);
+  const lineField = renderLineField(image, onUpdate);
   const trashButton = el('button', {
     class: 'icon-btn', title: t('image.delete'), 'aria-label': t('image.delete'), onClick: onRemove,
   }, [trashIcon()]);
