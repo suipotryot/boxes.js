@@ -1,3 +1,5 @@
+import { Cutout } from './Cutout.js';
+
 const MILLIMETRES_PER_UNIT = { mm: 1, cm: 10, in: 25.4, px: 25.4 / 96, '': 25.4 / 96 };
 const LENGTH_PATTERN = /^([\d.]+)(mm|cm|in|px)?$/;
 
@@ -57,6 +59,13 @@ export class EngravedImage {
 
   toTextLine() {
     return [this.xMm, this.yMm, this.widthMm, this.heightMm].join(', ');
+  }
+
+  static placementFromTextLine(text) {
+    const numbers = Cutout.parseNumbers(text, 4);
+    if (!numbers) return null;
+    const [xMm, yMm, widthMm, heightMm] = numbers;
+    return { xMm, yMm, widthMm, heightMm };
   }
 
   static listFor(pieceImages, pieceId) {
