@@ -1,5 +1,5 @@
 function listedCharacters({ characters }) {
-  return characters ? ` [${characters.join(' ')}]` : '';
+  return Array.isArray(characters) ? ` [${characters.join(' ')}]` : '';
 }
 
 function refusalMessage(answer) {
