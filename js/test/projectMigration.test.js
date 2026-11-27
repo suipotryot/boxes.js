@@ -30,6 +30,13 @@ test('migrateLegacyLid() should move the lid edge notches to the new panel, leav
   assert(JSON.stringify(Object.keys(migrated.pieceNotches)) === JSON.stringify(['horizontal-panel-1:bottom', 'drawer:lid:left']), `got ${JSON.stringify(Object.keys(migrated.pieceNotches))}`);
 });
 
+test('migrateLegacyLid() should move the lid images to the new panel, leaving the drawer sleeve lid images alone', () => {
+  const image = [{ xMm: 1, yMm: 2, widthMm: 3, heightMm: 4, svg: '<svg/>' }];
+  const project = { ...legacyProject(RECESSED_LID), pieceImages: { lid: image, 'drawer:lid': image } };
+  const migrated = migrateLegacyLid(project);
+  assert(JSON.stringify(Object.keys(migrated.pieceImages)) === JSON.stringify(['horizontal-panel-1', 'drawer:lid']), `got ${JSON.stringify(Object.keys(migrated.pieceImages))}`);
+});
+
 test('migrateLegacyLid() should keep an enabled onTop lid as the lid, with no panel and its holes untouched', () => {
   const holes = [{ xMm: 10, yMm: 10, widthMm: 5, heightMm: 5, radiusMm: 0 }];
   const project = { ...legacyProject({ enabled: true, mode: 'onTop', insertHeightMm: null }), pieceHoles: { lid: holes } };
