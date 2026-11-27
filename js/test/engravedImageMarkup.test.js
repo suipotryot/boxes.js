@@ -70,4 +70,32 @@ test('engravedImageMarkup: should remove event handler attributes from the paste
   assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should remove a javascript link from the pasted SVG content', () => {
+  const markup = markupOfContent('<a href="javascript:alert(1)"><rect width="1" height="1"/></a>');
+  assert(!/javascript:/i.test(markup), `got ${markup}`);
+  assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
+});
+
+test('engravedImageMarkup: should remove a link to an external address from the pasted SVG content', () => {
+  const markup = markupOfContent('<image xlink:href="https://example.com/logo.png" width="1" height="1"/>');
+  assert(!/example\.com/.test(markup), `got ${markup}`);
+});
+
+test('engravedImageMarkup: should keep a link to an element of the same SVG', () => {
+  const markup = markupOfContent('<defs><path id="shape" d="M0 0"/></defs><use href="#shape"/>');
+  assert(markup.includes('<use href="#shape"/>'), `got ${markup}`);
+});
+
+test('engravedImageMarkup: should remove iframe, embed and object elements from the pasted SVG content', () => {
+  const markup = markupOfContent('<rect width="1" height="1"/><iframe src="https://example.com"></iframe><embed src="x"/><object data="y"></object>');
+  assert(!/iframe|embed|object/i.test(markup), `got ${markup}`);
+  assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
+});
+
+test('engravedImageMarkup: should remove a style import from the pasted SVG content', () => {
+  const markup = markupOfContent('<style>@import url("https://example.com/a.css"); rect { fill: none; }</style><rect width="1" height="1"/>');
+  assert(!/@import/i.test(markup), `got ${markup}`);
+  assert(markup.includes('rect { fill: none; }'), `got ${markup}`);
+});
+
 run();

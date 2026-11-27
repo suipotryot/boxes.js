@@ -7,7 +7,7 @@ function prefixDeclarationsOf(svgText) {
   return (openingTag.match(/xmlns:\w+="[^"]*"/g) || []).map((declaration) => `${declaration} `).join('');
 }
 
-const ACTIVE_ELEMENTS = ['script', 'foreignObject'];
+const ACTIVE_ELEMENTS = ['script', 'foreignObject', 'iframe', 'embed', 'object'];
 
 function withoutElement(content, elementName) {
   const selfClosing = String.raw`<${elementName}\b[^>]*/>`;
@@ -25,8 +25,24 @@ function withoutEventHandlers(content) {
   return content.replace(EVENT_HANDLER_ATTRIBUTE, '');
 }
 
+const LINK_ATTRIBUTE = /\s(?:xlink:)?href\s*=\s*("[^"]*"|'[^']*')/gi;
+
+function isSafeLinkTarget(quotedTarget) {
+  return /^["'](#|data:image\/)/i.test(quotedTarget);
+}
+
+function withoutUnsafeLinks(content) {
+  return content.replace(LINK_ATTRIBUTE, (attribute, quotedTarget) => (isSafeLinkTarget(quotedTarget) ? attribute : ''));
+}
+
+const STYLE_IMPORT = /@import\b[^;]*;/gi;
+
+function withoutStyleImports(content) {
+  return content.replace(STYLE_IMPORT, '');
+}
+
 function withoutActiveContent(content) {
-  return withoutEventHandlers(withoutActiveElements(content));
+  return withoutStyleImports(withoutUnsafeLinks(withoutEventHandlers(withoutActiveElements(content))));
 }
 
 function innerContentOf(svgText) {

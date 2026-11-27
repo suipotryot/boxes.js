@@ -104,8 +104,7 @@ export class EngravedImage {
     return storedImages.map((image) => new EngravedImage(image));
   }
 
-  static centeredIn(svg, areaWidthMm, areaHeightMm) {
-    const { widthMm, heightMm } = readSvgSizeMm(svg);
+  static centeredWithSize({ svg, widthMm, heightMm }, areaWidthMm, areaHeightMm) {
     return new EngravedImage({
       xMm: (areaWidthMm - widthMm) / 2,
       yMm: (areaHeightMm - heightMm) / 2,
@@ -113,5 +112,9 @@ export class EngravedImage {
       heightMm,
       svg,
     });
+  }
+
+  static centeredIn(svg, areaWidthMm, areaHeightMm) {
+    return EngravedImage.centeredWithSize({ svg, ...readSvgSizeMm(svg) }, areaWidthMm, areaHeightMm);
   }
 }
