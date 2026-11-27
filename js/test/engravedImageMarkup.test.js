@@ -27,4 +27,11 @@ test('engravedImageMarkup: should turn the image by 180 degrees around its centr
   assert(markup.endsWith('</g>'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should declare the SVG namespace on the wrapper so the exported elements are not namespace-less', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 5"></svg>';
+  const image = new EngravedImage({ xMm: 0, yMm: 0, widthMm: 10, heightMm: 5, svg });
+  const markup = engravedImageMarkup(image);
+  assert(markup.startsWith('<g xmlns="http://www.w3.org/2000/svg" transform='), `got ${markup}`);
+});
+
 run();
