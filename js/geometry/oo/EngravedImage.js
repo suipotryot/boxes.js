@@ -4,7 +4,9 @@ const MILLIMETRES_PER_UNIT = { mm: 1, cm: 10, in: 25.4, px: 25.4 / 96, '': 25.4 
 const LENGTH_PATTERN = /^([\d.]+)(mm|cm|in|px)?$/;
 
 function convertToMillimetres(lengthText) {
-  const [, amount, unit = ''] = lengthText.match(LENGTH_PATTERN);
+  const match = lengthText.match(LENGTH_PATTERN);
+  if (!match) throw new Error(`Unsupported SVG length "${lengthText}": use mm, cm, in or px`);
+  const [, amount, unit = ''] = match;
   return Number(amount) * MILLIMETRES_PER_UNIT[unit];
 }
 
