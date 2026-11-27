@@ -19,7 +19,10 @@ export function requestEngravingImage(url, environment, { onImage, onError }) {
     if (error) onError(error);
     else onImage(image);
   });
-  const cancelTimer = environment.startTimer(ANSWER_TIMEOUT_MS, () => {});
+  const cancelTimer = environment.startTimer(ANSWER_TIMEOUT_MS, () => {
+    finish();
+    onError(new Error(`The image generator gave no answer within ${ANSWER_TIMEOUT_MS / 1000} seconds`));
+  });
 
   function finish() {
     frame.remove();
