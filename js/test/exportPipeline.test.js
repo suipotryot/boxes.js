@@ -30,6 +30,19 @@ test('every piece of a thickness group appears exactly once across that group\'s
   assert(new Set(placedIds).size === 6, 'every piece should appear exactly once, not duplicated');
 });
 
+test('an image stored for the base plate should reach the planned piece untouched by the burn correction', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [100]);
+  project.outerThicknessMm = 3;
+  project.innerThicknessMm = 3;
+  project.burnMm = 0.1;
+  project.laserBed = { widthMm: 600, heightMm: 400, spacingMm: 5 };
+  project.pieceImages = { 'base-plate': [{ xMm: 10, yMm: 20, widthMm: 30, heightMm: 15, svg: '<svg/>' }] };
+  const piece = planExport(project)[0].pages.flat().map((item) => item.piece).find((p) => p.id === 'base-plate');
+  assert(piece.images.length === 1, `expected one image, got ${JSON.stringify(piece.images)}`);
+  assert(piece.images[0].xMm === 10 && piece.images[0].yMm === 20, `got ${JSON.stringify(piece.images[0])}`);
+});
+
 test('a laser bed too small for everything spills the group across multiple pages', () => {
   const project = createDefaultProject();
   project.grid = createGrid([150], [100]);
