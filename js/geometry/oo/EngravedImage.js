@@ -55,6 +55,10 @@ export class EngravedImage {
     return this.withChanges({ xMm: this.xMm + dx, yMm: this.yMm + dy });
   }
 
+  toTextLine() {
+    return [this.xMm, this.yMm, this.widthMm, this.heightMm].join(', ');
+  }
+
   static listFor(pieceImages, pieceId) {
     return ((pieceImages && pieceImages[pieceId]) || []).map((image) => new EngravedImage(image));
   }
