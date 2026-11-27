@@ -70,4 +70,10 @@ test('engravedImageMarkup: should remove event handler attributes from the paste
   assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should remove a javascript link from the pasted SVG content', () => {
+  const markup = markupOfContent('<a href="javascript:alert(1)"><rect width="1" height="1"/></a>');
+  assert(!/javascript:/i.test(markup), `got ${markup}`);
+  assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
+});
+
 run();
