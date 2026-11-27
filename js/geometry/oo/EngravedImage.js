@@ -6,9 +6,18 @@ function convertToMillimetres(lengthText) {
   return Number(amount) * MILLIMETRES_PER_UNIT[unit];
 }
 
-function readMillimetres(svgText, attributeName) {
+function readAttribute(svgText, attributeName) {
   const match = svgText.match(new RegExp(String.raw`<svg[^>]*\s${attributeName}="([^"]*)"`));
-  return convertToMillimetres(match[1]);
+  return match ? match[1] : null;
+}
+
+function hasWidthAndHeight(svgText) {
+  return readAttribute(svgText, 'width') !== null && readAttribute(svgText, 'height') !== null;
+}
+
+function readViewBoxSizeMm(svgText) {
+  const [, , width, height] = readAttribute(svgText, 'viewBox').trim().split(/[\s,]+/);
+  return { widthMm: convertToMillimetres(width), heightMm: convertToMillimetres(height) };
 }
 
 function assertIsSvg(svgText) {
@@ -19,8 +28,9 @@ function assertIsSvg(svgText) {
 
 export function readSvgSizeMm(svgText) {
   assertIsSvg(svgText);
+  if (!hasWidthAndHeight(svgText)) return readViewBoxSizeMm(svgText);
   return {
-    widthMm: readMillimetres(svgText, 'width'),
-    heightMm: readMillimetres(svgText, 'height'),
+    widthMm: convertToMillimetres(readAttribute(svgText, 'width')),
+    heightMm: convertToMillimetres(readAttribute(svgText, 'height')),
   };
 }
