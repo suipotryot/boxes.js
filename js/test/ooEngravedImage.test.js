@@ -109,4 +109,11 @@ test('readSvgSizeMm: should read attributes written with single quotes', () => {
   assertClose(size.heightMm, 25);
 });
 
+test('centeredOn: should centre the image on the x axis only', () => {
+  const image = new EngravedImage({ xMm: 0, yMm: 7, widthMm: 40, heightMm: 20, svg: '<svg/>' });
+  const centered = image.centeredOn('x', 100);
+  assertClose(centered.xMm, 30);
+  assertClose(centered.yMm, 7);
+});
+
 run();
