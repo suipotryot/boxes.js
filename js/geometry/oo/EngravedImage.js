@@ -37,3 +37,24 @@ export function readSvgSizeMm(svgText) {
     heightMm: convertToMillimetres(readAttribute(svgText, 'height')),
   };
 }
+
+export class EngravedImage {
+  constructor({ xMm, yMm, widthMm, heightMm, svg }) {
+    this.xMm = xMm;
+    this.yMm = yMm;
+    this.widthMm = widthMm;
+    this.heightMm = heightMm;
+    this.svg = svg;
+  }
+
+  static centeredIn(svg, areaWidthMm, areaHeightMm) {
+    const { widthMm, heightMm } = readSvgSizeMm(svg);
+    return new EngravedImage({
+      xMm: (areaWidthMm - widthMm) / 2,
+      yMm: (areaHeightMm - heightMm) / 2,
+      widthMm,
+      heightMm,
+      svg,
+    });
+  }
+}
