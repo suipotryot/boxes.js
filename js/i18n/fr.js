@@ -216,6 +216,7 @@ export const fr = {
   'validation.notch.depthExceedsHeight': 'La profondeur doit être inférieure à la hauteur locale du pan à cet endroit ({height}mm).',
   'validation.notch.crossesJunction': 'L\'encoche chevauche une jonction (entaille en croix ou mortaise) sur ce pan — repositionnez-la.',
   'validation.notch.overlapsSibling': 'Cette encoche chevauche une autre encoche du même pan — repositionnez-la ou repositionnez l\'autre.',
+  'validation.image.sizePositive': 'La largeur et la hauteur de l\'image doivent être positives.',
   'validation.image.exceedsPlate': 'Cette image dépasse de la plaque — vérifiez que c\'est voulu.',
   'validation.hole.xPositive': 'La dimension X doit être positive.',
   'validation.hole.yPositive': 'La dimension Y doit être positive.',
