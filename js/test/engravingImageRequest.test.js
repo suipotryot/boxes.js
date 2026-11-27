@@ -61,4 +61,13 @@ test('requestEngravingImage: should remove its frame, stop listening and cancel 
   assert(environment.timer.isCancelled, 'expected the timer to be cancelled');
 });
 
+test('requestEngravingImage: should report the refusal of the generator and clean up', () => {
+  const environment = fakeEnvironment();
+  const { calls, onImage, onError } = recordingCallbacks();
+  requestEngravingImage(LABEL_URL, environment, { onImage, onError });
+  environment.answerFromFrame({ type: 'engraving-image-error', field: 'width', reason: 'missing' });
+  assert(calls.errors.length === 1 && calls.errors[0].message.includes('width'), 'expected the refusal to be reported');
+  assert(environment.frame.isRemoved, 'expected the frame to be removed');
+});
+
 run();
