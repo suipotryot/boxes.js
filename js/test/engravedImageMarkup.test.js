@@ -58,4 +58,10 @@ test('engravedImageMarkup: should remove script elements from the pasted SVG', (
   assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should remove foreignObject elements from the pasted SVG', () => {
+  const markup = markupOfContent('<rect width="1" height="1"/><foreignObject width="5" height="5"><div>hi</div></foreignObject>');
+  assert(!/foreignObject/i.test(markup), `got ${markup}`);
+  assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
+});
+
 run();
