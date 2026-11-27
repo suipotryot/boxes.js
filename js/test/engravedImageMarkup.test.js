@@ -92,4 +92,10 @@ test('engravedImageMarkup: should remove iframe, embed and object elements from 
   assert(markup.includes('<rect width="1" height="1"/>'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should remove a style import from the pasted SVG content', () => {
+  const markup = markupOfContent('<style>@import url("https://example.com/a.css"); rect { fill: none; }</style><rect width="1" height="1"/>');
+  assert(!/@import/i.test(markup), `got ${markup}`);
+  assert(markup.includes('rect { fill: none; }'), `got ${markup}`);
+});
+
 run();
