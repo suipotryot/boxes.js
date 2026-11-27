@@ -2,29 +2,35 @@ import { readEngravingAnswer } from './EngravingAnswer.js';
 
 const ANSWER_TIMEOUT_MS = 10000;
 
-function answerOrError(data) {
+function deliverAnswer(data, { onImage, onError }) {
+  let image;
   try {
-    return { image: readEngravingAnswer(data) };
+    image = readEngravingAnswer(data);
   } catch (error) {
-    return { error };
+    onError(error);
+    return;
   }
+  onImage(image);
 }
 
-export function requestEngravingImage(url, environment, { onImage, onError }) {
+function noAnswerError() {
+  return new Error(`The image generator gave no answer within ${ANSWER_TIMEOUT_MS / 1000} seconds`);
+}
+
+export function requestEngravingImage(url, environment, callbacks) {
   const frame = environment.createFrame(url);
+  const isFromFrame = (event) => event.source === frame.contentWindow;
   const stopListening = environment.listenToMessages((event) => {
-    if (event.source !== frame.contentWindow) return;
-    finish();
-    const { image, error } = answerOrError(event.data);
-    if (error) onError(error);
-    else onImage(image);
+    if (!isFromFrame(event)) return;
+    stopWaitingForAnswer();
+    deliverAnswer(event.data, callbacks);
   });
   const cancelTimer = environment.startTimer(ANSWER_TIMEOUT_MS, () => {
-    finish();
-    onError(new Error(`The image generator gave no answer within ${ANSWER_TIMEOUT_MS / 1000} seconds`));
+    stopWaitingForAnswer();
+    callbacks.onError(noAnswerError());
   });
 
-  function finish() {
+  function stopWaitingForAnswer() {
     frame.remove();
     stopListening();
     cancelTimer();

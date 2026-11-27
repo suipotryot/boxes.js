@@ -98,10 +98,15 @@ function renderUrlLoader(context, onAdd) {
   return el('div', { class: 'field' }, [input, loadButton, errorLine]);
 }
 
+function withImageAppended(project, pieceId, image) {
+  const imagesOfPiece = project.pieceImages[pieceId] ?? [];
+  return { ...project, pieceImages: { ...project.pieceImages, [pieceId]: [...imagesOfPiece, image] } };
+}
+
 export function renderImageSection(project, pieceId, context, store, selectedIndex) {
   const images = EngravedImage.listFor(project.pieceImages, pieceId);
   const setList = (nextList) => store.apply((p) => ({ ...p, pieceImages: { ...p.pieceImages, [pieceId]: nextList } }));
-  const appendImage = (image) => store.apply((p) => ({ ...p, pieceImages: { ...p.pieceImages, [pieceId]: [...(p.pieceImages[pieceId] ?? []), image] } }));
+  const appendImage = (image) => store.apply((p) => withImageAppended(p, pieceId, image));
   const updateAt = (index, patch) => setList(Cutout.replaceAt(images, index, patch));
   const removeAt = (index) => setList(images.filter((_, i) => i !== index));
 

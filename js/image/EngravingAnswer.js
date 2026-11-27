@@ -6,8 +6,12 @@ function refusalMessage(answer) {
   return `The image generator refused the request (${answer.field}: ${answer.reason}${listedCharacters(answer)})`;
 }
 
-function assertHasUsableSize({ widthMm, heightMm }) {
-  if (!(widthMm > 0 && heightMm > 0)) throw new Error(`The image generator gave an unusable size: ${widthMm} x ${heightMm} mm`);
+function hasUsableSize({ widthMm, heightMm }) {
+  return widthMm > 0 && heightMm > 0;
+}
+
+function assertHasUsableSize(answer) {
+  if (!hasUsableSize(answer)) throw new Error(`The image generator gave an unusable size: ${answer.widthMm} x ${answer.heightMm} mm`);
 }
 
 function assertIsSvgText({ svg }) {

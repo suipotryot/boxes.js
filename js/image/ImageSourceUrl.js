@@ -1,8 +1,8 @@
 function readUrl(text) {
   try {
     return new URL(text);
-  } catch {
-    throw new Error(`"${text}" is not a valid URL`);
+  } catch (error) {
+    throw new Error(`"${text}" is not a valid URL`, { cause: error });
   }
 }
 
