@@ -202,7 +202,7 @@ export function renderInspector(project, selected, selectedWallId, store, select
     const images = EngravedImage.listFor(project.pieceImages, selectedWallId);
     const onImageChange = (index, patch) => store.apply((p) => ({
       ...p,
-      pieceImages: { ...p.pieceImages, [selectedWallId]: EngravedImage.replaceAt(EngravedImage.listFor(p.pieceImages, selectedWallId), index, patch) },
+      pieceImages: { ...p.pieceImages, [selectedWallId]: Cutout.replaceAt(EngravedImage.listFor(p.pieceImages, selectedWallId), index, patch) },
     }));
     const notches = notchContext ? Notch.listFor(project.pieceNotches, notchPieceId) : [];
     const onNotchChange = (index, patch) => store.apply((p) => ({

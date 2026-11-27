@@ -30,7 +30,7 @@ test('every piece of a thickness group appears exactly once across that group\'s
   assert(new Set(placedIds).size === 6, 'every piece should appear exactly once, not duplicated');
 });
 
-test('an image stored for the base plate should reach the planned piece untouched by the burn correction', () => {
+test('planExport: should carry an image stored for the base plate to the planned piece, untouched by the burn correction', () => {
   const project = createDefaultProject();
   project.grid = createGrid([80, 80], [100]);
   project.outerThicknessMm = 3;

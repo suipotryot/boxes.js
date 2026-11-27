@@ -66,15 +66,6 @@ test('listFor: should build the images stored for a piece, and none for an unkno
   assert(EngravedImage.listFor(undefined, 'lid').length === 0, 'expected no image without any stored map');
 });
 
-test('movedBy: should return a moved copy and leave the original untouched', () => {
-  const image = new EngravedImage({ xMm: 10, yMm: 20, widthMm: 30, heightMm: 40, svg: '<svg/>' });
-  const moved = image.movedBy(5, -3);
-  assertClose(moved.xMm, 15);
-  assertClose(moved.yMm, 17);
-  assertClose(moved.widthMm, 30);
-  assertClose(image.xMm, 10);
-});
-
 test('toTextLine: should list x, y, width and height', () => {
   const image = new EngravedImage({ xMm: 10, yMm: 20, widthMm: 30, heightMm: 40, svg: '<svg/>' });
   assert(image.toTextLine() === '10, 20, 30, 40', `got ${image.toTextLine()}`);
@@ -84,15 +75,6 @@ test('placementFromTextLine: should read x, y, width and height, and null when t
   const placement = EngravedImage.placementFromTextLine('10, 20, 30, 40');
   assert(JSON.stringify(placement) === JSON.stringify({ xMm: 10, yMm: 20, widthMm: 30, heightMm: 40 }), `got ${JSON.stringify(placement)}`);
   assert(EngravedImage.placementFromTextLine('10, 20, abc, 40') === null, 'expected null for an unreadable line');
-});
-
-test('replaceAt: should change only the image at the given index', () => {
-  const first = new EngravedImage({ xMm: 1, yMm: 1, widthMm: 5, heightMm: 5, svg: '<svg/>' });
-  const second = new EngravedImage({ xMm: 2, yMm: 2, widthMm: 5, heightMm: 5, svg: '<svg/>' });
-  const replaced = EngravedImage.replaceAt([first, second], 1, { xMm: 9 });
-  assertClose(replaced[0].xMm, 1);
-  assertClose(replaced[1].xMm, 9);
-  assertClose(replaced[1].yMm, 2);
 });
 
 test('readSvgSizeMm: should throw an explicit error naming the unsupported length', () => {

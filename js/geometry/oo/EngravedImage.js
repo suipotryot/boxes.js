@@ -20,10 +20,11 @@ function hasWidthAndHeight(svgText) {
 }
 
 function readViewBoxSizeMm(svgText) {
-  if (readAttribute(svgText, 'viewBox') === null) {
+  const viewBox = readAttribute(svgText, 'viewBox');
+  if (viewBox === null) {
     throw new Error('The SVG has no readable size: width/height or viewBox is required');
   }
-  const [, , width, height] = readAttribute(svgText, 'viewBox').trim().split(/[\s,]+/);
+  const [, , width, height] = viewBox.trim().split(/[\s,]+/);
   return { widthMm: convertToMillimetres(width), heightMm: convertToMillimetres(height) };
 }
 
@@ -66,10 +67,6 @@ export class EngravedImage {
     return new EngravedImage({ ...this, ...patch });
   }
 
-  movedBy(dx, dy) {
-    return this.withChanges({ xMm: this.xMm + dx, yMm: this.yMm + dy });
-  }
-
   toTextLine() {
     return [this.xMm, this.yMm, this.widthMm, this.heightMm].join(', ');
   }
@@ -81,12 +78,9 @@ export class EngravedImage {
     return { xMm, yMm, widthMm, heightMm };
   }
 
-  static replaceAt(images, index, patch) {
-    return images.map((image, i) => (i === index ? image.withChanges(patch) : image));
-  }
-
   static listFor(pieceImages, pieceId) {
-    return ((pieceImages && pieceImages[pieceId]) || []).map((image) => new EngravedImage(image));
+    const storedImages = pieceImages?.[pieceId] ?? [];
+    return storedImages.map((image) => new EngravedImage(image));
   }
 
   static centeredIn(svg, areaWidthMm, areaHeightMm) {

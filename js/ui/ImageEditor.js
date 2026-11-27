@@ -1,16 +1,18 @@
 import { el } from './dom.js';
 import { infoIcon, trashIcon } from './fields.js';
+import { Cutout } from '../geometry/oo/Cutout.js';
 import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { validateImageInRect } from '../geometry/oo/ImageValidation.js';
 import { wallHoleSpan } from '../geometry/oo/HoleValidation.js';
 import { centerOnAxis } from '../geometry/oo/CutoutAlignment.js';
 import { t } from '../i18n/index.js';
 
-const LEFT_END_OF_WALL = { xMm: 0, widthMm: 0 };
+const START_OF_WALL = { xMm: 0, widthMm: 0 };
 
-function plateSizeMm(context, imageSpan = LEFT_END_OF_WALL) {
+function plateSizeMm(context, spanOnPlate = START_OF_WALL) {
   if (context.kind === 'flat') return { widthMm: context.widthMm, heightMm: context.heightMm };
-  return { widthMm: context.run.length, heightMm: wallHoleSpan(context.run, context.grid, context.project, imageSpan).height };
+  const { height } = wallHoleSpan(context.run, context.grid, context.project, spanOnPlate);
+  return { widthMm: context.run.length, heightMm: height };
 }
 
 function renderOneImage(image, context, onUpdate, onRemove) {
@@ -57,10 +59,10 @@ function renderPasteArea(context, onAdd) {
 export function renderImageSection(project, pieceId, context, store, selectedIndex) {
   const images = EngravedImage.listFor(project.pieceImages, pieceId);
   const setList = (nextList) => store.apply((p) => ({ ...p, pieceImages: { ...p.pieceImages, [pieceId]: nextList } }));
-  const updateAt = (index, patch) => setList(EngravedImage.replaceAt(images, index, patch));
+  const updateAt = (index, patch) => setList(Cutout.replaceAt(images, index, patch));
   const removeAt = (index) => setList(images.filter((_, i) => i !== index));
 
-  const selectedImage = selectedIndex == null ? LEFT_END_OF_WALL : images[selectedIndex];
+  const selectedImage = selectedIndex == null ? START_OF_WALL : images[selectedIndex];
   const { widthMm, heightMm } = plateSizeMm(context, selectedImage);
   const centerButtons = el('div', { class: 'button-row' }, [
     el('button', {
