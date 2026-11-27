@@ -16,6 +16,9 @@ function hasWidthAndHeight(svgText) {
 }
 
 function readViewBoxSizeMm(svgText) {
+  if (readAttribute(svgText, 'viewBox') === null) {
+    throw new Error('The SVG has no readable size: width/height or viewBox is required');
+  }
   const [, , width, height] = readAttribute(svgText, 'viewBox').trim().split(/[\s,]+/);
   return { widthMm: convertToMillimetres(width), heightMm: convertToMillimetres(height) };
 }
