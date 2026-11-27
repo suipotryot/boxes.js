@@ -68,6 +68,10 @@ export class EngravedImage {
     return { xMm, yMm, widthMm, heightMm };
   }
 
+  static replaceAt(images, index, patch) {
+    return images.map((image, i) => (i === index ? image.withChanges(patch) : image));
+  }
+
   static listFor(pieceImages, pieceId) {
     return ((pieceImages && pieceImages[pieceId]) || []).map((image) => new EngravedImage(image));
   }
