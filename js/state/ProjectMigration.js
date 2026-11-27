@@ -37,5 +37,6 @@ export function migrateLegacyLid(project) {
     horizontalPanels: [...project.horizontalPanels, { id, heightMm: lid.insertHeightMm, coverage: lid.coverage ?? null }],
     pieceHoles: withLidKeysRenamed(project.pieceHoles, id),
     pieceNotches: withLidKeysRenamed(project.pieceNotches, id),
+    pieceImages: withLidKeysRenamed(project.pieceImages, id),
   };
 }
