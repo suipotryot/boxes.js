@@ -28,4 +28,8 @@ test('parseImageSourceUrl: should reject a text that is not an address', () => {
   assert(thrownMessage(() => parseImageSourceUrl('not an address')).includes('not a valid'), 'expected an error saying the address is not valid');
 });
 
+test('parseImageSourceUrl: should accept a plain http address on localhost for development', () => {
+  assert(parseImageSourceUrl('http://localhost:5173/?mode=image').port === '5173', 'expected the localhost address to be accepted');
+});
+
 run();
