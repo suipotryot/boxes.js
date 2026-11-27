@@ -47,6 +47,14 @@ export class EngravedImage {
     this.svg = svg;
   }
 
+  withChanges(patch) {
+    return new EngravedImage({ ...this, ...patch });
+  }
+
+  movedBy(dx, dy) {
+    return this.withChanges({ xMm: this.xMm + dx, yMm: this.yMm + dy });
+  }
+
   static listFor(pieceImages, pieceId) {
     return ((pieceImages && pieceImages[pieceId]) || []).map((image) => new EngravedImage(image));
   }
