@@ -54,6 +54,11 @@ export function readSvgSizeMm(svgText) {
   return assertIsPositive(readDeclaredSizeMm(svgText));
 }
 
+const CENTERING_AXES = {
+  x: { startField: 'xMm', sizeField: 'widthMm' },
+  y: { startField: 'yMm', sizeField: 'heightMm' },
+};
+
 export class EngravedImage {
   constructor({ xMm, yMm, widthMm, heightMm, svg }) {
     this.xMm = xMm;
@@ -65,6 +70,11 @@ export class EngravedImage {
 
   withChanges(patch) {
     return new EngravedImage({ ...this, ...patch });
+  }
+
+  centeredOn(axis, areaLengthMm) {
+    const { startField, sizeField } = CENTERING_AXES[axis];
+    return this.withChanges({ [startField]: (areaLengthMm - this[sizeField]) / 2 });
   }
 
   toTextLine() {
