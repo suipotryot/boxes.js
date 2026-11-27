@@ -5,6 +5,10 @@ import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { validateImageInRect } from '../geometry/oo/ImageValidation.js';
 import { wallHoleSpan } from '../geometry/oo/HoleValidation.js';
 import { t } from '../i18n/index.js';
+import { parseImageSourceUrl } from '../image/ImageSourceUrl.js';
+import { requestEngravingImage } from '../image/EngravingImageRequest.js';
+import { browserEngravingEnvironment } from '../image/BrowserEngravingEnvironment.js';
+import { assertWellFormedSvg } from '../image/assertWellFormedSvg.js';
 
 const START_OF_WALL = { xMm: 0, widthMm: 0 };
 
@@ -59,9 +63,45 @@ function renderPasteArea(context, onAdd) {
   return el('div', { class: 'field' }, [textarea, addButton, errorLine]);
 }
 
+function renderUrlLoader(context, onAdd) {
+  const input = el('input', { type: 'text', placeholder: t('image.urlPlaceholder') });
+  const errorLine = el('span', { class: 'warning' });
+  const loadButton = el('button', { class: 'btn', text: t('image.urlLoad') });
+
+  const showFailure = (error) => {
+    loadButton.disabled = false;
+    loadButton.textContent = t('image.urlLoad');
+    errorLine.textContent = t('image.urlFailed', { reason: error.message });
+  };
+  const addLoadedImage = ({ svg, widthMm, heightMm }) => {
+    try {
+      assertWellFormedSvg(svg);
+      const plate = plateSizeMm(context);
+      onAdd(EngravedImage.centeredWithSize({ svg, widthMm, heightMm }, plate.widthMm, plate.heightMm));
+    } catch (error) {
+      showFailure(error);
+    }
+  };
+  const startLoading = (url) => {
+    loadButton.disabled = true;
+    loadButton.textContent = t('image.urlLoading');
+    errorLine.textContent = '';
+    requestEngravingImage(url, browserEngravingEnvironment, { onImage: addLoadedImage, onError: showFailure });
+  };
+  loadButton.addEventListener('click', () => {
+    try {
+      startLoading(parseImageSourceUrl(input.value));
+    } catch (error) {
+      showFailure(error);
+    }
+  });
+  return el('div', { class: 'field' }, [input, loadButton, errorLine]);
+}
+
 export function renderImageSection(project, pieceId, context, store, selectedIndex) {
   const images = EngravedImage.listFor(project.pieceImages, pieceId);
   const setList = (nextList) => store.apply((p) => ({ ...p, pieceImages: { ...p.pieceImages, [pieceId]: nextList } }));
+  const appendImage = (image) => store.apply((p) => ({ ...p, pieceImages: { ...p.pieceImages, [pieceId]: [...(p.pieceImages[pieceId] ?? []), image] } }));
   const updateAt = (index, patch) => setList(Cutout.replaceAt(images, index, patch));
   const removeAt = (index) => setList(images.filter((_, i) => i !== index));
 
@@ -82,6 +122,7 @@ export function renderImageSection(project, pieceId, context, store, selectedInd
     el('div', { class: 'hint', text: t('image.fieldOrderHint') }),
     centerButtons,
     ...images.map((image, index) => renderOneImage(image, context, (patch) => updateAt(index, patch), () => removeAt(index))),
-    renderPasteArea(context, (image) => setList([...images, image])),
+    renderPasteArea(context, appendImage),
+    renderUrlLoader(context, appendImage),
   ]);
 }
