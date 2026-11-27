@@ -29,4 +29,14 @@ test('readSvgSizeMm: should fall back on the viewBox when width and height are m
   assertClose(size.heightMm, 12.7);
 });
 
+test('readSvgSizeMm: should throw an explicit error when the SVG has no readable size', () => {
+  let error = null;
+  try {
+    readSvgSizeMm('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+  } catch (e) {
+    error = e;
+  }
+  assert(error !== null && /size/i.test(error.message), 'expected an explicit error mentioning the size');
+});
+
 run();
