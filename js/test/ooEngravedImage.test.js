@@ -123,4 +123,13 @@ test('centeredOn: should centre the image on the y axis only', () => {
   assertClose(centered.xMm, 5);
 });
 
+test('movedBy: should return a moved copy and leave the original untouched', () => {
+  const image = new EngravedImage({ xMm: 10, yMm: 20, widthMm: 30, heightMm: 40, svg: '<svg/>' });
+  const moved = image.movedBy(5, -3);
+  assertClose(moved.xMm, 15);
+  assertClose(moved.yMm, 17);
+  assertClose(moved.widthMm, 30);
+  assertClose(image.xMm, 10);
+});
+
 run();
