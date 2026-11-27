@@ -18,6 +18,11 @@ function viewBoxOf(svgText) {
   return `0 0 ${millimetresToRoundedPixels(widthMm)} ${millimetresToRoundedPixels(heightMm)}`;
 }
 
+function centreOf(image) {
+  return { x: image.xMm + image.widthMm / 2, y: image.yMm + image.heightMm / 2 };
+}
+
 export function engravedImageMarkup(image) {
-  return `<svg x="${image.xMm}" y="${image.yMm}" width="${image.widthMm}" height="${image.heightMm}" viewBox="${viewBoxOf(image.svg)}">${innerContentOf(image.svg)}</svg>`;
+  const { x, y } = centreOf(image);
+  return `<g transform="rotate(180 ${x} ${y})"><svg x="${image.xMm}" y="${image.yMm}" width="${image.widthMm}" height="${image.heightMm}" viewBox="${viewBoxOf(image.svg)}">${innerContentOf(image.svg)}</svg></g>`;
 }
