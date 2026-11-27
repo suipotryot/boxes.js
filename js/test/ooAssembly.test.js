@@ -575,6 +575,15 @@ test('Drawer.sleeveContext() should keep the sleeve base plate flush even when t
   assert(sleeveProject.basePlate.mode === 'flush', `expected a flush sleeve base plate, got ${sleeveProject.basePlate.mode}`);
 });
 
+test('Drawer.sleeveContext() should give the sleeve the images stored under the drawer prefix, and only those', () => {
+  const project = recessedBasePlateFixtureProject();
+  project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'top' };
+  const image = [{ xMm: 1, yMm: 2, widthMm: 3, heightMm: 4, svg: '<svg/>' }];
+  project.pieceImages = { 'base-plate': image, 'drawer:base-plate': image };
+  const { project: sleeveProject } = Drawer.sleeveContext({ grid: project.grid, project });
+  assert(JSON.stringify(Object.keys(sleeveProject.pieceImages)) === JSON.stringify(['base-plate']), `got ${JSON.stringify(Object.keys(sleeveProject.pieceImages))}`);
+});
+
 test('Drawer.sleeveContext() should make the sleeve taller by the box base plate recess, so the box still fits inside', () => {
   const project = recessedBasePlateFixtureProject();
   project.drawer = { enabled: true, playMm: 1, thicknessMm: 3, openSide: 'top' };

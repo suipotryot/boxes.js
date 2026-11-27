@@ -16,7 +16,7 @@
 import { simplifyPolygon } from '../Point.js';
 
 export class Panel {
-  constructor({ id, kind, thicknessGroup, thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, holes = [] }) {
+  constructor({ id, kind, thicknessGroup, thicknessMm, bottomEdge, rightEdge, topEdge, leftEdge, holes = [], images = [] }) {
     this.id = id;
     this.kind = kind;
     this.thicknessGroup = thicknessGroup;
@@ -26,6 +26,7 @@ export class Panel {
     this.topEdge = topEdge;
     this.leftEdge = leftEdge;
     this.holes = holes;
+    this.images = images;
   }
 
   /** Assembles the 4 edges into one closed contour in this panel's own
@@ -60,6 +61,7 @@ export class Panel {
       thicknessMm: this.thicknessMm,
       outline: this.outline(),
       holes: this.holes.map((h) => h.polygon()),
+      images: this.images,
     };
   }
 }

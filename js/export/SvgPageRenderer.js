@@ -6,8 +6,16 @@
 // for on-screen legibility) is a separate concern in css/style.css.
 import { svgEl } from '../ui/dom.js';
 import { pieceToSvgElement, pieceBounds, pieceLabelElement } from '../geometry/SvgPath.js';
+import { engravedImageMarkup } from './EngravedImageMarkup.js';
 
 const CUT_STROKE = { fill: 'none', stroke: '#000000', 'stroke-width': '0.1' };
+
+function engravedImageElement(image) {
+  const parsed = new DOMParser().parseFromString(engravedImageMarkup(image), 'image/svg+xml');
+  const parserError = parsed.querySelector('parsererror');
+  if (parserError) throw new Error(`The engraved image is not valid SVG: ${parserError.textContent}`);
+  return document.importNode(parsed.documentElement, true);
+}
 
 function buildPieceGroups(items, showLabels) {
   return items.map(({ piece, x, y }) => {
@@ -16,7 +24,7 @@ function buildPieceGroups(items, showLabels) {
     path.setAttribute('fill', CUT_STROKE.fill);
     path.setAttribute('stroke', CUT_STROKE.stroke);
     path.setAttribute('stroke-width', CUT_STROKE['stroke-width']);
-    const children = [path];
+    const children = [path, ...piece.images.map(engravedImageElement)];
     if (showLabels) {
       const pieceLabel = pieceLabelElement(piece);
       if (pieceLabel) children.push(pieceLabel);

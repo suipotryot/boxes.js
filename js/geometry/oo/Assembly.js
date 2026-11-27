@@ -18,6 +18,7 @@ import {
 import { isOuterSegment } from '../../model/Grid.js';
 import { Notch } from './Notch.js';
 import { Hole } from './Hole.js';
+import { EngravedImage } from './EngravedImage.js';
 import { fingerEdgePath } from '../FingerJoint.js';
 import { FingerEdge } from './FingerEdge.js';
 import { SmoothEdge } from './SmoothEdge.js';
@@ -434,6 +435,7 @@ export function buildWallPiece(run, grid, project) {
     thicknessMm: resolveThickness(run.seg, project),
     bottomEdge, rightEdge, topEdge, leftEdge,
     holes: [...mortiseHoles, ...horizontalPanelHoles, ...basePlateHoles, ...Hole.listFor(project.pieceHoles, pieceId)],
+    images: EngravedImage.listFor(project.pieceImages, pieceId),
   });
 }
 
@@ -533,6 +535,7 @@ export function buildBasePlate(grid, project) {
     thicknessMm: project.outerThicknessMm,
     bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
     holes: [...holes, ...Hole.listFor(project.pieceHoles, 'base-plate')],
+    images: EngravedImage.listFor(project.pieceImages, 'base-plate'),
   });
 }
 
@@ -543,6 +546,7 @@ export function buildLid(grid, project) {
     thicknessMm: project.outerThicknessMm,
     bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
     holes: Hole.listFor(project.pieceHoles, 'lid'),
+    images: EngravedImage.listFor(project.pieceImages, 'lid'),
   });
 }
 
@@ -553,6 +557,7 @@ export function buildHorizontalPanel(grid, project, panel) {
     thicknessMm: project.outerThicknessMm,
     bottomEdge, rightEdge, topEdge, leftEdge, widthMm, depthMm, marginMm, protrude, openSides,
     holes: Hole.listFor(project.pieceHoles, panel.id),
+    images: EngravedImage.listFor(project.pieceImages, panel.id),
   });
 }
 
