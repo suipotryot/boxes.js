@@ -48,4 +48,9 @@ test('readEngravingAnswer: should throw when the size is not a finite number', (
   }
 });
 
+test('readEngravingAnswer: should still report the refusal when the characters are not a list', () => {
+  const message = thrownMessage(() => readEngravingAnswer({ type: 'engraving-image-error', field: 'dimensions', reason: 'unengravableCharacters', characters: 'abc' }));
+  assert(message.includes('dimensions') && message.includes('unengravableCharacters'), `expected the refusal in "${message}"`);
+});
+
 run();
