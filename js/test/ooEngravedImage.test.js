@@ -17,4 +17,10 @@ test('readSvgSizeMm: should throw when the text is not an SVG', () => {
   assert(error !== null && /svg/i.test(error.message), 'expected an explicit error mentioning svg');
 });
 
+test('readSvgSizeMm: should convert pixel dimensions at 96 dpi', () => {
+  const size = readSvgSizeMm('<svg xmlns="http://www.w3.org/2000/svg" width="96px" height="48"></svg>');
+  assertClose(size.widthMm, 25.4);
+  assertClose(size.heightMm, 12.7);
+});
+
 run();
