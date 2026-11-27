@@ -51,4 +51,14 @@ test('requestEngravingImage: should ignore a message that does not come from its
   assert(calls.images.length === 0 && calls.errors.length === 0, 'expected the foreign message to be ignored');
 });
 
+test('requestEngravingImage: should remove its frame, stop listening and cancel the timer once the image is given', () => {
+  const environment = fakeEnvironment();
+  const { onImage, onError } = recordingCallbacks();
+  requestEngravingImage(LABEL_URL, environment, { onImage, onError });
+  environment.answerFromFrame(LABEL_ANSWER);
+  assert(environment.frame.isRemoved, 'expected the frame to be removed');
+  assert(!environment.isListening, 'expected the listener to be stopped');
+  assert(environment.timer.isCancelled, 'expected the timer to be cancelled');
+});
+
 run();
