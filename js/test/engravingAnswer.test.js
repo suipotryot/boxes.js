@@ -26,4 +26,9 @@ test('readEngravingAnswer: should name the unengravable characters when the gene
   assert(message.includes('ø') && message.includes('§'), `expected the characters in "${message}"`);
 });
 
+test('readEngravingAnswer: should throw when the message is not an engraving answer', () => {
+  const message = thrownMessage(() => readEngravingAnswer({ type: 'something-else' }));
+  assert(message.includes('something-else'), `expected the unknown type in "${message}"`);
+});
+
 run();
