@@ -7,8 +7,16 @@ function prefixDeclarationsOf(svgText) {
   return (openingTag.match(/xmlns:\w+="[^"]*"/g) || []).map((declaration) => `${declaration} `).join('');
 }
 
-function withoutScripts(content) {
-  return content.replace(/<script[^>]*\/>|<script[^>]*>[\s\S]*?<\/script>/gi, '');
+const ACTIVE_ELEMENTS = ['script', 'foreignObject'];
+
+function withoutElement(content, elementName) {
+  const selfClosing = String.raw`<${elementName}\b[^>]*/>`;
+  const withBody = String.raw`<${elementName}\b[^>]*>[\s\S]*?</${elementName}>`;
+  return content.replace(new RegExp(`${selfClosing}|${withBody}`, 'gi'), '');
+}
+
+function withoutActiveElements(content) {
+  return ACTIVE_ELEMENTS.reduce(withoutElement, content);
 }
 
 function innerContentOf(svgText) {
@@ -33,5 +41,5 @@ function centreOf(image) {
 
 export function engravedImageMarkup(image) {
   const { x, y } = centreOf(image);
-  return `<g xmlns="http://www.w3.org/2000/svg" transform="rotate(180 ${x} ${y})"><svg ${prefixDeclarationsOf(image.svg)}x="${image.xMm}" y="${image.yMm}" width="${image.widthMm}" height="${image.heightMm}" viewBox="${viewBoxOf(image.svg)}" preserveAspectRatio="none">${withoutScripts(innerContentOf(image.svg))}</svg></g>`;
+  return `<g xmlns="http://www.w3.org/2000/svg" transform="rotate(180 ${x} ${y})"><svg ${prefixDeclarationsOf(image.svg)}x="${image.xMm}" y="${image.yMm}" width="${image.widthMm}" height="${image.heightMm}" viewBox="${viewBoxOf(image.svg)}" preserveAspectRatio="none">${withoutActiveElements(innerContentOf(image.svg))}</svg></g>`;
 }
