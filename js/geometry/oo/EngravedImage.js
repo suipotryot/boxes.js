@@ -1,11 +1,11 @@
 import { Cutout } from './Cutout.js';
 
-const MILLIMETRES_PER_UNIT = { mm: 1, cm: 10, in: 25.4, px: 25.4 / 96, '': 25.4 / 96 };
-const LENGTH_PATTERN = /^([\d.]+)(mm|cm|in|px)?$/;
+const MILLIMETRES_PER_UNIT = { mm: 1, cm: 10, in: 25.4, px: 25.4 / 96, pt: 25.4 / 72, '': 25.4 / 96 };
+const LENGTH_PATTERN = /^([\d.]+)(mm|cm|in|px|pt)?$/;
 
 function convertToMillimetres(lengthText) {
   const match = lengthText.match(LENGTH_PATTERN);
-  if (!match) throw new Error(`Unsupported SVG length "${lengthText}": use mm, cm, in or px`);
+  if (!match) throw new Error(`Unsupported SVG length "${lengthText}": use mm, cm, in, pt or px`);
   const [, amount, unit = ''] = match;
   return Number(amount) * MILLIMETRES_PER_UNIT[unit];
 }
