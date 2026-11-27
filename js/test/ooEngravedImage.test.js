@@ -105,4 +105,10 @@ test('readSvgSizeMm: should throw an explicit error naming the unsupported lengt
   assert(error !== null && error.message.includes('50%'), `expected an error naming "50%", got ${error && error.message}`);
 });
 
+test('readSvgSizeMm: should convert points at 72 per inch', () => {
+  const size = readSvgSizeMm('<svg xmlns="http://www.w3.org/2000/svg" width="72pt" height="36pt"></svg>');
+  assertClose(size.widthMm, 25.4);
+  assertClose(size.heightMm, 12.7);
+});
+
 run();
