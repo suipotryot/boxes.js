@@ -21,4 +21,9 @@ test('readEngravingAnswer: should throw naming the field and the reason when the
   assert(message.includes('width') && message.includes('missing'), `expected the field and the reason in "${message}"`);
 });
 
+test('readEngravingAnswer: should name the unengravable characters when the generator lists them', () => {
+  const message = thrownMessage(() => readEngravingAnswer({ type: 'engraving-image-error', field: 'dimensions', reason: 'unengravableCharacters', characters: ['ø', '§'] }));
+  assert(message.includes('ø') && message.includes('§'), `expected the characters in "${message}"`);
+});
+
 run();
