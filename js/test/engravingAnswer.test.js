@@ -22,8 +22,8 @@ test('readEngravingAnswer: should throw naming the field and the reason when the
 });
 
 test('readEngravingAnswer: should name the unengravable characters when the generator lists them', () => {
-  const message = thrownMessage(() => readEngravingAnswer({ type: 'engraving-image-error', field: 'dimensions', reason: 'unengravableCharacters', characters: ['ø', '§'] }));
-  assert(message.includes('ø') && message.includes('§'), `expected the characters in "${message}"`);
+  const message = thrownMessage(() => readEngravingAnswer({ type: 'engraving-image-error', field: 'dimensions', reason: 'unengravableCharacters', characters: ['\u00f8', '\u00a7'] }));
+  assert(message.includes('\u00f8') && message.includes('\u00a7'), `expected the characters in "${message}"`);
 });
 
 test('readEngravingAnswer: should throw when the message is not an engraving answer', () => {
