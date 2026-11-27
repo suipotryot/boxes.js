@@ -75,4 +75,9 @@ test('movedBy: should return a moved copy and leave the original untouched', () 
   assertClose(image.xMm, 10);
 });
 
+test('toTextLine: should list x, y, width and height', () => {
+  const image = new EngravedImage({ xMm: 10, yMm: 20, widthMm: 30, heightMm: 40, svg: '<svg/>' });
+  assert(image.toTextLine() === '10, 20, 30, 40', `got ${image.toTextLine()}`);
+});
+
 run();
