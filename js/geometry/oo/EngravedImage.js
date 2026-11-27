@@ -72,6 +72,10 @@ export class EngravedImage {
     return new EngravedImage({ ...this, ...patch });
   }
 
+  movedBy(dx, dy) {
+    return this.withChanges({ xMm: this.xMm + dx, yMm: this.yMm + dy });
+  }
+
   centeredOn(axis, areaLengthMm) {
     const { startField, sizeField } = CENTERING_AXES[axis];
     return this.withChanges({ [startField]: (areaLengthMm - this[sizeField]) / 2 });
