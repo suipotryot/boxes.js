@@ -12,4 +12,11 @@ test('engravedImageMarkup: should nest the SVG content at the image position and
   assert(markup.includes('<rect width="10" height="5"/>'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should derive the viewBox from the size in pixels when the SVG has none', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="25.4mm" height="12.7mm"><rect/></svg>';
+  const image = new EngravedImage({ xMm: 0, yMm: 0, widthMm: 25.4, heightMm: 12.7, svg });
+  const markup = engravedImageMarkup(image);
+  assert(markup.includes('viewBox="0 0 96 48"'), `got ${markup}`);
+});
+
 run();
