@@ -132,4 +132,14 @@ test('movedBy: should return a moved copy and leave the original untouched', () 
   assertClose(image.xMm, 10);
 });
 
+test('resizedToward: should keep the corner fixed and floor each axis at the minimum size', () => {
+  const image = new EngravedImage({ xMm: 10, yMm: 20, widthMm: 30, heightMm: 40, svg: '<svg/>' });
+  const resized = image.resizedToward({ x: 60, y: 22 }, 1);
+  assertClose(resized.xMm, 10);
+  assertClose(resized.yMm, 20);
+  assertClose(resized.widthMm, 50);
+  assertClose(resized.heightMm, 2);
+  assertClose(image.resizedToward({ x: 0, y: 0 }, 1).widthMm, 1);
+});
+
 run();
