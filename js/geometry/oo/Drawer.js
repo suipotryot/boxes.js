@@ -86,6 +86,7 @@ export class Drawer extends Assembly {
       basePlate: { mode: 'flush', recessMm: null },
       pieceNotches: unprefixed(project.pieceNotches, DRAWER_PREFIX),
       pieceHoles: unprefixed(project.pieceHoles, DRAWER_PREFIX),
+      pieceImages: unprefixed(project.pieceImages, DRAWER_PREFIX),
     };
     return { grid: sleeveGrid, project: sleeveProject };
   }
