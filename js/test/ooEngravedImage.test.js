@@ -95,4 +95,14 @@ test('replaceAt: should change only the image at the given index', () => {
   assertClose(replaced[1].yMm, 2);
 });
 
+test('readSvgSizeMm: should throw an explicit error naming the unsupported length', () => {
+  let error = null;
+  try {
+    readSvgSizeMm('<svg xmlns="http://www.w3.org/2000/svg" width="50%" height="10mm"></svg>');
+  } catch (e) {
+    error = e;
+  }
+  assert(error !== null && error.message.includes('50%'), `expected an error naming "50%", got ${error && error.message}`);
+});
+
 run();
