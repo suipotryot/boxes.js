@@ -4,6 +4,7 @@
 // interior wall/floor customization that no longer fits), so it's the one
 // field that asks first.
 import { el } from './dom.js';
+import { collapsibleSection } from './CollapsibleSection.js';
 import { numberField, textField, infoIcon, trashIcon } from './fields.js';
 import { FINGER_MM_HELP, SPACE_MM_HELP, MARGIN_MM_HELP, PLAY_MM_HELP, BURN_MM_HELP, LASER_WIDTH_HELP, LASER_HEIGHT_HELP, LASER_SPACING_HELP, DRAWER_PLAY_HELP, DRAWER_THICKNESS_HELP } from './fieldHelp.js';
 import { resizeGrid } from '../model/Grid.js';
@@ -30,22 +31,6 @@ function gridSizeField(labelText, values, onResize, tooltip) {
       },
     }),
   ]);
-}
-
-// A collapsible section, open/closed state owned by EditorView.js
-// (openSections/onToggleSection — same idiom as `selected`/`showLabels`)
-// so it survives this panel's own frequent full rebuilds. `key` indexes
-// into `openSections`; onToggleSection deliberately does NOT trigger a
-// re-render on its own (see EditorView.js's own comment on that) — the
-// native <details> already handles its expand/collapse visually, and
-// re-rendering an already-open one from scratch on every toggle is what
-// caused a real infinite loop (rebuilding + re-attaching an open
-// <details> fires its own 'toggle' event again in Chromium).
-function collapsibleSection(openSections, onToggleSection, key, title, children) {
-  return el('details', {
-    open: openSections[key],
-    ontoggle: (evt) => onToggleSection(key, evt.target.open),
-  }, [el('summary', { text: title }), ...children]);
 }
 
 function sideLabels() {

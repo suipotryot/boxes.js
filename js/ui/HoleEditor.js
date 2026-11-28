@@ -66,7 +66,7 @@ function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
   return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
-export function renderHoleSection(project, pieceId, context, store, selectedIndex) {
+export function renderHoleSection(project, pieceId, context, store, selectedIndex, inSection) {
   const holes = Hole.listFor(project.pieceHoles, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
@@ -76,11 +76,6 @@ export function renderHoleSection(project, pieceId, context, store, selectedInde
   const updateAt = (index, patch) => setList(Cutout.replaceAt(Hole.listFor(project.pieceHoles, pieceId), index, patch));
   const removeAt = (index) => setList(Hole.listFor(project.pieceHoles, pieceId).filter((_, i) => i !== index));
   const addHole = () => setList([...holes, new Hole(DEFAULT_HOLE)]);
-
-  const sectionLabel = el('div', { class: 'field-label' }, [
-    t('hole.title'),
-    infoIcon(t('hole.help')),
-  ]);
 
   const fieldOrderHint = el('div', {
     class: 'hint',
@@ -130,5 +125,5 @@ export function renderHoleSection(project, pieceId, context, store, selectedInde
 
   const addBtn = el('button', { class: 'btn', text: t('hole.add'), onClick: addHole });
 
-  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
+  return inSection([t('hole.title'), infoIcon(t('hole.help'))], [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }
