@@ -13,7 +13,7 @@
 // built once, in SegmentInspector.js, and shown at the top of the panel
 // rather than duplicated per section.
 import { el } from './dom.js';
-import { infoIcon, trashIcon } from './fields.js';
+import { trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { Hole, DEFAULT_HOLE } from '../geometry/oo/Hole.js';
 import { validateHoleInRect, validateWallHole, wallHoleSpan } from '../geometry/oo/HoleValidation.js';
@@ -125,5 +125,5 @@ export function renderHoleSection(project, pieceId, context, store, selectedInde
 
   const addBtn = el('button', { class: 'btn', text: t('hole.add'), onClick: addHole });
 
-  return wrapInCollapsible([t('hole.title'), infoIcon(t('hole.help'))], [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
+  return wrapInCollapsible(t('hole.title'), t('hole.help'), [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }

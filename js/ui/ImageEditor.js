@@ -1,5 +1,5 @@
 import { el } from './dom.js';
-import { infoIcon, trashIcon } from './fields.js';
+import { trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { validateImageInRect } from '../geometry/oo/ImageValidation.js';
@@ -122,7 +122,7 @@ export function renderImageSection(project, pieceId, context, store, selectedInd
     centerButton('y', 'image.centerY', heightMm),
   ]);
 
-  return wrapInCollapsible([t('image.title'), infoIcon(t('image.help'))], [
+  return wrapInCollapsible(t('image.title'), t('image.help'), [
     centerButtons,
     ...images.map((image, index) => renderOneImage(image, context, (patch) => updateAt(index, patch), () => removeAt(index))),
     renderImageInput(context, appendImage),

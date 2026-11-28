@@ -101,6 +101,7 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
     thickness: true, options: false, fingerJoint: false, basePlate: false, horizontalPanels: false,
     lid: false, drawer: false, copies: false, laserBed: false,
     notches: true, holes: true, images: true,
+    notchesHelp: false, holesHelp: false, imagesHelp: false,
   };
 
   // '2d' (the clickable grid) or '3d' (the three.js preview). `threeDContainer`

@@ -23,7 +23,7 @@ import { renderGripNotchSection } from './GripNotchEditor.js';
 import { renderImageSection } from './ImageEditor.js';
 import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { renderHoleSection } from './HoleEditor.js';
-import { collapsibleSection } from './CollapsibleSection.js';
+import { collapsibleSectionWithHelp } from './CollapsibleSection.js';
 import { t } from '../i18n/index.js';
 
 function kindLabel(kind) {
@@ -144,8 +144,8 @@ function renderEdgeSelector(smoothEdges, selectedFlatEdge, onSelectFlatEdge) {
 }
 
 function collapsibleWrapperFor(openSections, onToggleSection, key) {
-  return (summaryContent, children) => el('div', { class: 'inspector-section' }, [
-    collapsibleSection(openSections, onToggleSection, key, summaryContent, children),
+  return (title, helpText, children) => el('div', { class: 'inspector-section' }, [
+    collapsibleSectionWithHelp(openSections, onToggleSection, key, title, helpText, children),
   ]);
 }
 

@@ -1,4 +1,5 @@
 import { el } from './dom.js';
+import { t } from '../i18n/index.js';
 
 // A collapsible section, open/closed state owned by EditorView.js
 // (openSections/onToggleSection — same idiom as `selected`/`showLabels`)
@@ -14,4 +15,18 @@ export function collapsibleSection(openSections, onToggleSection, key, summaryCo
     open: openSections[key],
     ontoggle: (evt) => onToggleSection(key, evt.target.open),
   }, [el('summary', {}, [summaryContent].flat()), ...children]);
+}
+
+export function collapsibleSectionWithHelp(openSections, onToggleSection, key, title, helpText, children) {
+  const helpKey = `${key}Help`;
+  const helpLine = el('div', { class: 'hint section-help', text: helpText, hidden: !openSections[helpKey] });
+  const toggleHelp = (evt) => {
+    evt.preventDefault();
+    helpLine.hidden = !helpLine.hidden;
+    onToggleSection(helpKey, !helpLine.hidden);
+  };
+  const helpButton = el('button', {
+    type: 'button', class: 'help-toggle', text: 'i', title: t('help.toggle'), 'aria-label': t('help.toggle'), onClick: toggleHelp,
+  });
+  return collapsibleSection(openSections, onToggleSection, key, [title, helpButton], [helpLine, ...children]);
 }

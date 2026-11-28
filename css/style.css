@@ -236,11 +236,27 @@ h3:first-child { margin-top: 0; }
   z-index: 10;
   pointer-events: none;
 }
-summary .info-icon { margin-left: 0.4rem; }
-.inspector summary .info-icon:hover::after, .inspector summary .info-icon:focus::after {
-  left: 0;
-  transform: none;
+summary .help-toggle { margin-left: 0.4rem; }
+.help-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  background: none;
+  font: inherit;
+  font-size: 0.62rem;
+  font-style: italic;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  vertical-align: middle;
 }
+.help-toggle:hover, .help-toggle:focus { border-color: var(--accent); color: var(--accent); outline: none; }
+.section-help { margin-bottom: 0.4rem; }
 .field input, .field select {
   font: inherit;
   padding: 0.3rem 0.4rem;

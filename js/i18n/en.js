@@ -129,6 +129,7 @@ export const en = {
   'hole.distributeX': 'Distribute on X',
   'hole.distributeY': 'Distribute on Y',
   'hole.delete': 'Delete this hole',
+  'help.toggle': 'Show or hide the help',
   'image.title': 'Engraved images',
   'image.help': 'An engraved image is not a cut: it is added as is on the plate, with no kerf correction.',
   'image.inputPlaceholder': 'Paste the SVG code of the image here, or the https://… address of the image generator',

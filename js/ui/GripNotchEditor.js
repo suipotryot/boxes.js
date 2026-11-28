@@ -17,7 +17,7 @@
 // repeated per row; the piece preview itself is rendered once, at the top
 // of SegmentInspector's panel, not duplicated here.
 import { el } from './dom.js';
-import { infoIcon, trashIcon } from './fields.js';
+import { trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { Notch, DEFAULT_NOTCH } from '../geometry/oo/Notch.js';
 import { validateNotch, validateFlatEdgeNotch } from '../geometry/oo/NotchValidation.js';
@@ -115,5 +115,5 @@ export function renderGripNotchSection(project, pieceId, context, store, selecte
 
   const addBtn = el('button', { class: 'btn', text: t('notch.add'), onClick: addNotch });
 
-  return wrapInCollapsible([t('notch.title'), infoIcon(t(context.kind === 'wall' ? 'notch.help' : 'notch.helpFlat'))], [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
+  return wrapInCollapsible(t('notch.title'), t(context.kind === 'wall' ? 'notch.help' : 'notch.helpFlat'), [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }

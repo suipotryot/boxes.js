@@ -134,6 +134,7 @@ export const fr = {
   'hole.distributeX': 'Distribuer sur X',
   'hole.distributeY': 'Distribuer sur Y',
   'hole.delete': 'Supprimer ce trou',
+  'help.toggle': 'Afficher ou masquer l’aide',
   'image.title': 'Images à graver',
   'image.help': 'Une image à graver n\'est pas une découpe : elle est ajoutée telle quelle sur la plaque, sans correction de trait de scie.',
   'image.inputPlaceholder': 'Collez ici le code SVG de l’image, ou l’adresse https://… du générateur d’image',
