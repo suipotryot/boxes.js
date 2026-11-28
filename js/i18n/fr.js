@@ -84,6 +84,7 @@ export const fr = {
   'export.exportSvg': 'Exporter (SVG)',
   'export.exportSvgDeepnest': 'Exporter pour Deepnest',
   'export.inProgress': 'Export en cours…',
+  'export.failed': 'Export impossible : {reason}',
   'export.jsonFileType': 'Projet JSON',
 
   // Inspector (SegmentInspector.js)
@@ -172,6 +173,12 @@ export const fr = {
   'settingsPanel.innerHeight': 'Hauteur intérieure par défaut (mm)',
   'settingsPanel.innerHeightHelp': 'Hauteur par défaut des cloisons internes — modifiable individuellement par cloison dans l’inspecteur.',
   'settingsPanel.optionsSection': 'Options',
+  'settingsPanel.copiesSection': 'Exemplaires',
+  'settingsPanel.copiesUrls': 'Adresses des images',
+  'settingsPanel.copiesHelp': 'Une adresse https:// par ligne. Chaque exemplaire de la boîte reprend les emplacements des images actuelles (rangés par nom de pièce puis par ordre d’ajout) et remplace leur contenu : écrivez autant de lignes par exemplaire que la boîte a d’images. Vide : un seul exemplaire, avec les images actuelles. Les images sont chargées à l’export.',
+  'settingsPanel.copiesPlaceholder': 'https://…',
+  'settingsPanel.copiesSummary': '{slots} image(s) par boîte, {copies} exemplaire(s) à exporter',
+  'settingsPanel.copiesInvalid': 'Liste inutilisable : {reason}',
   'settingsPanel.labelPieces': 'Étiqueter les pièces',
   'settingsPanel.labelPiecesHelp': 'Grave le nom de chaque pièce (ex. « Paroi V2,0 ») sur son propre contour, dans l’aperçu et à l’export SVG.',
   'settingsPanel.basePlateSection': 'Fond',

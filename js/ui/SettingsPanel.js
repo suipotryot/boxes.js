@@ -11,6 +11,9 @@ import { validateHorizontalPanelHeight, basePlateMode, basePlateRecessMm, isBase
 import { addHorizontalPanel, removeHorizontalPanel, updateHorizontalPanel, horizontalPanelNumber, heightBroughtIntoRange } from '../model/HorizontalPanels.js';
 import { coverageHoldsFlankTabs } from '../geometry/oo/Assembly.js';
 import { t } from '../i18n/index.js';
+import { Box } from '../geometry/oo/Box.js';
+import { imageSlotCountOf } from '../export/CopyPieces.js';
+import { parseCopyUrls } from '../image/CopyUrlList.js';
 
 function parseMmList(text) {
   return text.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
@@ -241,6 +244,29 @@ function optionsSection(openSections, onToggleSection, showLabels, onToggleLabel
   return collapsibleSection(openSections, onToggleSection, 'options', t('settingsPanel.optionsSection'), [labelsRow]);
 }
 
+function copiesSummary(project) {
+  const slotCount = imageSlotCountOf(Box.fromProject(project).allPieces());
+  try {
+    const copyCount = parseCopyUrls(project.copyImageUrls, slotCount).length;
+    return { text: t('settingsPanel.copiesSummary', { slots: slotCount, copies: copyCount }), isValid: true };
+  } catch (error) {
+    return { text: t('settingsPanel.copiesInvalid', { reason: error.message }), isValid: false };
+  }
+}
+
+function copiesSection(project, store, openSections, onToggleSection) {
+  const summary = copiesSummary(project);
+  const urlsField = el('textarea', {
+    rows: '6', placeholder: t('settingsPanel.copiesPlaceholder'), value: project.copyImageUrls,
+    onChange: (evt) => store.apply((p) => ({ ...p, copyImageUrls: evt.target.value })),
+  });
+  return collapsibleSection(openSections, onToggleSection, 'copies', t('settingsPanel.copiesSection'), [
+    el('div', { class: 'field-label' }, [t('settingsPanel.copiesUrls'), infoIcon(t('settingsPanel.copiesHelp'))]),
+    el('div', { class: 'field' }, [urlsField]),
+    el('div', { class: summary.isValid ? 'hint' : 'warning', text: summary.text }),
+  ]);
+}
+
 // The "boîte en tiroir" feature: an independent enclosing sleeve box (own
 // grid, own thickness, see DrawerBuilder.js) built around the current
 // box's own outer footprint, open on one side. Always 5 pieces (base +
@@ -314,6 +340,7 @@ export function renderSettingsPanel(project, store, openSections, onToggleSectio
     horizontalPanelsSection(project, store, openSections, onToggleSection),
     lidSection(project, store, openSections, onToggleSection),
     drawerSection(project, store, openSections, onToggleSection),
+    copiesSection(project, store, openSections, onToggleSection),
 
     collapsibleSection(openSections, onToggleSection, 'fingerJoint', t('shared.fingerJointSection'), [
       numberField(t('field.fingerMm'), project.fingerJoint.fingerMm, (n) => store.apply((p) => ({ ...p, fingerJoint: { ...p.fingerJoint, fingerMm: n } })), '1', FINGER_MM_HELP()),

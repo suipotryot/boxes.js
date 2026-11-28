@@ -79,6 +79,7 @@ export const en = {
   'export.exportSvg': 'Export (SVG)',
   'export.exportSvgDeepnest': 'Export for Deepnest',
   'export.inProgress': 'Exporting…',
+  'export.failed': 'Export failed: {reason}',
   'export.jsonFileType': 'boxes.js project',
 
   // Inspector (SegmentInspector.js)
@@ -167,6 +168,12 @@ export const en = {
   'settingsPanel.innerHeight': 'Default inner height (mm)',
   'settingsPanel.innerHeightHelp': 'Default height of the interior dividers — overridable per divider in the inspector.',
   'settingsPanel.optionsSection': 'Options',
+  'settingsPanel.copiesSection': 'Copies',
+  'settingsPanel.copiesUrls': 'Image addresses',
+  'settingsPanel.copiesHelp': 'One https:// address per line. Each copy of the box reuses the places of the current images (sorted by piece name, then by the order they were added) and replaces their content: write as many lines per copy as the box has images. Empty: a single copy with the current images. The images are loaded at export time.',
+  'settingsPanel.copiesPlaceholder': 'https://…',
+  'settingsPanel.copiesSummary': '{slots} image(s) per box, {copies} copy(ies) to export',
+  'settingsPanel.copiesInvalid': 'Unusable list: {reason}',
   'settingsPanel.labelPieces': 'Label pieces',
   'settingsPanel.labelPiecesHelp': 'Engraves each piece\'s name (e.g. "Paroi V2,0") onto its own outline, in the preview and in the SVG export.',
   'settingsPanel.basePlateSection': 'Base plate',
