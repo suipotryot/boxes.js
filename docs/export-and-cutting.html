@@ -42,6 +42,10 @@
     </div>
     <p>An oversized piece — bigger than the laser bed itself — is never silently dropped: it's placed alone on its own page instead.</p>
 
+    <h3>Several copies, one image each</h3>
+    <p>To cut many boxes that differ only by an engraved image (labels, for instance), set up one box with its images, then open the <strong>Copies</strong> section of the left panel and type one <code>https://</code> address per line. The images already on the box are the <em>template</em>: they are sorted by piece name, then by the order they were added, and each copy takes as many lines as the box has images. Every copy keeps the position (the centre) of the template images and takes the size announced by the address.</p>
+    <p>The section tells you how many images the box has and how many copies will be exported. Leave the list empty to export a single box with its current images. The addresses are loaded when you click an export button, one at a time; if one of them fails, nothing is exported and the message names the copy and the image.</p>
+
     <h2>Export (JSON) — the project file</h2>
     <p>Saves the whole project's state (dimensions, grid, holes, notches, lid/drawer settings, and so on) to a JSON file. This is for backing up or re-importing a project — it is <strong>not</strong> a cutting file. Where your browser supports it, this opens a real save-location dialog (the File System Access API); otherwise it falls back to a normal download into your browser's default downloads folder.</p>
     <p>See <a href="managing-projects.html">Managing Projects</a> for the project list's own, separate import/export of saved projects.</p>
