@@ -136,7 +136,6 @@ export const fr = {
   'hole.delete': 'Supprimer ce trou',
   'image.title': 'Images à graver',
   'image.help': 'Une image à graver n\'est pas une découpe : elle est ajoutée telle quelle sur la plaque, sans correction de trait de scie.',
-  'image.fieldOrderHint': 'Ordre des champs : x, y, largeur, hauteur (mm).',
   'image.inputPlaceholder': 'Collez ici le code SVG de l’image, ou l’adresse https://… du générateur d’image',
   'image.lineUnreadable': 'Ligne illisible : attendu quatre nombres séparés par des virgules (x, y, largeur, hauteur).',
   'image.add':'Ajouter l\'image',

@@ -123,7 +123,6 @@ export function renderImageSection(project, pieceId, context, store, selectedInd
   ]);
 
   return wrapInCollapsible([t('image.title'), infoIcon(t('image.help'))], [
-    el('div', { class: 'hint', text: t('image.fieldOrderHint') }),
     centerButtons,
     ...images.map((image, index) => renderOneImage(image, context, (patch) => updateAt(index, patch), () => removeAt(index))),
     renderImageInput(context, appendImage),

@@ -236,6 +236,11 @@ h3:first-child { margin-top: 0; }
   z-index: 10;
   pointer-events: none;
 }
+summary .info-icon { margin-left: 0.4rem; }
+.inspector summary .info-icon:hover::after, .inspector summary .info-icon:focus::after {
+  left: 0;
+  transform: none;
+}
 .field input, .field select {
   font: inherit;
   padding: 0.3rem 0.4rem;

@@ -131,7 +131,6 @@ export const en = {
   'hole.delete': 'Delete this hole',
   'image.title': 'Engraved images',
   'image.help': 'An engraved image is not a cut: it is added as is on the plate, with no kerf correction.',
-  'image.fieldOrderHint': 'Field order: x, y, width, height (mm).',
   'image.inputPlaceholder': 'Paste the SVG code of the image here, or the https://… address of the image generator',
   'image.lineUnreadable': 'Unreadable line: expected four comma-separated numbers (x, y, width, height).',
   'image.add':'Add the image',
