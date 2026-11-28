@@ -23,6 +23,7 @@ import { renderGripNotchSection } from './GripNotchEditor.js';
 import { renderImageSection } from './ImageEditor.js';
 import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { renderHoleSection } from './HoleEditor.js';
+import { collapsibleSectionWithHelp } from './CollapsibleSection.js';
 import { t } from '../i18n/index.js';
 
 function kindLabel(kind) {
@@ -142,7 +143,13 @@ function renderEdgeSelector(smoothEdges, selectedFlatEdge, onSelectFlatEdge) {
   ]);
 }
 
-export function renderInspector(project, selected, selectedWallId, store, selectedCutout, onSelectCutout, selectedFlatEdge, onSelectFlatEdge) {
+function collapsibleWrapperFor(openSections, onToggleSection, key) {
+  return (title, helpText, children) => el('div', { class: 'inspector-section' }, [
+    collapsibleSectionWithHelp(openSections, onToggleSection, key, title, helpText, children),
+  ]);
+}
+
+export function renderInspector(project, selected, selectedWallId, store, selectedCutout, onSelectCutout, selectedFlatEdge, onSelectFlatEdge, openSections, onToggleSection) {
   const sections = [];
 
   const wallContext = selectedWallId ? resolveWallRunContext(project, selectedWallId) : null;
@@ -219,9 +226,9 @@ export function renderInspector(project, selected, selectedWallId, store, select
   // is already active on its own (see activeEdge above), so a one-option
   // selector would just be a pointless extra click.
   if (smoothEdges.length > 1) sections.push(renderEdgeSelector(smoothEdges, selectedFlatEdge, onSelectFlatEdge));
-  if (notchContext) sections.push(renderGripNotchSection(project, notchPieceId, notchContext, store, notchSelectedIndex));
-  if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store, holeSelectedIndex));
-  if (holeContext) sections.push(renderImageSection(project, selectedWallId, holeContext, store, imageSelectedIndex));
+  if (notchContext) sections.push(renderGripNotchSection(project, notchPieceId, notchContext, store, notchSelectedIndex, collapsibleWrapperFor(openSections, onToggleSection, 'notches')));
+  if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store, holeSelectedIndex, collapsibleWrapperFor(openSections, onToggleSection, 'holes')));
+  if (holeContext) sections.push(renderImageSection(project, selectedWallId, holeContext, store, imageSelectedIndex, collapsibleWrapperFor(openSections, onToggleSection, 'images')));
 
   if (!sections.length) {
     return el('div', { class: 'inspector empty' }, [

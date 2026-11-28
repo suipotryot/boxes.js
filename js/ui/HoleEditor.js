@@ -13,7 +13,7 @@
 // built once, in SegmentInspector.js, and shown at the top of the panel
 // rather than duplicated per section.
 import { el } from './dom.js';
-import { infoIcon, trashIcon } from './fields.js';
+import { trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { Hole, DEFAULT_HOLE } from '../geometry/oo/Hole.js';
 import { validateHoleInRect, validateWallHole, wallHoleSpan } from '../geometry/oo/HoleValidation.js';
@@ -66,7 +66,7 @@ function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
   return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
-export function renderHoleSection(project, pieceId, context, store, selectedIndex) {
+export function renderHoleSection(project, pieceId, context, store, selectedIndex, wrapInCollapsible) {
   const holes = Hole.listFor(project.pieceHoles, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
@@ -76,11 +76,6 @@ export function renderHoleSection(project, pieceId, context, store, selectedInde
   const updateAt = (index, patch) => setList(Cutout.replaceAt(Hole.listFor(project.pieceHoles, pieceId), index, patch));
   const removeAt = (index) => setList(Hole.listFor(project.pieceHoles, pieceId).filter((_, i) => i !== index));
   const addHole = () => setList([...holes, new Hole(DEFAULT_HOLE)]);
-
-  const sectionLabel = el('div', { class: 'field-label' }, [
-    t('hole.title'),
-    infoIcon(t('hole.help')),
-  ]);
 
   const fieldOrderHint = el('div', {
     class: 'hint',
@@ -130,5 +125,5 @@ export function renderHoleSection(project, pieceId, context, store, selectedInde
 
   const addBtn = el('button', { class: 'btn', text: t('hole.add'), onClick: addHole });
 
-  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
+  return wrapInCollapsible(t('hole.title'), t('hole.help'), [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }

@@ -1,11 +1,11 @@
 import { el } from './dom.js';
-import { infoIcon, trashIcon } from './fields.js';
+import { trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { validateImageInRect } from '../geometry/oo/ImageValidation.js';
 import { wallHoleSpan } from '../geometry/oo/HoleValidation.js';
 import { t } from '../i18n/index.js';
-import { parseImageSourceUrl } from '../image/ImageSourceUrl.js';
+import { readImageInput } from '../image/ImageInput.js';
 import { requestEngravingImage } from '../image/EngravingImageRequest.js';
 import { browserEngravingEnvironment } from '../image/BrowserEngravingEnvironment.js';
 import { assertWellFormedSvg } from '../image/assertWellFormedSvg.js';
@@ -45,57 +45,57 @@ function renderOneImage(image, context, onUpdate, onRemove) {
   return el('div', { class: 'compact-item' }, [el('div', { class: 'compact-item-row' }, [lineField, trashButton]), warning]);
 }
 
-function renderPasteArea(context, onAdd) {
-  const textarea = el('textarea', { rows: '4', placeholder: t('image.pastePlaceholder') });
+function renderImageInput(context, onAdd) {
+  const textarea = el('textarea', { rows: '4', placeholder: t('image.inputPlaceholder') });
   const errorLine = el('span', { class: 'warning' });
-  const addButton = el('button', {
-    class: 'btn', text: t('image.add'),
-    onClick: () => {
-      try {
-        const { widthMm, heightMm } = plateSizeMm(context);
-        onAdd(EngravedImage.centeredIn(textarea.value, widthMm, heightMm));
-        errorLine.textContent = '';
-      } catch (error) {
-        errorLine.textContent = t('image.invalidSvg', { reason: error.message });
-      }
-    },
+  const addButton = el('button', { class: 'btn', text: t('image.add') });
+
+  const showFailure = (messageKey, error) => {
+    addButton.disabled = false;
+    addButton.textContent = t('image.add');
+    errorLine.textContent = t(messageKey, { reason: error.message });
+  };
+  const addPastedSvg = (svg) => {
+    try {
+      const plate = plateSizeMm(context);
+      onAdd(EngravedImage.centeredIn(svg, plate.widthMm, plate.heightMm));
+    } catch (error) {
+      showFailure('image.invalidSvg', error);
+    }
+  };
+  const addLoadedImage = (loadedImage) => {
+    try {
+      assertWellFormedSvg(loadedImage.svg);
+      const plate = plateSizeMm(context);
+      onAdd(EngravedImage.centeredWithSize(loadedImage, plate.widthMm, plate.heightMm));
+    } catch (error) {
+      showFailure('image.urlFailed', error);
+    }
+  };
+  const loadFromUrl = (url) => {
+    addButton.disabled = true;
+    addButton.textContent = t('image.urlLoading');
+    requestEngravingImage(url, browserEngravingEnvironment, {
+      onImage: addLoadedImage,
+      onError: (error) => showFailure('image.urlFailed', error),
+    });
+  };
+  const readInputOrShowFailure = (text) => {
+    try {
+      return readImageInput(text);
+    } catch (error) {
+      showFailure('image.unreadableInput', error);
+      return null;
+    }
+  };
+  addButton.addEventListener('click', () => {
+    errorLine.textContent = '';
+    const input = readInputOrShowFailure(textarea.value);
+    if (input === null) return;
+    if (input.kind === 'svg') addPastedSvg(input.svg);
+    else loadFromUrl(input.url);
   });
   return el('div', { class: 'field' }, [textarea, addButton, errorLine]);
-}
-
-function renderUrlLoader(context, onAdd) {
-  const input = el('input', { type: 'text', placeholder: t('image.urlPlaceholder') });
-  const errorLine = el('span', { class: 'warning' });
-  const loadButton = el('button', { class: 'btn', text: t('image.urlLoad') });
-
-  const showFailure = (error) => {
-    loadButton.disabled = false;
-    loadButton.textContent = t('image.urlLoad');
-    errorLine.textContent = t('image.urlFailed', { reason: error.message });
-  };
-  const addLoadedImage = ({ svg, widthMm, heightMm }) => {
-    try {
-      assertWellFormedSvg(svg);
-      const plate = plateSizeMm(context);
-      onAdd(EngravedImage.centeredWithSize({ svg, widthMm, heightMm }, plate.widthMm, plate.heightMm));
-    } catch (error) {
-      showFailure(error);
-    }
-  };
-  const startLoading = (url) => {
-    loadButton.disabled = true;
-    loadButton.textContent = t('image.urlLoading');
-    errorLine.textContent = '';
-    requestEngravingImage(url, browserEngravingEnvironment, { onImage: addLoadedImage, onError: showFailure });
-  };
-  loadButton.addEventListener('click', () => {
-    try {
-      startLoading(parseImageSourceUrl(input.value));
-    } catch (error) {
-      showFailure(error);
-    }
-  });
-  return el('div', { class: 'field' }, [input, loadButton, errorLine]);
 }
 
 function withImageAppended(project, pieceId, image) {
@@ -103,7 +103,7 @@ function withImageAppended(project, pieceId, image) {
   return { ...project, pieceImages: { ...project.pieceImages, [pieceId]: [...imagesOfPiece, image] } };
 }
 
-export function renderImageSection(project, pieceId, context, store, selectedIndex) {
+export function renderImageSection(project, pieceId, context, store, selectedIndex, wrapInCollapsible) {
   const images = EngravedImage.listFor(project.pieceImages, pieceId);
   const setList = (nextList) => store.apply((p) => ({ ...p, pieceImages: { ...p.pieceImages, [pieceId]: nextList } }));
   const appendImage = (image) => store.apply((p) => withImageAppended(p, pieceId, image));
@@ -122,12 +122,9 @@ export function renderImageSection(project, pieceId, context, store, selectedInd
     centerButton('y', 'image.centerY', heightMm),
   ]);
 
-  return el('div', { class: 'inspector-section' }, [
-    el('div', { class: 'field-label' }, [t('image.title'), infoIcon(t('image.help'))]),
-    el('div', { class: 'hint', text: t('image.fieldOrderHint') }),
+  return wrapInCollapsible(t('image.title'), t('image.help'), [
     centerButtons,
     ...images.map((image, index) => renderOneImage(image, context, (patch) => updateAt(index, patch), () => removeAt(index))),
-    renderPasteArea(context, appendImage),
-    renderUrlLoader(context, appendImage),
+    renderImageInput(context, appendImage),
   ]);
 }

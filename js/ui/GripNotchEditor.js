@@ -17,7 +17,7 @@
 // repeated per row; the piece preview itself is rendered once, at the top
 // of SegmentInspector's panel, not duplicated here.
 import { el } from './dom.js';
-import { infoIcon, trashIcon } from './fields.js';
+import { trashIcon } from './fields.js';
 import { Cutout } from '../geometry/oo/Cutout.js';
 import { Notch, DEFAULT_NOTCH } from '../geometry/oo/Notch.js';
 import { validateNotch, validateFlatEdgeNotch } from '../geometry/oo/NotchValidation.js';
@@ -76,7 +76,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
-export function renderGripNotchSection(project, pieceId, context, store, selectedIndex) {
+export function renderGripNotchSection(project, pieceId, context, store, selectedIndex, wrapInCollapsible) {
   const notches = Notch.listFor(project.pieceNotches, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
@@ -86,11 +86,6 @@ export function renderGripNotchSection(project, pieceId, context, store, selecte
   const updateAt = (index, patch) => setList(Cutout.replaceAt(Notch.listFor(project.pieceNotches, pieceId), index, patch));
   const removeAt = (index) => setList(Notch.listFor(project.pieceNotches, pieceId).filter((_, i) => i !== index));
   const addNotch = () => setList([...notches, new Notch(DEFAULT_NOTCH)]);
-
-  const sectionLabel = el('div', { class: 'field-label' }, [
-    t('notch.title'),
-    infoIcon(t(context.kind === 'wall' ? 'notch.help' : 'notch.helpFlat')),
-  ]);
 
   const fieldOrderHint = el('div', {
     class: 'hint',
@@ -120,5 +115,5 @@ export function renderGripNotchSection(project, pieceId, context, store, selecte
 
   const addBtn = el('button', { class: 'btn', text: t('notch.add'), onClick: addNotch });
 
-  return el('div', { class: 'inspector-section' }, [sectionLabel, fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
+  return wrapInCollapsible(t('notch.title'), t(context.kind === 'wall' ? 'notch.help' : 'notch.helpFlat'), [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }
