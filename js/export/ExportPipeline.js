@@ -7,6 +7,7 @@
 import { Box } from '../geometry/oo/Box.js';
 import { groupByThickness } from './ThicknessGrouper.js';
 import { packPieces } from './RectPacker.js';
+import { piecesForCopies } from './CopyPieces.js';
 import { renderSvgPage, renderSvgPageForDeepnest, svgElementToFileText } from './SvgPageRenderer.js';
 
 export function sanitizeFilename(name) {
@@ -21,9 +22,9 @@ function sleep(ms) {
  *  effects. Lets the export UI show a page-count summary before
  *  committing to actual downloads, and is unit-testable without a
  *  browser (computePieces/groupByThickness/packPieces are all pure). */
-export function planExport(project) {
-  const pieces = Box.fromProject(project).allPiecesBurnCorrected();
-  const groups = groupByThickness(pieces);
+export function planExport(project, answersByCopy = []) {
+  const templatePieces = Box.fromProject(project).allPiecesBurnCorrected();
+  const groups = groupByThickness(piecesForCopies(templatePieces, answersByCopy));
   const { widthMm, heightMm, spacingMm } = project.laserBed;
   return groups.map(({ thicknessMm, pieces }) => ({
     thicknessMm,
