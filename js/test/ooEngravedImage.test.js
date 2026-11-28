@@ -150,4 +150,31 @@ test('centeredWithSize: should centre the image with the size given by its gener
   assertClose(image.heightMm, 20);
 });
 
+const placed = { xMm: 10, yMm: 20, widthMm: 40, heightMm: 10, svg: '<svg/>' };
+
+test('EngravedImage: should have no rotation unless one is given', () => {
+  assert(new EngravedImage(placed).rotationDeg === 0, 'expected a rotation of 0');
+});
+
+test('rotatedQuarterTurn: should turn the image by 90 degrees, swap its size and keep its center', () => {
+  const turned = new EngravedImage(placed).rotatedQuarterTurn();
+  assert(turned.rotationDeg === 90, `got ${turned.rotationDeg}`);
+  assert(turned.widthMm === 10 && turned.heightMm === 40, `got ${turned.widthMm}x${turned.heightMm}`);
+  assertClose(turned.xMm + turned.widthMm / 2, 30);
+  assertClose(turned.yMm + turned.heightMm / 2, 25);
+});
+
+test('rotatedQuarterTurn: should come back to the original image after four turns', () => {
+  const original = new EngravedImage(placed);
+  const turnedFourTimes = original.rotatedQuarterTurn().rotatedQuarterTurn().rotatedQuarterTurn().rotatedQuarterTurn();
+  assert(turnedFourTimes.rotationDeg === 0, `got ${turnedFourTimes.rotationDeg}`);
+  assert(turnedFourTimes.toTextLine() === original.toTextLine(), `got ${turnedFourTimes.toTextLine()}`);
+});
+
+test('contentSize: should give the size of the image before its rotation', () => {
+  const turned = new EngravedImage(placed).rotatedQuarterTurn();
+  assert(turned.contentSize().widthMm === 40 && turned.contentSize().heightMm === 10, `got ${JSON.stringify(turned.contentSize())}`);
+  assert(new EngravedImage(placed).contentSize().widthMm === 40, 'expected the displayed size when not rotated');
+});
+
 run();

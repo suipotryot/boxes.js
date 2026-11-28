@@ -60,12 +60,35 @@ const CENTERING_AXES = {
 };
 
 export class EngravedImage {
-  constructor({ xMm, yMm, widthMm, heightMm, svg }) {
+  constructor({ xMm, yMm, widthMm, heightMm, svg, rotationDeg = 0 }) {
     this.xMm = xMm;
     this.yMm = yMm;
     this.widthMm = widthMm;
     this.heightMm = heightMm;
     this.svg = svg;
+    this.rotationDeg = rotationDeg;
+  }
+
+  isTurnedSideways() {
+    return this.rotationDeg % 180 !== 0;
+  }
+
+  contentSize() {
+    return this.isTurnedSideways()
+      ? { widthMm: this.heightMm, heightMm: this.widthMm }
+      : { widthMm: this.widthMm, heightMm: this.heightMm };
+  }
+
+  rotatedQuarterTurn() {
+    const centerX = this.xMm + this.widthMm / 2;
+    const centerY = this.yMm + this.heightMm / 2;
+    return this.withChanges({
+      rotationDeg: (this.rotationDeg + 90) % 360,
+      widthMm: this.heightMm,
+      heightMm: this.widthMm,
+      xMm: centerX - this.heightMm / 2,
+      yMm: centerY - this.widthMm / 2,
+    });
   }
 
   withChanges(patch) {

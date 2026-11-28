@@ -22,14 +22,22 @@ function centerOf(image) {
   return { x: image.xMm + image.widthMm / 2, y: image.yMm + image.heightMm / 2 };
 }
 
+function displayedSizeOf(templateImage, loadedImage) {
+  return templateImage.isTurnedSideways()
+    ? { widthMm: loadedImage.heightMm, heightMm: loadedImage.widthMm }
+    : { widthMm: loadedImage.widthMm, heightMm: loadedImage.heightMm };
+}
+
 function loadedImageCenteredOn(templateImage, loadedImage) {
   const { x, y } = centerOf(templateImage);
+  const { widthMm, heightMm } = displayedSizeOf(templateImage, loadedImage);
   return new EngravedImage({
-    xMm: x - loadedImage.widthMm / 2,
-    yMm: y - loadedImage.heightMm / 2,
-    widthMm: loadedImage.widthMm,
-    heightMm: loadedImage.heightMm,
+    xMm: x - widthMm / 2,
+    yMm: y - heightMm / 2,
+    widthMm,
+    heightMm,
     svg: loadedImage.svg,
+    rotationDeg: templateImage.rotationDeg,
   });
 }
 

@@ -1,0 +1,54 @@
+import * as THREE from 'three';
+
+const PIXELS_PER_MM = 8;
+const MAX_TEXTURE_SIDE_PX = 2048;
+
+const texturesBySvgAndSize = new Map();
+
+function decodeSvg(svg) {
+  return new Promise((resolve, reject) => {
+    const decodedImage = new Image();
+    decodedImage.onload = () => resolve(decodedImage);
+    decodedImage.onerror = () => reject(new Error('The engraved image could not be decoded'));
+    decodedImage.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
+}
+
+function canvasSizeFor(image) {
+  const { widthMm, heightMm } = image.contentSize();
+  const pixelsPerMm = Math.min(PIXELS_PER_MM, MAX_TEXTURE_SIDE_PX / Math.max(widthMm, heightMm));
+  return { widthPx: Math.ceil(widthMm * pixelsPerMm), heightPx: Math.ceil(heightMm * pixelsPerMm) };
+}
+
+function textureFromDecoded(decodedImage, image) {
+  const { widthPx, heightPx } = canvasSizeFor(image);
+  const canvas = document.createElement('canvas');
+  canvas.width = widthPx;
+  canvas.height = heightPx;
+  canvas.getContext('2d').drawImage(decodedImage, 0, 0, widthPx, heightPx);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function cacheKeyOf(image) {
+  const { widthMm, heightMm } = image.contentSize();
+  return `${widthMm}x${heightMm}:${image.svg}`;
+}
+
+export function loadEngravedImageTexture(image) {
+  const key = cacheKeyOf(image);
+  if (!texturesBySvgAndSize.has(key)) {
+    const texturePromise = decodeSvg(image.svg).then((decodedImage) => textureFromDecoded(decodedImage, image));
+    texturePromise.catch(() => texturesBySvgAndSize.delete(key));
+    texturesBySvgAndSize.set(key, texturePromise);
+  }
+  return texturesBySvgAndSize.get(key);
+}
+
+export async function disposeEngravedImageTextures() {
+  const pendingTextures = [...texturesBySvgAndSize.values()];
+  texturesBySvgAndSize.clear();
+  const settledResults = await Promise.allSettled(pendingTextures);
+  settledResults.filter((result) => result.status === 'fulfilled').forEach((result) => result.value.dispose());
+}

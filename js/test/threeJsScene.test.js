@@ -75,4 +75,102 @@ test('populateScene() should slide the horizontal panels out with the box when t
   assert(closedOrigin.distanceTo(openOrigin) > 1, `expected the panel to move with the box, it stayed at ${JSON.stringify(closedOrigin)}`);
 });
 
+function projectWithImagesOnBasePlate() {
+  const project = fixtureProject();
+  project.pieceImages = {
+    'base-plate': [
+      { xMm: 10, yMm: 20, widthMm: 30, heightMm: 10, svg: '<svg id="first"/>' },
+      { xMm: 50, yMm: 60, widthMm: 8, heightMm: 4, svg: '<svg id="second"/>' },
+    ],
+  };
+  return project;
+}
+
+function pieceMesh(scene, pieceId) {
+  return scene.children.find((mesh) => mesh.userData.pieceId === pieceId);
+}
+
+test('populateScene() should add one plane per engraved image to the mesh of its piece, centered on the image', () => {
+  const scene = new THREE.Scene();
+  populateScene(scene, projectWithImagesOnBasePlate());
+  const planes = pieceMesh(scene, 'base-plate').children;
+  assert(planes.length === 2, `expected 2 planes, got ${planes.length}`);
+  assert(planes[0].position.x === 25 && planes[0].position.y === 25, `got ${JSON.stringify(planes[0].position)}`);
+  assert(planes[1].geometry.parameters.width === 8 && planes[1].geometry.parameters.height === 4, 'expected the plane to have the size of the image');
+});
+
+test('populateScene() should add no plane to a piece without image', () => {
+  const scene = new THREE.Scene();
+  populateScene(scene, projectWithImagesOnBasePlate());
+  assert(scene.children.every((mesh) => mesh.userData.pieceId === 'base-plate' || mesh.children.length === 0), 'only the base plate should carry planes');
+});
+
+test('populateScene() should dispose the planes of the previous scene when it populates again', () => {
+  const scene = new THREE.Scene();
+  const project = projectWithImagesOnBasePlate();
+  populateScene(scene, project);
+  const [plane] = pieceMesh(scene, 'base-plate').children;
+  const disposed = { geometry: false, material: false };
+  plane.geometry.addEventListener('dispose', () => { disposed.geometry = true; });
+  plane.material.addEventListener('dispose', () => { disposed.material = true; });
+  populateScene(scene, project);
+  assert(disposed.geometry && disposed.material, `got ${JSON.stringify(disposed)}`);
+});
+
+function resolvedTextureOf() {
+  const texture = new THREE.Texture();
+  return { texture, textureOf: () => Promise.resolve(texture) };
+}
+
+test('populateScene() should show a plane with the texture of its image once the texture is ready', async () => {
+  const scene = new THREE.Scene();
+  const { texture, textureOf } = resolvedTextureOf();
+  populateScene(scene, projectWithImagesOnBasePlate(), { textureOf });
+  const [plane] = pieceMesh(scene, 'base-plate').children;
+  assert(!plane.visible, 'expected the plane to stay hidden until its texture is ready');
+  await Promise.resolve();
+  assert(plane.material.map === texture && plane.visible, 'expected the texture on a visible plane');
+});
+
+test('populateScene() should ignore a texture that arrives after its plane was disposed', async () => {
+  const scene = new THREE.Scene();
+  const { textureOf } = resolvedTextureOf();
+  const project = projectWithImagesOnBasePlate();
+  populateScene(scene, project, { textureOf });
+  const [oldPlane] = pieceMesh(scene, 'base-plate').children;
+  populateScene(scene, project);
+  await Promise.resolve();
+  assert(oldPlane.material.map === null && !oldPlane.visible, 'expected the disposed plane to stay untouched');
+});
+
+test('populateScene() should report a texture that fails to load', async () => {
+  const scene = new THREE.Scene();
+  const failure = new Error('image could not be decoded');
+  const reported = [];
+  populateScene(scene, projectWithImagesOnBasePlate(), {
+    textureOf: () => Promise.reject(failure),
+    onImageError: (error) => reported.push(error),
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert(reported.length === 2 && reported[0] === failure, `got ${reported.length} reports`);
+});
+
+test('populateScene() should flip each image plane around its vertical axis so the image reads correctly in the 3D view', () => {
+  const scene = new THREE.Scene();
+  populateScene(scene, projectWithImagesOnBasePlate());
+  const planes = pieceMesh(scene, 'base-plate').children;
+  assert(planes.every((plane) => plane.scale.x === -1 && plane.scale.y === 1), 'expected every plane to be mirrored horizontally');
+});
+
+test('populateScene() should turn the plane of a rotated image and give it the size of the content before the rotation', () => {
+  const scene = new THREE.Scene();
+  const project = projectWithImagesOnBasePlate();
+  project.pieceImages['base-plate'][0].rotationDeg = 90;
+  populateScene(scene, project);
+  const [plane] = pieceMesh(scene, 'base-plate').children;
+  assert(Math.abs(plane.rotation.z - Math.PI / 2) < 1e-9, `got ${plane.rotation.z}`);
+  assert(plane.geometry.parameters.width === 10 && plane.geometry.parameters.height === 30, `got ${JSON.stringify(plane.geometry.parameters)}`);
+});
+
 run();

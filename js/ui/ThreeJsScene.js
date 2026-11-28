@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { Box } from '../geometry/oo/Box.js';
 import { computePiecePlacement3D, translatePlacement, computeDrawerSlideVector } from '../geometry/PiecePlacement3D.js';
 import { DRAWER_PREFIX } from '../geometry/oo/Drawer.js';
+import { imagePlaneOf } from '../geometry/ImagePlane3D.js';
 
 // base plate, every wall run, the lid and every horizontal panel — the same kinds computePieces()
 // itself groups drawer sleeve pieces under too (see PiecePlacement3D.js,
@@ -19,6 +20,12 @@ import { DRAWER_PREFIX } from '../geometry/oo/Drawer.js';
 const SUPPORTED_KINDS = new Set(['basePlate', 'lid', 'horizontalPanel', 'wall']);
 
 const ZERO_VECTOR = { x: 0, y: 0, z: 0 };
+
+const NO_TEXTURE = () => Promise.resolve(null);
+
+function rethrow(error) {
+  throw error;
+}
 
 // The independently-hideable/-slideable groups the 3D preview's own
 // checkboxes and "open the drawer" slider (see ThreeDView.js) operate on.
@@ -103,7 +110,41 @@ function placementToMatrix(placement) {
     .setPosition(origin.x, origin.y, origin.z);
 }
 
-function disposeMesh(mesh) {
+function isDisposed(plane) {
+  return plane.userData.isDisposed === true;
+}
+
+function showTextureWhenReady(plane, image, textureOf, onImageError) {
+  textureOf(image).then((texture) => {
+    if (isDisposed(plane) || texture === null) return;
+    plane.material.map = texture;
+    plane.material.needsUpdate = true;
+    plane.visible = true;
+  }).catch((error) => {
+    if (!isDisposed(plane)) onImageError(error);
+  });
+}
+
+function buildImagePlane(piece, image, textureOf, onImageError) {
+  const { centerX, centerY, offsetZ, widthMm, heightMm, rotationRad } = imagePlaneOf(piece, image);
+  const material = new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 });
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(widthMm, heightMm), material);
+  plane.position.set(centerX, centerY, offsetZ);
+  plane.scale.x = -1;
+  plane.rotation.z = rotationRad;
+  plane.visible = false;
+  showTextureWhenReady(plane, image, textureOf, onImageError);
+  return plane;
+}
+
+function disposeImagePlane(plane) {
+  plane.userData.isDisposed = true;
+  plane.geometry.dispose();
+  plane.material.dispose();
+}
+
+export function disposeMesh(mesh) {
+  mesh.children.forEach(disposeImagePlane);
   mesh.geometry.dispose();
   mesh.material.forEach((m) => m.dispose());
 }
@@ -122,7 +163,11 @@ function disposeMesh(mesh) {
  * @param {{box:boolean, manchon:boolean, couvercle:boolean, couvercleManchon:boolean, horizontalPanels:boolean}} [opts.visible]
  *   per-group checkbox state — a piece whose group is false is simply
  *   skipped, never added to the scene. */
-export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_VISIBLE } = {}) {
+function addImagePlanesTo(mesh, piece, textureOf, onImageError) {
+  piece.images.forEach((image) => mesh.add(buildImagePlane(piece, image, textureOf, onImageError)));
+}
+
+export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_VISIBLE, textureOf = NO_TEXTURE, onImageError = rethrow } = {}) {
   scene.children.slice().forEach((mesh) => {
     scene.remove(mesh);
     disposeMesh(mesh);
@@ -159,6 +204,7 @@ export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_
     mesh.matrixAutoUpdate = false;
     mesh.matrix.copy(placementToMatrix(placement));
     mesh.userData.pieceId = piece.id;
+    addImagePlanesTo(mesh, piece, textureOf, onImageError);
     scene.add(mesh);
   }
 }
