@@ -95,9 +95,13 @@ export function mountEditorView(container, store, { onBackToList } = {}) {
   // Off by default — labels are most useful right before a final export,
   // not while experimenting with the layout.
   let showLabels = false;
-  // Épaisseurs & hauteurs starts open (the fields a new box always needs);
-  // the rest are lower-frequency settings, closed by default.
-  let openSections = { thickness: true, options: false, fingerJoint: false, basePlate: false, horizontalPanels: false, lid: false, drawer: false, copies: false, laserBed: false, notches: true, holes: true, images: true };
+  // Épaisseurs & hauteurs and the inspector's notches/holes/images start
+  // open; the other settings are lower-frequency, closed by default.
+  let openSections = {
+    thickness: true, options: false, fingerJoint: false, basePlate: false, horizontalPanels: false,
+    lid: false, drawer: false, copies: false, laserBed: false,
+    notches: true, holes: true, images: true,
+  };
 
   // '2d' (the clickable grid) or '3d' (the three.js preview). `threeDContainer`
   // is created ONCE and never recreated — render() rebuilds the rest of

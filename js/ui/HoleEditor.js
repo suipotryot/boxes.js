@@ -66,7 +66,7 @@ function renderOneHole(hole, siblings, context, onUpdate, onRemove) {
   return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
-export function renderHoleSection(project, pieceId, context, store, selectedIndex, inSection) {
+export function renderHoleSection(project, pieceId, context, store, selectedIndex, wrapInCollapsible) {
   const holes = Hole.listFor(project.pieceHoles, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
@@ -125,5 +125,5 @@ export function renderHoleSection(project, pieceId, context, store, selectedInde
 
   const addBtn = el('button', { class: 'btn', text: t('hole.add'), onClick: addHole });
 
-  return inSection([t('hole.title'), infoIcon(t('hole.help'))], [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
+  return wrapInCollapsible([t('hole.title'), infoIcon(t('hole.help'))], [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }

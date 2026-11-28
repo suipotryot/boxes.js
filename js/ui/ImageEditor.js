@@ -80,15 +80,18 @@ function renderImageInput(context, onAdd) {
       onError: (error) => showFailure('image.urlFailed', error),
     });
   };
-  addButton.addEventListener('click', () => {
-    errorLine.textContent = '';
-    let input;
+  const readInputOrShowFailure = (text) => {
     try {
-      input = readImageInput(textarea.value);
+      return readImageInput(text);
     } catch (error) {
       showFailure('image.unreadableInput', error);
-      return;
+      return null;
     }
+  };
+  addButton.addEventListener('click', () => {
+    errorLine.textContent = '';
+    const input = readInputOrShowFailure(textarea.value);
+    if (input === null) return;
     if (input.kind === 'svg') addPastedSvg(input.svg);
     else loadFromUrl(input.url);
   });
@@ -100,7 +103,7 @@ function withImageAppended(project, pieceId, image) {
   return { ...project, pieceImages: { ...project.pieceImages, [pieceId]: [...imagesOfPiece, image] } };
 }
 
-export function renderImageSection(project, pieceId, context, store, selectedIndex, inSection) {
+export function renderImageSection(project, pieceId, context, store, selectedIndex, wrapInCollapsible) {
   const images = EngravedImage.listFor(project.pieceImages, pieceId);
   const setList = (nextList) => store.apply((p) => ({ ...p, pieceImages: { ...p.pieceImages, [pieceId]: nextList } }));
   const appendImage = (image) => store.apply((p) => withImageAppended(p, pieceId, image));
@@ -119,7 +122,7 @@ export function renderImageSection(project, pieceId, context, store, selectedInd
     centerButton('y', 'image.centerY', heightMm),
   ]);
 
-  return inSection([t('image.title'), infoIcon(t('image.help'))], [
+  return wrapInCollapsible([t('image.title'), infoIcon(t('image.help'))], [
     el('div', { class: 'hint', text: t('image.fieldOrderHint') }),
     centerButtons,
     ...images.map((image, index) => renderOneImage(image, context, (patch) => updateAt(index, patch), () => removeAt(index))),

@@ -143,11 +143,14 @@ function renderEdgeSelector(smoothEdges, selectedFlatEdge, onSelectFlatEdge) {
   ]);
 }
 
-export function renderInspector(project, selected, selectedWallId, store, selectedCutout, onSelectCutout, selectedFlatEdge, onSelectFlatEdge, openSections, onToggleSection) {
-  const sections = [];
-  const collapsibleIn = (key) => (summaryContent, children) => el('div', { class: 'inspector-section' }, [
+function collapsibleWrapperFor(openSections, onToggleSection, key) {
+  return (summaryContent, children) => el('div', { class: 'inspector-section' }, [
     collapsibleSection(openSections, onToggleSection, key, summaryContent, children),
   ]);
+}
+
+export function renderInspector(project, selected, selectedWallId, store, selectedCutout, onSelectCutout, selectedFlatEdge, onSelectFlatEdge, openSections, onToggleSection) {
+  const sections = [];
 
   const wallContext = selectedWallId ? resolveWallRunContext(project, selectedWallId) : null;
   const holeContext = selectedWallId ? resolvePieceHoleContext(project, selectedWallId) : null;
@@ -223,9 +226,9 @@ export function renderInspector(project, selected, selectedWallId, store, select
   // is already active on its own (see activeEdge above), so a one-option
   // selector would just be a pointless extra click.
   if (smoothEdges.length > 1) sections.push(renderEdgeSelector(smoothEdges, selectedFlatEdge, onSelectFlatEdge));
-  if (notchContext) sections.push(renderGripNotchSection(project, notchPieceId, notchContext, store, notchSelectedIndex, collapsibleIn('notches')));
-  if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store, holeSelectedIndex, collapsibleIn('holes')));
-  if (holeContext) sections.push(renderImageSection(project, selectedWallId, holeContext, store, imageSelectedIndex, collapsibleIn('images')));
+  if (notchContext) sections.push(renderGripNotchSection(project, notchPieceId, notchContext, store, notchSelectedIndex, collapsibleWrapperFor(openSections, onToggleSection, 'notches')));
+  if (holeContext) sections.push(renderHoleSection(project, selectedWallId, holeContext, store, holeSelectedIndex, collapsibleWrapperFor(openSections, onToggleSection, 'holes')));
+  if (holeContext) sections.push(renderImageSection(project, selectedWallId, holeContext, store, imageSelectedIndex, collapsibleWrapperFor(openSections, onToggleSection, 'images')));
 
   if (!sections.length) {
     return el('div', { class: 'inspector empty' }, [

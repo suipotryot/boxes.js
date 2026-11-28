@@ -76,7 +76,7 @@ function renderOneNotch(notch, siblings, context, onUpdate, onRemove) {
   return el('div', { class: 'compact-item' }, [row, warning]);
 }
 
-export function renderGripNotchSection(project, pieceId, context, store, selectedIndex, inSection) {
+export function renderGripNotchSection(project, pieceId, context, store, selectedIndex, wrapInCollapsible) {
   const notches = Notch.listFor(project.pieceNotches, pieceId);
 
   const setList = (nextList) => store.apply((p) => ({
@@ -115,5 +115,5 @@ export function renderGripNotchSection(project, pieceId, context, store, selecte
 
   const addBtn = el('button', { class: 'btn', text: t('notch.add'), onClick: addNotch });
 
-  return inSection([t('notch.title'), infoIcon(t(context.kind === 'wall' ? 'notch.help' : 'notch.helpFlat'))], [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
+  return wrapInCollapsible([t('notch.title'), infoIcon(t(context.kind === 'wall' ? 'notch.help' : 'notch.helpFlat'))], [fieldOrderHint, dragHint, alignRow, ...items, addBtn]);
 }
