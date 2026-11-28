@@ -66,6 +66,7 @@ export const en = {
   'editor.dimensions': 'Exterior size: {width} × {depth} × {height} mm',
   'editor.view2dTab': '2D',
   'editor.view3dTab': '3D preview',
+  'editor.view3dImageFailed': 'Image not shown in 3D: {reason}',
   'editor.view3dHint': 'Drag to rotate, scroll to zoom.',
   'editor.view3dShowBox': 'Box',
   'editor.view3dShowDrawer': 'Drawer',

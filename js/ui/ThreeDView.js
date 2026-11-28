@@ -11,6 +11,7 @@ import { outerBoxWidth, outerBoxDepth, outerBoxHeight, horizontalPanelsWithHeigh
 import { Drawer } from '../geometry/oo/Drawer.js';
 import { computeDrawerOffset } from '../geometry/PiecePlacement3D.js';
 import { populateScene, disposeMesh, ALL_GROUPS_VISIBLE } from './ThreeJsScene.js';
+import { engravedImageTexture, disposeEngravedImageTextures } from './EngravedImageTexture.js';
 
 /**
  * @param {HTMLElement} container appended into immediately; owned by the
@@ -28,8 +29,14 @@ export function mountThreeDView(container, project) {
   let openT = 0;
   const visible = { ...ALL_GROUPS_VISIBLE };
 
+  const imageErrorLine = el('div', { class: 'warning' });
+  function showImageFailure(error) {
+    imageErrorLine.textContent = t('editor.view3dImageFailed', { reason: error.message });
+  }
+
   function refreshScene() {
-    populateScene(pieceGroup, currentProject, { openT, visible });
+    imageErrorLine.textContent = '';
+    populateScene(pieceGroup, currentProject, { openT, visible, textureOf: engravedImageTexture, onImageError: showImageFailure });
     applyDepthFlip(pieceGroup, currentProject);
   }
 
@@ -78,6 +85,7 @@ export function mountThreeDView(container, project) {
   const hint = el('div', { class: 'hint threed-hint', text: t('editor.view3dHint') });
   container.appendChild(controlsBar);
   container.appendChild(canvas);
+  container.appendChild(imageErrorLine);
   container.appendChild(hint);
 
   const scene = new THREE.Scene();
@@ -146,6 +154,7 @@ export function mountThreeDView(container, project) {
       resizeObserver.disconnect();
       controls.dispose();
       pieceGroup.children.slice().forEach(disposeMesh);
+      disposeEngravedImageTextures();
       renderer.dispose();
       clear(container);
     },

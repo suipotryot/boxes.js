@@ -71,6 +71,7 @@ export const fr = {
   'editor.dimensions': 'Taille extérieure : {width} × {depth} × {height} mm',
   'editor.view2dTab': '2D',
   'editor.view3dTab': 'Aperçu 3D',
+  'editor.view3dImageFailed': 'Image non affichée en 3D : {reason}',
   'editor.view3dHint': 'Glisser pour pivoter, molette pour zoomer.',
   'editor.view3dShowBox': 'Boîte',
   'editor.view3dShowDrawer': 'Manchon',
