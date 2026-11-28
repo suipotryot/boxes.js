@@ -3,6 +3,8 @@
 // (path data strings written into a standalone <svg> document) — that
 // reuse is the whole point of the unified-pipeline architecture.
 
+import { HALF_TURN_DEG } from './oo/EngravedImage.js';
+
 function subpath(points) {
   return 'M' + points.map((p) => `${round(p.x)},${round(p.y)}`).join('L') + 'Z';
 }
@@ -34,7 +36,7 @@ function engravedImagePreviewElement(image) {
   element.setAttribute('width', content.widthMm);
   element.setAttribute('height', content.heightMm);
   element.setAttribute('preserveAspectRatio', 'none');
-  element.setAttribute('transform', `rotate(${180 + image.rotationDeg} ${centreX} ${centreY})`);
+  element.setAttribute('transform', `rotate(${HALF_TURN_DEG + image.rotationDeg} ${centreX} ${centreY})`);
   return element;
 }
 

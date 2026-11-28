@@ -54,6 +54,9 @@ export function readSvgSizeMm(svgText) {
   return assertIsPositive(readDeclaredSizeMm(svgText));
 }
 
+export const HALF_TURN_DEG = 180;
+const QUARTER_TURN_DEG = 90;
+
 const CENTERING_AXES = {
   x: { startField: 'xMm', sizeField: 'widthMm' },
   y: { startField: 'yMm', sizeField: 'heightMm' },
@@ -70,7 +73,7 @@ export class EngravedImage {
   }
 
   isTurnedSideways() {
-    return this.rotationDeg % 180 !== 0;
+    return this.rotationDeg % HALF_TURN_DEG !== 0;
   }
 
   contentSize() {
@@ -83,7 +86,7 @@ export class EngravedImage {
     const centerX = this.xMm + this.widthMm / 2;
     const centerY = this.yMm + this.heightMm / 2;
     return this.withChanges({
-      rotationDeg: (this.rotationDeg + 90) % 360,
+      rotationDeg: (this.rotationDeg + QUARTER_TURN_DEG) % (2 * HALF_TURN_DEG),
       widthMm: this.heightMm,
       heightMm: this.widthMm,
       xMm: centerX - this.heightMm / 2,

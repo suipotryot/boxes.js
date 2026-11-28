@@ -121,14 +121,14 @@ export function renderImageSection(project, pieceId, context, store, selectedInd
     class: 'btn', text: t('image.rotate'), disabled: selectedIndex == null,
     onClick: () => updateAt(selectedIndex, images[selectedIndex].rotatedQuarterTurn()),
   });
-  const centerButtons = el('div', { class: 'button-row' }, [
+  const arrangeButtons = el('div', { class: 'button-row' }, [
     centerButton('x', 'image.centerX', widthMm),
     centerButton('y', 'image.centerY', heightMm),
     rotateButton,
   ]);
 
   return wrapInCollapsible(t('image.title'), t('image.help'), [
-    centerButtons,
+    arrangeButtons,
     ...images.map((image, index) => renderOneImage(image, context, (patch) => updateAt(index, patch), () => removeAt(index))),
     renderImageInput(context, appendImage),
   ]);

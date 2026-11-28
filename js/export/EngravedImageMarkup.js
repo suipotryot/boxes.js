@@ -1,4 +1,4 @@
-import { readAttribute, readSvgSizeMm } from '../geometry/oo/EngravedImage.js';
+import { readAttribute, readSvgSizeMm, HALF_TURN_DEG } from '../geometry/oo/EngravedImage.js';
 
 const PIXELS_PER_MILLIMETRE = 96 / 25.4;
 
@@ -64,8 +64,6 @@ function viewBoxOf(svgText) {
 function centreOf(image) {
   return { x: image.xMm + image.widthMm / 2, y: image.yMm + image.heightMm / 2 };
 }
-
-const HALF_TURN_DEG = 180;
 
 export function engravedImageMarkup(image) {
   const { x, y } = centreOf(image);

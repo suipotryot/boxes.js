@@ -1,3 +1,5 @@
+import { HALF_TURN_DEG } from './oo/EngravedImage.js';
+
 export const IMAGE_LIFT_MM = 0.05;
 
 export function imagePlaneOf(piece, image) {
@@ -8,6 +10,6 @@ export function imagePlaneOf(piece, image) {
     offsetZ: piece.thicknessMm + IMAGE_LIFT_MM,
     widthMm,
     heightMm,
-    rotationRad: (image.rotationDeg * Math.PI) / 180,
+    rotationRad: (image.rotationDeg * Math.PI) / HALF_TURN_DEG,
   };
 }
