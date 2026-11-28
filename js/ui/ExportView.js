@@ -75,6 +75,19 @@ export function renderExportJsonButton(project) {
   return button;
 }
 
+async function runWhileShowingProgress(button, idleLabelKey, exportAction) {
+  button.disabled = true;
+  button.textContent = t('export.inProgress');
+  try {
+    await exportAction();
+  } catch (error) {
+    window.alert(t('export.failed', { reason: error.message }));
+  } finally {
+    button.disabled = false;
+    button.textContent = t(idleLabelKey);
+  }
+}
+
 /**
  * @param {object} project
  * @param {boolean} showLabels current state of the "label pieces" toggle
@@ -87,16 +100,7 @@ export function renderExportButton(project, showLabels) {
   const button = el('button', {
     class: 'btn',
     text: t('export.exportSvg'),
-    onClick: async () => {
-      button.disabled = true;
-      button.textContent = t('export.inProgress');
-      try {
-        await exportProjectSvg(project, { labels: showLabels });
-      } finally {
-        button.disabled = false;
-        button.textContent = t('export.exportSvg');
-      }
-    },
+    onClick: () => runWhileShowingProgress(button, 'export.exportSvg', () => exportProjectSvg(project, { labels: showLabels })),
   });
   return button;
 }
@@ -110,16 +114,7 @@ export function renderExportDeepnestButton(project, showLabels) {
   const button = el('button', {
     class: 'btn',
     text: t('export.exportSvgDeepnest'),
-    onClick: async () => {
-      button.disabled = true;
-      button.textContent = t('export.inProgress');
-      try {
-        await exportProjectSvgForDeepnest(project, { labels: showLabels });
-      } finally {
-        button.disabled = false;
-        button.textContent = t('export.exportSvgDeepnest');
-      }
-    },
+    onClick: () => runWhileShowingProgress(button, 'export.exportSvgDeepnest', () => exportProjectSvgForDeepnest(project, { labels: showLabels })),
   });
   return button;
 }

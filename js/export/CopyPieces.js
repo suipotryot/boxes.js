@@ -32,6 +32,10 @@ function withAnswers(piece, copyNumber, answerOfSlot) {
   return { ...piece, images, copyNumber };
 }
 
+export function imageSlotCountOf(templatePieces) {
+  return imageSlotsOf(imagesByPieceId(templatePieces)).length;
+}
+
 function piecesOfCopy(templatePieces, answers, copyNumber) {
   const slots = imageSlotsOf(imagesByPieceId(templatePieces));
   const answerOfSlot = answersBySlot(slots, answers);

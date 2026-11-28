@@ -7,7 +7,10 @@
 import { Box } from '../geometry/oo/Box.js';
 import { groupByThickness } from './ThicknessGrouper.js';
 import { packPieces } from './RectPacker.js';
-import { piecesForCopies } from './CopyPieces.js';
+import { piecesForCopies, imageSlotCountOf } from './CopyPieces.js';
+import { parseCopyUrls } from '../image/CopyUrlList.js';
+import { loadCopyImages } from '../image/CopyImageLoader.js';
+import { loadImageInBrowser } from '../image/BrowserImageLoader.js';
 import { renderSvgPage, renderSvgPageForDeepnest, svgElementToFileText } from './SvgPageRenderer.js';
 
 export function sanitizeFilename(name) {
@@ -32,6 +35,11 @@ export function planExport(project, answersByCopy = []) {
   }));
 }
 
+async function loadCopyAnswers(project) {
+  const slotCount = imageSlotCountOf(Box.fromProject(project).allPieces());
+  return loadCopyImages(parseCopyUrls(project.copyImageUrls, slotCount), loadImageInBrowser);
+}
+
 /** Triggers one file download per page, sequentially with a short delay
  *  between each — browsers block or warn on several downloads fired from
  *  the same synchronous call stack, so this can't just loop and click
@@ -43,7 +51,7 @@ export function planExport(project, answersByCopy = []) {
  *  overwriting each other's downloads when exported back to back for the
  *  same project/thickness/page. */
 async function runSvgExport(project, { delayMs, labels, renderPage, filenameSuffix = '' }) {
-  const plan = planExport(project);
+  const plan = planExport(project, await loadCopyAnswers(project));
   const { widthMm, heightMm, spacingMm } = project.laserBed;
 
   for (const { thicknessMm, pages } of plan) {

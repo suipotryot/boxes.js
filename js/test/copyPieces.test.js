@@ -1,6 +1,6 @@
 import { test, assert, run } from './testHarness.js';
 import { EngravedImage } from '../geometry/oo/EngravedImage.js';
-import { piecesForCopies } from '../export/CopyPieces.js';
+import { piecesForCopies, imageSlotCountOf } from '../export/CopyPieces.js';
 
 const templateImage = { xMm: 10, yMm: 20, widthMm: 40, heightMm: 20, svg: '<svg id="template"/>' };
 const lid = { id: 'lid', kind: 'lid', images: [new EngravedImage(templateImage)] };
@@ -39,6 +39,11 @@ test('piecesForCopies: should throw when a copy has not as many answers as the t
     message = error.message;
   }
   assert(message?.includes('needs 1 images but 0'), `got ${message}`);
+});
+
+test('imageSlotCountOf: should count the images of all the pieces', () => {
+  const twoImages = { id: 'base-plate', kind: 'lid', images: [new EngravedImage(templateImage), new EngravedImage(templateImage)] };
+  assert(imageSlotCountOf([lid, wall, twoImages]) === 3, 'expected 3 slots');
 });
 
 run();
