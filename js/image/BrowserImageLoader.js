@@ -2,17 +2,17 @@ import { requestEngravingImage } from './EngravingImageRequest.js';
 import { browserEngravingEnvironment } from './BrowserEngravingEnvironment.js';
 import { assertWellFormedSvg } from './assertWellFormedSvg.js';
 
-function assertWellFormedAnswer(answer) {
-  assertWellFormedSvg(answer.svg);
-  return answer;
+function wellFormedImageOf(loadedImage) {
+  assertWellFormedSvg(loadedImage.svg);
+  return loadedImage;
 }
 
 export function loadImageInBrowser(url) {
   return new Promise((resolve, reject) => {
     requestEngravingImage(url, browserEngravingEnvironment, {
-      onImage: (answer) => {
+      onImage: (loadedImage) => {
         try {
-          resolve(assertWellFormedAnswer(answer));
+          resolve(wellFormedImageOf(loadedImage));
         } catch (error) {
           reject(error);
         }

@@ -27,5 +27,6 @@ function splitEvery(items, size) {
 export function parseCopyUrls(text, slotCount) {
   const lines = nonBlankLines(text);
   assertLinesFitSlots(lines.length, slotCount);
-  return lines.length === 0 ? [] : splitEvery(lines.map(parseLine), slotCount);
+  if (lines.length === 0) return [];
+  return splitEvery(lines.map(parseLine), slotCount);
 }

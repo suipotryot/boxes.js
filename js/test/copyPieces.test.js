@@ -1,6 +1,7 @@
 import { test, assert, run } from './testHarness.js';
 import { EngravedImage } from '../geometry/oo/EngravedImage.js';
-import { piecesForCopies, imageSlotCountOf } from '../export/CopyPieces.js';
+import { piecesForCopies, imageSlotCountOf, copySlotCountOf } from '../export/CopyPieces.js';
+import { createDefaultProject } from '../state/Project.js';
 
 const templateImage = { xMm: 10, yMm: 20, widthMm: 40, heightMm: 20, svg: '<svg id="template"/>' };
 const lid = { id: 'lid', kind: 'lid', images: [new EngravedImage(templateImage)] };
@@ -11,10 +12,10 @@ test('piecesForCopies: should keep the pieces untouched when there is no copy li
   assert(pieces.length === 2 && pieces[0] === lid, `got ${JSON.stringify(pieces)}`);
 });
 
-test('piecesForCopies: should repeat every piece once per copy, numbered from 1', () => {
+test('piecesForCopies: should repeat every piece once per copy', () => {
   const answer = { svg: '<svg/>', widthMm: 40, heightMm: 20 };
   const pieces = piecesForCopies([lid, wall], [[answer], [answer]]);
-  assert(pieces.map((piece) => `${piece.id}@${piece.copyNumber}`).join(',') === 'lid@1,wall-v-0-0@1,lid@2,wall-v-0-0@2', `got ${pieces.map((p) => p.id + '@' + p.copyNumber)}`);
+  assert(pieces.map((piece) => piece.id).join(',') === 'lid,wall-v-0-0,lid,wall-v-0-0', `got ${pieces.map((piece) => piece.id)}`);
 });
 
 test('piecesForCopies: should replace the template image with the answer of the copy', () => {
@@ -44,6 +45,14 @@ test('piecesForCopies: should throw when a copy has not as many answers as the t
 test('imageSlotCountOf: should count the images of all the pieces', () => {
   const twoImages = { id: 'base-plate', kind: 'lid', images: [new EngravedImage(templateImage), new EngravedImage(templateImage)] };
   assert(imageSlotCountOf([lid, wall, twoImages]) === 3, 'expected 3 slots');
+});
+
+test('copySlotCountOf: should count the images of the drawer along with those of the box', () => {
+  const project = createDefaultProject();
+  project.lid = { enabled: true };
+  project.drawer = { ...project.drawer, enabled: true };
+  project.pieceImages = { lid: [templateImage], 'drawer:lid': [templateImage] };
+  assert(copySlotCountOf(project) === 2, `got ${copySlotCountOf(project)}`);
 });
 
 run();

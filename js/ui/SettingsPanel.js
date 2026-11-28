@@ -11,8 +11,7 @@ import { validateHorizontalPanelHeight, basePlateMode, basePlateRecessMm, isBase
 import { addHorizontalPanel, removeHorizontalPanel, updateHorizontalPanel, horizontalPanelNumber, heightBroughtIntoRange } from '../model/HorizontalPanels.js';
 import { coverageHoldsFlankTabs } from '../geometry/oo/Assembly.js';
 import { t } from '../i18n/index.js';
-import { Box } from '../geometry/oo/Box.js';
-import { imageSlotCountOf } from '../export/CopyPieces.js';
+import { copySlotCountOf } from '../export/CopyPieces.js';
 import { parseCopyUrls } from '../image/CopyUrlList.js';
 
 function parseMmList(text) {
@@ -245,7 +244,7 @@ function optionsSection(openSections, onToggleSection, showLabels, onToggleLabel
 }
 
 function copiesSummary(project) {
-  const slotCount = imageSlotCountOf(Box.fromProject(project).allPieces());
+  const slotCount = copySlotCountOf(project);
   try {
     const copyCount = parseCopyUrls(project.copyImageUrls, slotCount).length;
     return { text: t('settingsPanel.copiesSummary', { slots: slotCount, copies: copyCount }), isValid: true };
