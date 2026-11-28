@@ -7,6 +7,10 @@
 import { Box } from '../geometry/oo/Box.js';
 import { groupByThickness } from './ThicknessGrouper.js';
 import { packPieces } from './RectPacker.js';
+import { piecesForCopies, copySlotCountOf } from './CopyPieces.js';
+import { parseCopyUrls } from '../image/CopyUrlList.js';
+import { loadCopyImages } from '../image/CopyImageLoader.js';
+import { loadImageInBrowser } from '../image/BrowserImageLoader.js';
 import { renderSvgPage, renderSvgPageForDeepnest, svgElementToFileText } from './SvgPageRenderer.js';
 
 export function sanitizeFilename(name) {
@@ -21,14 +25,18 @@ function sleep(ms) {
  *  effects. Lets the export UI show a page-count summary before
  *  committing to actual downloads, and is unit-testable without a
  *  browser (computePieces/groupByThickness/packPieces are all pure). */
-export function planExport(project) {
-  const pieces = Box.fromProject(project).allPiecesBurnCorrected();
-  const groups = groupByThickness(pieces);
+export function planExport(project, loadedImagesByCopy = []) {
+  const templatePieces = Box.fromProject(project).allPiecesBurnCorrected();
+  const groups = groupByThickness(piecesForCopies(templatePieces, loadedImagesByCopy));
   const { widthMm, heightMm, spacingMm } = project.laserBed;
   return groups.map(({ thicknessMm, pieces }) => ({
     thicknessMm,
     pages: packPieces(pieces, widthMm, heightMm, spacingMm),
   }));
+}
+
+async function loadImagesOfAllCopies(project) {
+  return loadCopyImages(parseCopyUrls(project.copyImageUrls, copySlotCountOf(project)), loadImageInBrowser);
 }
 
 /** Triggers one file download per page, sequentially with a short delay
@@ -42,7 +50,8 @@ export function planExport(project) {
  *  overwriting each other's downloads when exported back to back for the
  *  same project/thickness/page. */
 async function runSvgExport(project, { delayMs, labels, renderPage, filenameSuffix = '' }) {
-  const plan = planExport(project);
+  const loadedImagesByCopy = await loadImagesOfAllCopies(project);
+  const plan = planExport(project, loadedImagesByCopy);
   const { widthMm, heightMm, spacingMm } = project.laserBed;
 
   for (const { thicknessMm, pages } of plan) {

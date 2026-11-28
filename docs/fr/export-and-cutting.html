@@ -42,6 +42,10 @@
     </div>
     <p>Une pièce surdimensionnée — plus grande que la zone de découpe elle-même — n'est jamais silencieusement écartée : elle est placée seule sur sa propre page.</p>
 
+    <h3>Plusieurs exemplaires, une image chacun</h3>
+    <p>Pour découper beaucoup de boîtes qui ne diffèrent que par une image gravée (des étiquettes, par exemple), préparez une boîte avec ses images, puis ouvrez la section <strong>Exemplaires</strong> du panneau de gauche et saisissez une adresse <code>https://</code> par ligne. Les images déjà présentes sur la boîte servent de <em>gabarit</em> : elles sont rangées par nom de pièce puis par ordre d’ajout, et chaque exemplaire prend autant de lignes que la boîte a d’images. Chaque exemplaire garde la position (le centre) des images du gabarit et prend la taille annoncée par l’adresse.</p>
+    <p>La section indique le nombre d’images de la boîte et le nombre d’exemplaires qui seront exportés. Laissez la liste vide pour exporter une seule boîte avec ses images actuelles. Les adresses sont chargées au clic sur un bouton d’export, une à une ; si l’une échoue, rien n’est exporté et le message nomme l’exemplaire et l’image.</p>
+
     <h2>Exporter (JSON) — le fichier projet</h2>
     <p>Enregistre l'état complet du projet (dimensions, grille, trous, encoches, réglages du couvercle/tiroir, etc.) dans un fichier JSON. C'est pour sauvegarder ou réimporter un projet — <strong>pas</strong> un fichier de découpe. Quand le navigateur le permet, ça ouvre une vraie boîte de dialogue d'enregistrement (l'API File System Access) ; sinon, ça se rabat sur un téléchargement classique vers le dossier de téléchargements par défaut du navigateur.</p>
     <p>Voir <a href="managing-projects.html">Gestion des projets</a> pour l'import/export propre à la liste des projets, distinct du bouton JSON dans l'éditeur.</p>

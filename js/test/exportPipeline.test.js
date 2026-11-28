@@ -43,6 +43,20 @@ test('planExport: should carry an image stored for the base plate to the planned
   assert(piece.images[0].xMm === 10 && piece.images[0].yMm === 20, `got ${JSON.stringify(piece.images[0])}`);
 });
 
+test('planExport: should plan every piece once per copy, each copy with its own image at the same center', () => {
+  const project = createDefaultProject();
+  project.grid = createGrid([80, 80], [100]);
+  project.laserBed = { widthMm: 600, heightMm: 400, spacingMm: 5 };
+  project.pieceImages = { 'base-plate': [{ xMm: 10, yMm: 20, widthMm: 30, heightMm: 15, svg: '<svg id="template"/>' }] };
+  const answerOf = (id) => [{ svg: `<svg id="${id}"/>`, widthMm: 30, heightMm: 15 }];
+  const plan = planExport(project, [answerOf('a'), answerOf('b'), answerOf('c')]);
+  const pieces = plan.flatMap((group) => group.pages.flat()).map((item) => item.piece);
+  assert(pieces.length === 18, `expected 3 x 6 pieces, got ${pieces.length}`);
+  const plates = pieces.filter((piece) => piece.id === 'base-plate');
+  assert(plates.map((plate) => plate.images[0].svg).join('') === '<svg id="a"/><svg id="b"/><svg id="c"/>', `got ${plates.map((p) => p.images[0].svg)}`);
+  assert(plates.every((plate) => plate.images[0].xMm === 10 && plate.images[0].yMm === 20), 'every copy should keep the template position');
+});
+
 test('a laser bed too small for everything spills the group across multiple pages', () => {
   const project = createDefaultProject();
   project.grid = createGrid([150], [100]);

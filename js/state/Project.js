@@ -25,6 +25,7 @@ export function createDefaultProject(name = 'Nouveau projet') {
     pieceNotches: {}, // { [pieceId]: GripNotch } — see js/geometry/GripNotch.js
     pieceHoles: {}, // { [pieceId]: Hole[] } — see js/geometry/Hole.js
     pieceImages: {},
+    copyImageUrls: '',
   };
 }
 
