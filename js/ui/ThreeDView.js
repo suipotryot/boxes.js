@@ -10,7 +10,7 @@ import { t } from '../i18n/index.js';
 import { outerBoxWidth, outerBoxDepth, outerBoxHeight, horizontalPanelsWithHeight } from '../model/GridQuery.js';
 import { Drawer } from '../geometry/oo/Drawer.js';
 import { computeDrawerOffset } from '../geometry/PiecePlacement3D.js';
-import { populateScene, ALL_GROUPS_VISIBLE } from './ThreeJsScene.js';
+import { populateScene, disposeMesh, ALL_GROUPS_VISIBLE } from './ThreeJsScene.js';
 
 /**
  * @param {HTMLElement} container appended into immediately; owned by the
@@ -145,10 +145,7 @@ export function mountThreeDView(container, project) {
       cancelAnimationFrame(raf);
       resizeObserver.disconnect();
       controls.dispose();
-      pieceGroup.children.slice().forEach((mesh) => {
-        mesh.geometry.dispose();
-        mesh.material.forEach((m) => m.dispose());
-      });
+      pieceGroup.children.slice().forEach(disposeMesh);
       renderer.dispose();
       clear(container);
     },

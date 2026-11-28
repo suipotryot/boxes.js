@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { Box } from '../geometry/oo/Box.js';
 import { computePiecePlacement3D, translatePlacement, computeDrawerSlideVector } from '../geometry/PiecePlacement3D.js';
 import { DRAWER_PREFIX } from '../geometry/oo/Drawer.js';
+import { imagePlaneOf } from '../geometry/ImagePlane3D.js';
 
 // base plate, every wall run, the lid and every horizontal panel — the same kinds computePieces()
 // itself groups drawer sleeve pieces under too (see PiecePlacement3D.js,
@@ -103,7 +104,22 @@ function placementToMatrix(placement) {
     .setPosition(origin.x, origin.y, origin.z);
 }
 
-function disposeMesh(mesh) {
+function buildImagePlane(piece, image) {
+  const { centerX, centerY, offsetZ, widthMm, heightMm } = imagePlaneOf(piece, image);
+  const material = new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 });
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(widthMm, heightMm), material);
+  plane.position.set(centerX, centerY, offsetZ);
+  return plane;
+}
+
+function disposeImagePlane(plane) {
+  plane.userData.isDisposed = true;
+  plane.geometry.dispose();
+  plane.material.dispose();
+}
+
+export function disposeMesh(mesh) {
+  mesh.children.forEach(disposeImagePlane);
   mesh.geometry.dispose();
   mesh.material.forEach((m) => m.dispose());
 }
@@ -159,6 +175,7 @@ export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_
     mesh.matrixAutoUpdate = false;
     mesh.matrix.copy(placementToMatrix(placement));
     mesh.userData.pieceId = piece.id;
+    piece.images.forEach((image) => mesh.add(buildImagePlane(piece, image)));
     scene.add(mesh);
   }
 }
