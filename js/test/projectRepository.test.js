@@ -221,4 +221,13 @@ test('load() should give an empty pieceImages map to a project saved before imag
   assert(JSON.stringify(loaded.pieceImages) === '{}', `got ${JSON.stringify(loaded.pieceImages)}`);
 });
 
+test('load() should give an empty list of copy image URLs to a project saved before copies existed', () => {
+  const storage = createFakeStorage();
+  const repo = createProjectRepository(storage);
+  const { copyImageUrls, ...legacyProject } = createDefaultProject();
+  storage.setItem('boxes.js:project:legacy', JSON.stringify({ ...legacyProject, id: 'legacy' }));
+  const loaded = repo.load('legacy');
+  assert(loaded.copyImageUrls === '', `got ${JSON.stringify(loaded.copyImageUrls)}`);
+});
+
 run();
