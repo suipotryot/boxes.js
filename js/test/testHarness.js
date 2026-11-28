@@ -17,10 +17,10 @@ export function assertClose(actual, expected, epsilon = 1e-6, msg = '') {
   }
 }
 
-export function run() {
+export async function run() {
   for (const { name, fn } of tests) {
     try {
-      fn();
+      await fn();
       console.log(`  ok  ${name}`);
     } catch (err) {
       failures++;
