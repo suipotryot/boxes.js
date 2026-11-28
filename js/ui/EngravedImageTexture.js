@@ -45,7 +45,8 @@ export function loadEngravedImageTexture(image) {
 }
 
 export async function disposeEngravedImageTextures() {
-  const textures = await Promise.allSettled([...texturesBySvgAndSize.values()]);
+  const pendingTextures = [...texturesBySvgAndSize.values()];
   texturesBySvgAndSize.clear();
-  textures.filter((result) => result.status === 'fulfilled').forEach((result) => result.value.dispose());
+  const settledResults = await Promise.allSettled(pendingTextures);
+  settledResults.filter((result) => result.status === 'fulfilled').forEach((result) => result.value.dispose());
 }

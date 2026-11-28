@@ -120,7 +120,9 @@ function showTextureWhenReady(plane, image, textureOf, onImageError) {
     plane.material.map = texture;
     plane.material.needsUpdate = true;
     plane.visible = true;
-  }).catch(onImageError);
+  }).catch((error) => {
+    if (!isDisposed(plane)) onImageError(error);
+  });
 }
 
 function buildImagePlane(piece, image, textureOf, onImageError) {
