@@ -117,4 +117,43 @@ test('populateScene() should dispose the planes of the previous scene when it po
   assert(disposed.geometry && disposed.material, `got ${JSON.stringify(disposed)}`);
 });
 
+function resolvedTextureOf() {
+  const texture = new THREE.Texture();
+  return { texture, textureOf: () => Promise.resolve(texture) };
+}
+
+test('populateScene() should show a plane with the texture of its image once the texture is ready', async () => {
+  const scene = new THREE.Scene();
+  const { texture, textureOf } = resolvedTextureOf();
+  populateScene(scene, projectWithImagesOnBasePlate(), { textureOf });
+  const [plane] = pieceMesh(scene, 'base-plate').children;
+  assert(!plane.visible, 'expected the plane to stay hidden until its texture is ready');
+  await Promise.resolve();
+  assert(plane.material.map === texture && plane.visible, 'expected the texture on a visible plane');
+});
+
+test('populateScene() should ignore a texture that arrives after its plane was disposed', async () => {
+  const scene = new THREE.Scene();
+  const { textureOf } = resolvedTextureOf();
+  const project = projectWithImagesOnBasePlate();
+  populateScene(scene, project, { textureOf });
+  const [oldPlane] = pieceMesh(scene, 'base-plate').children;
+  populateScene(scene, project);
+  await Promise.resolve();
+  assert(oldPlane.material.map === null && !oldPlane.visible, 'expected the disposed plane to stay untouched');
+});
+
+test('populateScene() should report a texture that fails to load', async () => {
+  const scene = new THREE.Scene();
+  const failure = new Error('image could not be decoded');
+  const reported = [];
+  populateScene(scene, projectWithImagesOnBasePlate(), {
+    textureOf: () => Promise.reject(failure),
+    onImageError: (error) => reported.push(error),
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert(reported.length === 2 && reported[0] === failure, `got ${reported.length} reports`);
+});
+
 run();

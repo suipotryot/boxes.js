@@ -21,6 +21,12 @@ const SUPPORTED_KINDS = new Set(['basePlate', 'lid', 'horizontalPanel', 'wall'])
 
 const ZERO_VECTOR = { x: 0, y: 0, z: 0 };
 
+const NO_TEXTURE = () => Promise.resolve(null);
+
+function rethrow(error) {
+  throw error;
+}
+
 // The independently-hideable/-slideable groups the 3D preview's own
 // checkboxes and "open the drawer" slider (see ThreeDView.js) operate on.
 // The sleeve's own lid gets its own group ('couvercleManchon'), split out
@@ -104,12 +110,23 @@ function placementToMatrix(placement) {
     .setPosition(origin.x, origin.y, origin.z);
 }
 
-function buildImagePlane(piece, image) {
+function buildImagePlane(piece, image, textureOf, onImageError) {
   const { centerX, centerY, offsetZ, widthMm, heightMm } = imagePlaneOf(piece, image);
   const material = new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(widthMm, heightMm), material);
   plane.position.set(centerX, centerY, offsetZ);
+  plane.visible = false;
+  showTextureWhenReady(plane, image, textureOf, onImageError);
   return plane;
+}
+
+function showTextureWhenReady(plane, image, textureOf, onImageError) {
+  textureOf(image).then((texture) => {
+    if (texture === null || plane.userData.isDisposed) return;
+    plane.material.map = texture;
+    plane.material.needsUpdate = true;
+    plane.visible = true;
+  }).catch(onImageError);
 }
 
 function disposeImagePlane(plane) {
@@ -137,8 +154,11 @@ export function disposeMesh(mesh) {
  *   own pieces (box, couvercle and horizontalPanels groups), never the sleeve itself.
  * @param {{box:boolean, manchon:boolean, couvercle:boolean, couvercleManchon:boolean, horizontalPanels:boolean}} [opts.visible]
  *   per-group checkbox state — a piece whose group is false is simply
- *   skipped, never added to the scene. */
-export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_VISIBLE } = {}) {
+ *   skipped, never added to the scene.
+ * @param {(image:object)=>Promise<THREE.Texture|null>} [opts.textureOf]
+ *   decodes an engraved image into a texture; its plane stays hidden until then.
+ * @param {(error:Error)=>void} [opts.onImageError] called when a texture fails to load. */
+export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_VISIBLE, textureOf = NO_TEXTURE, onImageError = rethrow } = {}) {
   scene.children.slice().forEach((mesh) => {
     scene.remove(mesh);
     disposeMesh(mesh);
@@ -175,7 +195,7 @@ export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_
     mesh.matrixAutoUpdate = false;
     mesh.matrix.copy(placementToMatrix(placement));
     mesh.userData.pieceId = piece.id;
-    piece.images.forEach((image) => mesh.add(buildImagePlane(piece, image)));
+    piece.images.forEach((image) => mesh.add(buildImagePlane(piece, image, textureOf, onImageError)));
     scene.add(mesh);
   }
 }
