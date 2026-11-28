@@ -11,7 +11,7 @@ import { outerBoxWidth, outerBoxDepth, outerBoxHeight, horizontalPanelsWithHeigh
 import { Drawer } from '../geometry/oo/Drawer.js';
 import { computeDrawerOffset } from '../geometry/PiecePlacement3D.js';
 import { populateScene, disposeMesh, ALL_GROUPS_VISIBLE } from './ThreeJsScene.js';
-import { engravedImageTexture, disposeEngravedImageTextures } from './EngravedImageTexture.js';
+import { loadEngravedImageTexture, disposeEngravedImageTextures } from './EngravedImageTexture.js';
 
 /**
  * @param {HTMLElement} container appended into immediately; owned by the
@@ -36,7 +36,7 @@ export function mountThreeDView(container, project) {
 
   function refreshScene() {
     imageErrorLine.textContent = '';
-    populateScene(pieceGroup, currentProject, { openT, visible, textureOf: engravedImageTexture, onImageError: showImageFailure });
+    populateScene(pieceGroup, currentProject, { openT, visible, textureOf: loadEngravedImageTexture, onImageError: showImageFailure });
     applyDepthFlip(pieceGroup, currentProject);
   }
 

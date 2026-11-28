@@ -34,12 +34,12 @@ function cacheKeyOf(image) {
   return `${image.widthMm}x${image.heightMm}:${image.svg}`;
 }
 
-export function engravedImageTexture(image) {
+export function loadEngravedImageTexture(image) {
   const key = cacheKeyOf(image);
   if (!texturesBySvgAndSize.has(key)) {
-    const texture = decodeSvg(image.svg).then((decodedImage) => textureFromDecoded(decodedImage, image));
-    texture.catch(() => texturesBySvgAndSize.delete(key));
-    texturesBySvgAndSize.set(key, texture);
+    const texturePromise = decodeSvg(image.svg).then((decodedImage) => textureFromDecoded(decodedImage, image));
+    texturePromise.catch(() => texturesBySvgAndSize.delete(key));
+    texturesBySvgAndSize.set(key, texturePromise);
   }
   return texturesBySvgAndSize.get(key);
 }

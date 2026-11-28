@@ -110,23 +110,28 @@ function placementToMatrix(placement) {
     .setPosition(origin.x, origin.y, origin.z);
 }
 
+function isDisposed(plane) {
+  return plane.userData.isDisposed === true;
+}
+
+function showTextureWhenReady(plane, image, textureOf, onImageError) {
+  textureOf(image).then((texture) => {
+    if (isDisposed(plane) || texture === null) return;
+    plane.material.map = texture;
+    plane.material.needsUpdate = true;
+    plane.visible = true;
+  }).catch(onImageError);
+}
+
 function buildImagePlane(piece, image, textureOf, onImageError) {
   const { centerX, centerY, offsetZ, widthMm, heightMm } = imagePlaneOf(piece, image);
   const material = new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(widthMm, heightMm), material);
   plane.position.set(centerX, centerY, offsetZ);
+  plane.scale.x = -1;
   plane.visible = false;
   showTextureWhenReady(plane, image, textureOf, onImageError);
   return plane;
-}
-
-function showTextureWhenReady(plane, image, textureOf, onImageError) {
-  textureOf(image).then((texture) => {
-    if (texture === null || plane.userData.isDisposed) return;
-    plane.material.map = texture;
-    plane.material.needsUpdate = true;
-    plane.visible = true;
-  }).catch(onImageError);
 }
 
 function disposeImagePlane(plane) {
@@ -154,10 +159,11 @@ export function disposeMesh(mesh) {
  *   own pieces (box, couvercle and horizontalPanels groups), never the sleeve itself.
  * @param {{box:boolean, manchon:boolean, couvercle:boolean, couvercleManchon:boolean, horizontalPanels:boolean}} [opts.visible]
  *   per-group checkbox state — a piece whose group is false is simply
- *   skipped, never added to the scene.
- * @param {(image:object)=>Promise<THREE.Texture|null>} [opts.textureOf]
- *   decodes an engraved image into a texture; its plane stays hidden until then.
- * @param {(error:Error)=>void} [opts.onImageError] called when a texture fails to load. */
+ *   skipped, never added to the scene. */
+function addImagePlanesTo(mesh, piece, textureOf, onImageError) {
+  piece.images.forEach((image) => mesh.add(buildImagePlane(piece, image, textureOf, onImageError)));
+}
+
 export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_VISIBLE, textureOf = NO_TEXTURE, onImageError = rethrow } = {}) {
   scene.children.slice().forEach((mesh) => {
     scene.remove(mesh);
@@ -195,7 +201,7 @@ export function populateScene(scene, project, { openT = 0, visible = ALL_GROUPS_
     mesh.matrixAutoUpdate = false;
     mesh.matrix.copy(placementToMatrix(placement));
     mesh.userData.pieceId = piece.id;
-    piece.images.forEach((image) => mesh.add(buildImagePlane(piece, image, textureOf, onImageError)));
+    addImagePlanesTo(mesh, piece, textureOf, onImageError);
     scene.add(mesh);
   }
 }

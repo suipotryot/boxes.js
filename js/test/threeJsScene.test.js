@@ -156,4 +156,11 @@ test('populateScene() should report a texture that fails to load', async () => {
   assert(reported.length === 2 && reported[0] === failure, `got ${reported.length} reports`);
 });
 
+test('populateScene() should flip each image plane around its vertical axis so the image reads correctly in the 3D view', () => {
+  const scene = new THREE.Scene();
+  populateScene(scene, projectWithImagesOnBasePlate());
+  const planes = pieceMesh(scene, 'base-plate').children;
+  assert(planes.every((plane) => plane.scale.x === -1 && plane.scale.y === 1), 'expected every plane to be mirrored horizontally');
+});
+
 run();
