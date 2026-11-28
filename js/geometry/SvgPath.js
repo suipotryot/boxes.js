@@ -26,14 +26,15 @@ export function pieceToSvgElement(piece, { interactive = false } = {}) {
 function engravedImagePreviewElement(image) {
   const centreX = image.xMm + image.widthMm / 2;
   const centreY = image.yMm + image.heightMm / 2;
+  const content = image.contentSize();
   const element = document.createElementNS('http://www.w3.org/2000/svg', 'image');
   element.setAttribute('href', `data:image/svg+xml;charset=utf-8,${encodeURIComponent(image.svg)}`);
-  element.setAttribute('x', image.xMm);
-  element.setAttribute('y', image.yMm);
-  element.setAttribute('width', image.widthMm);
-  element.setAttribute('height', image.heightMm);
+  element.setAttribute('x', centreX - content.widthMm / 2);
+  element.setAttribute('y', centreY - content.heightMm / 2);
+  element.setAttribute('width', content.widthMm);
+  element.setAttribute('height', content.heightMm);
   element.setAttribute('preserveAspectRatio', 'none');
-  element.setAttribute('transform', `rotate(180 ${centreX} ${centreY})`);
+  element.setAttribute('transform', `rotate(${180 + image.rotationDeg} ${centreX} ${centreY})`);
   return element;
 }
 

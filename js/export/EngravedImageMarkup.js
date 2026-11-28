@@ -65,7 +65,13 @@ function centreOf(image) {
   return { x: image.xMm + image.widthMm / 2, y: image.yMm + image.heightMm / 2 };
 }
 
+const HALF_TURN_DEG = 180;
+
 export function engravedImageMarkup(image) {
   const { x, y } = centreOf(image);
-  return `<g xmlns="http://www.w3.org/2000/svg" transform="rotate(180 ${x} ${y})"><svg ${prefixDeclarationsOf(image.svg)}x="${image.xMm}" y="${image.yMm}" width="${image.widthMm}" height="${image.heightMm}" viewBox="${viewBoxOf(image.svg)}" preserveAspectRatio="none">${withoutActiveContent(innerContentOf(image.svg))}</svg></g>`;
+  const content = image.contentSize();
+  const contentX = x - content.widthMm / 2;
+  const contentY = y - content.heightMm / 2;
+  const turnDeg = HALF_TURN_DEG + image.rotationDeg;
+  return `<g xmlns="http://www.w3.org/2000/svg" transform="rotate(${turnDeg} ${x} ${y})"><svg ${prefixDeclarationsOf(image.svg)}x="${contentX}" y="${contentY}" width="${content.widthMm}" height="${content.heightMm}" viewBox="${viewBoxOf(image.svg)}" preserveAspectRatio="none">${withoutActiveContent(innerContentOf(image.svg))}</svg></g>`;
 }

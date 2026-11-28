@@ -15,8 +15,9 @@ function decodeSvg(svg) {
 }
 
 function canvasSizeFor(image) {
-  const pixelsPerMm = Math.min(PIXELS_PER_MM, MAX_TEXTURE_SIDE_PX / Math.max(image.widthMm, image.heightMm));
-  return { widthPx: Math.ceil(image.widthMm * pixelsPerMm), heightPx: Math.ceil(image.heightMm * pixelsPerMm) };
+  const { widthMm, heightMm } = image.contentSize();
+  const pixelsPerMm = Math.min(PIXELS_PER_MM, MAX_TEXTURE_SIDE_PX / Math.max(widthMm, heightMm));
+  return { widthPx: Math.ceil(widthMm * pixelsPerMm), heightPx: Math.ceil(heightMm * pixelsPerMm) };
 }
 
 function textureFromDecoded(decodedImage, image) {
@@ -31,7 +32,8 @@ function textureFromDecoded(decodedImage, image) {
 }
 
 function cacheKeyOf(image) {
-  return `${image.widthMm}x${image.heightMm}:${image.svg}`;
+  const { widthMm, heightMm } = image.contentSize();
+  return `${widthMm}x${heightMm}:${image.svg}`;
 }
 
 export function loadEngravedImageTexture(image) {

@@ -12,9 +12,10 @@ globalThis.document = {
   createElement: () => ({ getContext: () => ({ drawImage() {} }) }),
 };
 
+const { EngravedImage } = await import('../geometry/oo/EngravedImage.js');
 const { loadEngravedImageTexture, disposeEngravedImageTextures } = await import('../ui/EngravedImageTexture.js');
 
-const image = { svg: '<svg/>', widthMm: 10, heightMm: 5 };
+const image = new EngravedImage({ xMm: 0, yMm: 0, svg: '<svg/>', widthMm: 10, heightMm: 5 });
 
 test('disposeEngravedImageTextures: should not dispose a texture loaded again while it was waiting for the pending ones', async () => {
   const texture = await loadEngravedImageTexture(image);

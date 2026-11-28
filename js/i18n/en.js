@@ -140,6 +140,7 @@ export const en = {
   'image.unreadableInput': 'Text not recognised: {reason}',
   'image.centerX': 'Center on X',
   'image.centerY': 'Center on Y',
+  'image.rotate': 'Rotate by 90°',
   'image.delete': 'Delete this image',
   'image.urlLoading': 'Loading…',
   'image.urlFailed': 'Image not loaded: {reason}',

@@ -1,12 +1,13 @@
 import { test, assert, run } from './testHarness.js';
 import { imagePlaneOf, IMAGE_LIFT_MM } from '../geometry/ImagePlane3D.js';
+import { EngravedImage } from '../geometry/oo/EngravedImage.js';
 import { Box } from '../geometry/oo/Box.js';
 import { createGrid } from '../model/Grid.js';
 import { createDefaultProject } from '../state/Project.js';
 import { computePiecePlacement3D, toWorld } from '../geometry/PiecePlacement3D.js';
 
 const piece = { thicknessMm: 3 };
-const image = { xMm: 10, yMm: 20, widthMm: 40, heightMm: 10 };
+const image = new EngravedImage({ xMm: 10, yMm: 20, widthMm: 40, heightMm: 10, svg: '<svg/>' });
 
 test('imagePlaneOf: should center the plane on the middle of the image and keep its size', () => {
   const plane = imagePlaneOf(piece, image);
@@ -30,11 +31,18 @@ test('imagePlaneOf: should put the plane of every outer wall outside the box', (
   const center = { x: 50, y: 50 };
   for (const wall of outerWalls) {
     const placement = computePiecePlacement3D(project.grid, project, wall);
-    const plane = imagePlaneOf(wall, { xMm: 0, yMm: 0, widthMm: 10, heightMm: 10 });
+    const plane = imagePlaneOf(wall, new EngravedImage({ xMm: 0, yMm: 0, widthMm: 10, heightMm: 10, svg: '<svg/>' }));
     const planePoint = toWorld(placement, { x: plane.centerX, y: plane.centerY, z: plane.offsetZ });
     const innerFacePoint = toWorld(placement, { x: plane.centerX, y: plane.centerY, z: 0 });
     assert(distanceFromBoxCenterInPlan(planePoint, center) > distanceFromBoxCenterInPlan(innerFacePoint, center), `wall ${wall.id} would show its image inside the box`);
   }
+});
+
+test('imagePlaneOf: should size the plane like the content before the rotation and turn it by the rotation of the image', () => {
+  const plane = imagePlaneOf(piece, image.rotatedQuarterTurn());
+  assert(plane.widthMm === 40 && plane.heightMm === 10, `got ${JSON.stringify(plane)}`);
+  assert(plane.rotationRad === Math.PI / 2, `got ${plane.rotationRad}`);
+  assert(plane.centerX === 30 && plane.centerY === 25, `got ${JSON.stringify(plane)}`);
 });
 
 run();

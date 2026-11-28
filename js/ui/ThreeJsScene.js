@@ -126,11 +126,12 @@ function showTextureWhenReady(plane, image, textureOf, onImageError) {
 }
 
 function buildImagePlane(piece, image, textureOf, onImageError) {
-  const { centerX, centerY, offsetZ, widthMm, heightMm } = imagePlaneOf(piece, image);
+  const { centerX, centerY, offsetZ, widthMm, heightMm, rotationRad } = imagePlaneOf(piece, image);
   const material = new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(widthMm, heightMm), material);
   plane.position.set(centerX, centerY, offsetZ);
   plane.scale.x = -1;
+  plane.rotation.z = rotationRad;
   plane.visible = false;
   showTextureWhenReady(plane, image, textureOf, onImageError);
   return plane;

@@ -98,4 +98,12 @@ test('engravedImageMarkup: should remove a style import from the pasted SVG cont
   assert(markup.includes('rect { fill: none; }'), `got ${markup}`);
 });
 
+test('engravedImageMarkup: should add the rotation of the image to the half turn and draw the content at its size before the rotation', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 5"></svg>';
+  const image = new EngravedImage({ xMm: 30, yMm: 20, widthMm: 40, heightMm: 20, svg, rotationDeg: 90 });
+  const markup = engravedImageMarkup(image);
+  assert(markup.includes('transform="rotate(270 50 30)"'), `got ${markup}`);
+  assert(markup.includes('x="40" y="10" width="20" height="40"'), `got ${markup}`);
+});
+
 run();

@@ -145,6 +145,7 @@ export const fr = {
   'image.unreadableInput': 'Texte non reconnu : {reason}',
   'image.centerX': 'Centrer en X',
   'image.centerY': 'Centrer en Y',
+  'image.rotate': 'Tourner de 90°',
   'image.delete': 'Supprimer cette image',
   'image.urlLoading': 'Chargement…',
   'image.urlFailed': 'Image non chargée : {reason}',

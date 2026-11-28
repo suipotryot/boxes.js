@@ -55,4 +55,13 @@ test('copySlotCountOf: should count the images of the drawer along with those of
   assert(copySlotCountOf(project) === 2, `got ${copySlotCountOf(project)}`);
 });
 
+test('piecesForCopies: should keep the rotation of the template image and fit the loaded image to it', () => {
+  const turnedLid = { id: 'lid', kind: 'lid', images: [new EngravedImage(templateImage).rotatedQuarterTurn()] };
+  const [copiedLid] = piecesForCopies([turnedLid], [[{ svg: '<svg/>', widthMm: 30, heightMm: 10 }]]);
+  const image = copiedLid.images[0];
+  assert(image.rotationDeg === 90, `got ${image.rotationDeg}`);
+  assert(image.widthMm === 10 && image.heightMm === 30, `got ${image.widthMm}x${image.heightMm}`);
+  assert(image.xMm + image.widthMm / 2 === 30 && image.yMm + image.heightMm / 2 === 30, `got ${JSON.stringify(image)}`);
+});
+
 run();

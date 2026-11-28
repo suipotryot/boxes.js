@@ -117,9 +117,14 @@ export function renderImageSection(project, pieceId, context, store, selectedInd
     class: 'btn', text: t(labelKey), disabled: selectedIndex == null,
     onClick: () => centerSelectedImageOn(axis, areaLengthMm),
   });
+  const rotateButton = el('button', {
+    class: 'btn', text: t('image.rotate'), disabled: selectedIndex == null,
+    onClick: () => updateAt(selectedIndex, images[selectedIndex].rotatedQuarterTurn()),
+  });
   const centerButtons = el('div', { class: 'button-row' }, [
     centerButton('x', 'image.centerX', widthMm),
     centerButton('y', 'image.centerY', heightMm),
+    rotateButton,
   ]);
 
   return wrapInCollapsible(t('image.title'), t('image.help'), [

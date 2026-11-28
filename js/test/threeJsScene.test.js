@@ -163,4 +163,14 @@ test('populateScene() should flip each image plane around its vertical axis so t
   assert(planes.every((plane) => plane.scale.x === -1 && plane.scale.y === 1), 'expected every plane to be mirrored horizontally');
 });
 
+test('populateScene() should turn the plane of a rotated image and give it the size of the content before the rotation', () => {
+  const scene = new THREE.Scene();
+  const project = projectWithImagesOnBasePlate();
+  project.pieceImages['base-plate'][0].rotationDeg = 90;
+  populateScene(scene, project);
+  const [plane] = pieceMesh(scene, 'base-plate').children;
+  assert(Math.abs(plane.rotation.z - Math.PI / 2) < 1e-9, `got ${plane.rotation.z}`);
+  assert(plane.geometry.parameters.width === 10 && plane.geometry.parameters.height === 30, `got ${JSON.stringify(plane.geometry.parameters)}`);
+});
+
 run();
